@@ -1,0 +1,11 @@
+# ESP-IDF-like style
+BasedOnStyle: LLVM
+IndentWidth: 4
+ColumnLimit: 120
+UseTab: Never
+BreakBeforeBraces: Attach
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AlignConsecutiveMacros: Consecutive
+PointerAlignment: Right
+SortIncludes: false

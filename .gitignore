@@ -1,0 +1,24 @@
+# Firmware
+firmware/build*/
+firmware/sdkconfig
+firmware/sdkconfig.old
+firmware/managed_components/
+firmware/dependencies.lock
+firmware/test/build/
+# Web app
+webapp/node_modules/
+webapp/dist/
+webapp/coverage/
+webapp/playwright-report/
+webapp/test-results/
+# Docs
+site/
+docs/api/generated/
+# Secrets
+*.pem
+*.key
+.env
+# Misc
+.vscode/
+.idea/
+*.log
