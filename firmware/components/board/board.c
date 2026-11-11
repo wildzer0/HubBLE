@@ -9,6 +9,12 @@
 
 #include "sdkconfig.h"
 
+/**
+ * Marker embedded in every image. The OTA upload scans the incoming stream for it (see ota/board_marker.h)
+ * and refuses images built for another board (CLAUDE.md §3.8). Referenced from s_board so the linker keeps it.
+ */
+static const char s_image_marker[] = "HUBBLE_BOARD_ID=" CONFIG_HUBBLE_BOARD_ID ";";
+
 /** The one and only board description; values come from components/board/Kconfig. */
 static const board_info_t s_board = {
     .id = CONFIG_HUBBLE_BOARD_ID,
@@ -25,6 +31,7 @@ static const board_info_t s_board = {
     .led_active_low = false,
 #endif
     .button_gpio = CONFIG_HUBBLE_BUTTON_GPIO,
+    .image_marker = s_image_marker,
     .flash_size_mb = CONFIG_HUBBLE_FLASH_SIZE_MB,
 };
 

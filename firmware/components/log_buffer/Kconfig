@@ -1,0 +1,10 @@
+menu "HubBLE log buffer"
+    config HUBBLE_LOG_BUFFER_SIZE
+        int "RAM log ring buffer size (bytes)"
+        default 16384
+        range 2048 65536
+        help
+            Size of the internal-RAM ring buffer that keeps the latest log text for the
+            web app (live logs and download). Lives in internal RAM, not PSRAM, because
+            the logger can run while the flash cache is disabled.
+endmenu

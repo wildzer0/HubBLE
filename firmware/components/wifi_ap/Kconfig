@@ -1,0 +1,16 @@
+menu "HubBLE Wi-Fi access point"
+    config HUBBLE_AP_CHANNEL
+        int "AP channel"
+        default 1
+        range 1 13
+        help
+            2.4 GHz channel of the SoftAP. The web app will make this configurable later (M5).
+
+    config HUBBLE_ASSUME_BONDED
+        bool "Pretend a BLE device is bonded (testing only)"
+        default n
+        help
+            The AP stays on forever while no BLE peripheral is bonded (CLAUDE.md §3.5). BLE does not
+            exist yet in M1, so the boot window / idle timeout logic is never exercised on hardware.
+            Enable this for test builds to exercise it. Remove once pairing exists (M3/M4).
+endmenu
