@@ -21,8 +21,12 @@
   Build: `. ~/esp/esp-idf/export.sh; tools/build-firmware.sh [s3_zero|xiao_s3|all]` (needs webapp/dist).
 
 ### Next
-- Add CHANGELOG [0.1.0], push branch, open PR, get CI green, squash-merge, tag v0.1.0, verify release + Pages.
-- Not done in M0 (no code yet): clang-tidy, libFuzzer fuzzing (arrive with HID parser, M3).
+- **BLOCKED on user decision (tag):** tag `v0.1.0` is pushed but its release run failed at the publish step
+  (no `gh` in the IDF container). Fix is merged on main (PR #4). Tags must not be moved/deleted without asking:
+  either (A) delete+re-push `v0.1.0` (nothing was published) or (B) fix forward with `v0.1.1`
+  (needs a `## [0.1.1]` CHANGELOG section first).
+- After the tag run succeeds: verify assets (2x ota, 2x factory, manifest.json, SHA256SUMS), Pages deploy,
+  then final report in Italian.
 
 ### Environment notes
 - ESP-IDF v5.5.6 installed locally at `~/esp/esp-idf` (user-approved, home only); tools in `~/.espressif`.
