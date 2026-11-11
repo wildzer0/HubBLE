@@ -21,9 +21,11 @@
   Build: `. ~/esp/esp-idf/export.sh; tools/build-firmware.sh [s3_zero|xiao_s3|all]` (needs webapp/dist).
 
 ### Next
-- User chose fix-forward: tag `v0.1.1` (v0.1.0 tag exists but has no release; do not touch it).
-- After the v0.1.1 run succeeds: verify assets (2x ota, 2x factory, manifest.json, SHA256SUMS), Pages deploy,
-  then final report in Italian.
+- M0 is released: `v0.1.1` pre-release published with all assets (v0.1.0 tag exists but has no release; never touch it).
+- PR `ci/fast-release`: faster release.yml (verify CI, parallel board builds, publish job) + docs.yml (Pages from main;
+  the `github-pages` environment only allows branch `main`, adding a tag policy was denied by the permission classifier).
+  The new release.yml is UNTESTED until the next tag (M1).
+- Then: final report in Italian; M1 needs the hardware gate (see CLAUDE.md §8).
 
 ### Environment notes
 - ESP-IDF v5.5.6 installed locally at `~/esp/esp-idf` (user-approved, home only); tools in `~/.espressif`.

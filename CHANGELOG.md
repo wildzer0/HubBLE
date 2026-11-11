@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- Faster release pipeline: no CI re-run on tags (verifies the green CI of the tagged commit instead), one parallel firmware build per board, separate publish job.
+- Docs site is deployed from `main` by `docs.yml` instead of from the release tag.
+
 ## [0.1.1] - 2026-11-11
 
 ### Fixed
