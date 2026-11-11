@@ -21,11 +21,8 @@
   Build: `. ~/esp/esp-idf/export.sh; tools/build-firmware.sh [s3_zero|xiao_s3|all]` (needs webapp/dist).
 
 ### Next
-- **BLOCKED on user decision (tag):** tag `v0.1.0` is pushed but its release run failed at the publish step
-  (no `gh` in the IDF container). Fix is merged on main (PR #4). Tags must not be moved/deleted without asking:
-  either (A) delete+re-push `v0.1.0` (nothing was published) or (B) fix forward with `v0.1.1`
-  (needs a `## [0.1.1]` CHANGELOG section first).
-- After the tag run succeeds: verify assets (2x ota, 2x factory, manifest.json, SHA256SUMS), Pages deploy,
+- User chose fix-forward: tag `v0.1.1` (v0.1.0 tag exists but has no release; do not touch it).
+- After the v0.1.1 run succeeds: verify assets (2x ota, 2x factory, manifest.json, SHA256SUMS), Pages deploy,
   then final report in Italian.
 
 ### Environment notes

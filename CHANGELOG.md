@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-11
+
+### Fixed
+
+- Release workflow: publish the GitHub release from a plain runner (the ESP-IDF container has no `gh`).
+  The `v0.1.0` tag exists but never produced a release; `v0.1.1` is the first published M0 pre-release.
+
 ## [0.1.0] - 2026-11-11
 
 First pre-release: project bootstrap. No functional features yet.
