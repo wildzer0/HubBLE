@@ -1,0 +1,6 @@
+{
+  "entryPoints": ["src/api/client.ts", "src/i18n/index.ts", "src/mocks/handlers.ts"],
+  "out": "../docs/api/generated/webapp",
+  "tsconfig": "tsconfig.json",
+  "name": "HubBLE web app"
+}
