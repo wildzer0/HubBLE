@@ -78,7 +78,7 @@ jobs:
           node-version: 22
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq doxygen
       - run: pip install -r docs/requirements.txt
-      - run: doxygen Doxyfile
+      - run: mkdir -p docs/api/generated/firmware && doxygen Doxyfile
       - run: npm ci && npm run docs
         working-directory: webapp
       - run: mkdocs build

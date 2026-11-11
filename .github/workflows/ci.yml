@@ -27,7 +27,7 @@ jobs:
       - name: clang-format
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq clang-format cppcheck
-          clang-format --dry-run -Werror $(find firmware/main firmware/components firmware/test/unit -name '*.[ch]')
+          find firmware/main firmware/components firmware/test/unit -name '*.[ch]' -print0 | xargs -0 clang-format --dry-run -Werror
       - name: cppcheck (host-testable components)
         run: |
           cppcheck --enable=warning,style,performance --error-exitcode=1 --inline-suppr \
@@ -122,7 +122,7 @@ jobs:
           cache-dependency-path: webapp/package-lock.json
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq doxygen
       - run: pip install -r docs/requirements.txt
-      - run: doxygen Doxyfile
+      - run: mkdir -p docs/api/generated/firmware && doxygen Doxyfile
       - run: npm ci && npm run docs
         working-directory: webapp
       # strict: true in mkdocs.yml fails the build on broken links.
