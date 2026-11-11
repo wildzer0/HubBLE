@@ -1,0 +1,54 @@
+menu "HubBLE board"
+
+    choice HUBBLE_BOARD
+        prompt "Target board"
+        default HUBBLE_BOARD_S3_ZERO
+        help
+            Selects the hardware variant. Board-specific values (LED, button,
+            flash size) are derived below and exposed only through the
+            `board` component, so no GPIO number appears anywhere else.
+
+        config HUBBLE_BOARD_S3_ZERO
+            bool "ESP32-S3-Zero style (ESP32-S3FH4R2, 4 MB flash)"
+
+        config HUBBLE_BOARD_XIAO_S3
+            bool "Seeed Studio XIAO ESP32-S3 (8 MB flash)"
+    endchoice
+
+    # --- Derived, non-user-visible board description --------------------------
+
+    config HUBBLE_BOARD_ID
+        string
+        default "s3_zero" if HUBBLE_BOARD_S3_ZERO
+        default "xiao_s3" if HUBBLE_BOARD_XIAO_S3
+
+    config HUBBLE_BOARD_NAME
+        string
+        default "ESP32-S3-Zero" if HUBBLE_BOARD_S3_ZERO
+        default "XIAO ESP32-S3" if HUBBLE_BOARD_XIAO_S3
+
+    config HUBBLE_LED_IS_WS2812
+        bool
+        default y if HUBBLE_BOARD_S3_ZERO
+        default n if HUBBLE_BOARD_XIAO_S3
+
+    config HUBBLE_LED_GPIO
+        int
+        default 21 if HUBBLE_BOARD_S3_ZERO
+        default 21 if HUBBLE_BOARD_XIAO_S3
+
+    config HUBBLE_LED_ACTIVE_LOW
+        bool
+        default n if HUBBLE_BOARD_S3_ZERO
+        default y if HUBBLE_BOARD_XIAO_S3
+
+    config HUBBLE_BUTTON_GPIO
+        int
+        default 0
+
+    config HUBBLE_FLASH_SIZE_MB
+        int
+        default 4 if HUBBLE_BOARD_S3_ZERO
+        default 8 if HUBBLE_BOARD_XIAO_S3
+
+endmenu

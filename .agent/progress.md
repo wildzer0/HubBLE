@@ -13,12 +13,17 @@
 - Environment check: git 2.53, gh 2.46 (auth `wildzer0`), node 22.23, npm 10.9, python 3.14.4,
   cmake, ninja, gcc, clang-format present. Docker and ESP-IDF missing.
 - Git repo initialised; public repo `wildzer0/HubBLE` created, `main` pushed, branch `milestone/m0-bootstrap` created.
-- 5.1 done (commit `chore: add repository hygiene files and layout`).
+- 5.1 done (hygiene files).
+- 5.2 done: firmware builds for BOTH boards locally (s3_zero app 0x3a4b0 in 1.875 MB slot; xiao_s3 in 3 MB slot).
+  Components: board, led, semver (pure, for host tests), web_assets (bundle reader + embed). Rollback enabled.
+  Build: `. ~/esp/esp-idf/export.sh; tools/build-firmware.sh [s3_zero|xiao_s3|all]` (needs webapp/dist).
 
 ### Next
-- **BLOCKED on user decision:** local ESP-IDF v5.5.6 install (clone + `install.sh esp32s3` into `~/esp/`)
-  was denied by the permission classifier. Needed for 5.2 / 5.5 firmware builds.
-- Meanwhile independent steps: 5.3 (host Unity tests), 5.4 (web app), 5.6 (docs), 5.7 (CI).
+- 5.3 host Unity tests (semver, web_bundle), 5.4 web app, 5.5 real web bundle embed, 5.6 docs (incl. docs/hardware.md verify items: LED GPIO21 on both boards), 5.7 CI, release.
+
+### Environment notes
+- ESP-IDF v5.5.6 installed locally at `~/esp/esp-idf` (user-approved, home only); tools in `~/.espressif`.
+  Python 3.14 works. Activate with `. ~/esp/esp-idf/export.sh`.
 
 ### Open issues
-- No Docker locally; ESP-IDF install needs user approval. Python 3.14 may be incompatible with IDF 5.5 tooling.
+- none

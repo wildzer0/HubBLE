@@ -22,3 +22,4 @@ docs/api/generated/
 .vscode/
 .idea/
 *.log
+/firmware/components/web_assets/generated/
