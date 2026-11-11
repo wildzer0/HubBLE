@@ -21,13 +21,15 @@
   Build: `. ~/esp/esp-idf/export.sh; tools/build-firmware.sh [s3_zero|xiao_s3|all]` (needs webapp/dist).
 
 ### Current milestone: M1 — Wi-Fi AP, web server, OTA foundations (target v0.2.0, ⛔ hardware gate, board: S3-Zero)
-Branch `milestone/m1-wifi-web-ota`. Plan / sub-steps:
- 1. Pure logic + host tests: log_buffer, ap_policy, dns reply builder, settings model (password rules), http_guard (CSRF), board_marker scanner, boot_guard.
- 2. IDF components: settings(NVS), wifi_ap, captive_portal(+mDNS), web_server(+ws), api, ota(+selftest), diag. Console -> USB Serial/JTAG (M0 forgot; S3-Zero has no UART chip).
- 3. Web app: Update + System pages, ws client, mock REST+WS, i18n, e2e.
- 4. Docs (openapi, websocket, ota-and-recovery, testing/m1.md), CHANGELOG, PR, release v0.2.0.
- 5. Gate: build test images v0.2.1-rc.1 (good) and a forced-self-test-failure build; user flashes factory.bin once, then OTA + rollback.
-Design notes: board check = marker string `HUBBLE_BOARD_ID=<id>;` embedded in image and scanned while streaming; AP stays on while no bonded devices (BLE not yet present => always on unless Kconfig HUBBLE_ASSUME_BONDED).
+Branch `milestone/m1-wifi-web-ota`. Status:
+ - DONE locally: pure logic + host tests (8 suites), IDF components (settings, log_buffer, wifi_ap, captive_portal, web_server, api, ota, diag),
+   web app (Update/System pages, ws client, mock REST+WS, 19 unit + 9 e2e tests), docs, CHANGELOG [0.2.0], test overlays.
+ - Both boards build locally (s3_zero ~0xd4e30 bytes). NOT testable without hardware: Wi-Fi, OTA flow, rollback, heap.
+ - Gate files staged in ~/hubble-m1-gate/: v0.2.1-rc.1 (good) and v0.2.1-rc.2 ROLLBACK-TEST (self-test forced to fail).
+ - NEXT: push branch, PR, CI green, squash-merge, wait main CI, tag v0.2.0, verify release (tests the NEW fast release.yml for the first time),
+   then final report in Italian + gate instructions (docs/testing/m1.md). Do NOT start M2 until the user confirms the gate.
+Design notes: board check = marker `HUBBLE_BOARD_ID=<id>;` scanned while streaming; AP stays on while no bonded devices
+(BLE not yet present => always on unless Kconfig HUBBLE_ASSUME_BONDED, overlay ap_timeout_test).
 
 ### Environment notes
 - ESP-IDF v5.5.6 installed locally at `~/esp/esp-idf` (user-approved, home only); tools in `~/.espressif`.

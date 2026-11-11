@@ -6,8 +6,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-11
+
+Milestone M1: Wi-Fi access point, web server and OTA foundations (hardware gate: ESP32-S3-Zero).
+
+### Added
+
+- Wi-Fi SoftAP `HubBLE-XXXX` (WPA2, default setup password) with boot window, idle timeout and WebSocket heartbeat policy.
+- Captive portal (catch-all DNS, DHCP option 114, probe-URL redirects) and mDNS `hubble.local`.
+- HTTP server serving the embedded gzipped web app; REST API (`status`, `ota/status`, `ota/upload`, `diagnostics`,
+  `logs`, `settings/wifi-password`, `system/reboot`, `system/reboot-download`) with CSRF guard; WebSocket `/api/v1/ws`
+  (`system.status`, `log.line`, `ota.progress`).
+- OTA upload streamed to flash with chip/checksum/board-marker checks, rollback self-test (60 s), boot-failure counter.
+- Reboot to USB download mode, RAM log buffer, diagnostics.
+- Web app: Update and System pages, live WebSocket client, Wi-Fi password form, mock REST + WebSocket, i18n additions.
+- Test overlays `rollback_test` and `ap_timeout_test`; docs (OpenAPI, WebSocket, OTA and recovery, M1 checklist), ADRs 8-9.
+
 ### Changed
 
+- Serial console moved to the native USB Serial/JTAG port (the S3-Zero has no UART bridge).
 - Faster release pipeline: no CI re-run on tags (verifies the green CI of the tagged commit instead), one parallel firmware build per board, separate publish job.
 - Docs site is deployed from `main` by `docs.yml` instead of from the release tag.
 

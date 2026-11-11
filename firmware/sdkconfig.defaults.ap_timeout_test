@@ -1,0 +1,3 @@
+# TEST BUILDS ONLY: pretend a BLE device is bonded so the AP boot window / idle timeout can be tested
+# before BLE exists (see components/wifi_ap/Kconfig).
+CONFIG_HUBBLE_ASSUME_BONDED=y

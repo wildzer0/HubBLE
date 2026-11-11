@@ -24,6 +24,15 @@ tools/build-firmware.sh all      # or s3_zero / xiao_s3; builds into firmware/bu
 python3 tools/check_firmware_size.py firmware/build-s3_zero/hubble.bin 1782579
 ```
 
+Test overlays (never for releases) build into `build-<board>-<overlay>/`:
+
+```bash
+HUBBLE_VERSION=0.2.1-rc.2 HUBBLE_OVERLAY=rollback_test tools/build-firmware.sh s3_zero   # self-test always fails
+HUBBLE_OVERLAY=ap_timeout_test tools/build-firmware.sh s3_zero                           # pretend a device is bonded
+```
+
+The serial console is the native USB Serial/JTAG port (`/dev/ttyACM0`); the S3-Zero has no UART bridge.
+
 ## Host unit tests
 
 ```bash

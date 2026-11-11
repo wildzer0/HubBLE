@@ -15,6 +15,10 @@ endif()
 
 # Common defaults first, then board-specific ones (later files override).
 set(SDKCONFIG_DEFAULTS "sdkconfig.defaults;sdkconfig.defaults.${HUBBLE_BOARD}")
+# Optional test overlay (-DHUBBLE_OVERLAY=rollback_test|ap_timeout_test): adds sdkconfig.defaults.<overlay> last.
+if(DEFINED HUBBLE_OVERLAY AND NOT HUBBLE_OVERLAY STREQUAL "")
+    list(APPEND SDKCONFIG_DEFAULTS "sdkconfig.defaults.${HUBBLE_OVERLAY}")
+endif()
 # Each board keeps its own generated sdkconfig inside its build directory so
 # switching boards never reuses a stale configuration.
 set(SDKCONFIG "${CMAKE_BINARY_DIR}/sdkconfig")

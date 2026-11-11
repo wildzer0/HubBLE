@@ -2,7 +2,14 @@ openapi: 3.0.3
 info:
   title: HubBLE firmware API
   version: 1.0.0
-  description: REST contract between firmware and web app. M0 documents only /status; more in later milestones.
+  description: |
+    REST contract between firmware and web app (M1 subset). All paths are under `/api/v1`.
+    Errors use `{ "error": { "code": "...", "message": "..." } }`.
+
+    State-changing calls (POST) require the header `X-HubBLE: 1` and the documented content type
+    (`application/json`, or `application/octet-stream` for the firmware upload). A request with an
+    `Origin` header that differs from `Host` is rejected (simple CSRF protection, CLAUDE.md §3.12).
+    Access control is the WPA2 Wi-Fi password; there is no separate API login.
 servers:
   - url: http://hubble.local
 paths:
@@ -14,20 +21,177 @@ paths:
           description: Current status
           content:
             application/json:
+              schema: { $ref: '#/components/schemas/Status' }
+  /api/v1/ota/status:
+    get:
+      summary: OTA slots and state
+      responses:
+        '200':
+          description: OTA state
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OtaStatus' }
+  /api/v1/ota/upload:
+    post:
+      summary: Install a firmware image (streamed to flash)
+      description: |
+        Body is the raw `.bin` application image. It is written to the inactive slot while it arrives and is
+        never buffered in RAM. The image must be an ESP32-S3 application for this board and must pass the
+        ESP-IDF checksum/hash validation. On success the dongle reboots about 1.5 s after the response.
+        Fails with 409 while the running image is still pending verification.
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: { type: string, format: binary }
+      responses:
+        '200':
+          description: Installed; the dongle reboots
+          content:
+            application/json:
               schema:
-                $ref: '#/components/schemas/Status'
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  version: { type: string }
+                  reboot: { type: boolean }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '413': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /api/v1/diagnostics:
+    get:
+      summary: System diagnostics
+      responses:
+        '200':
+          description: Diagnostics
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Diagnostics' }
+  /api/v1/logs:
+    get:
+      summary: Download the RAM log buffer
+      responses:
+        '200':
+          description: Plain text log (most recent ~16 KB)
+          content:
+            text/plain:
+              schema: { type: string }
+  /api/v1/settings/wifi-password:
+    post:
+      summary: Change the Wi-Fi access point password
+      description: |
+        10-63 printable ASCII characters, different from the documented default password.
+        The AP restarts about 1.5 s later, so connected clients are dropped and must rejoin.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string, minLength: 10, maxLength: 63 }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+  /api/v1/system/reboot:
+    post:
+      summary: Reboot the dongle
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '403': { $ref: '#/components/responses/Error' }
+  /api/v1/system/reboot-download:
+    post:
+      summary: Reboot into the ROM USB download mode
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '403': { $ref: '#/components/responses/Error' }
 components:
+  responses:
+    Ok:
+      description: Done
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              ok: { type: boolean }
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
   schemas:
     Status:
       type: object
       required: [version, board, uptime_s, usb_state, ap_timeout_s, setup_required]
       properties:
-        version: { type: string, example: 0.1.0 }
+        version: { type: string, example: 0.2.0 }
         board: { type: string, example: s3_zero }
         uptime_s: { type: integer }
         usb_state: { type: string, enum: [detached, suspended, active] }
-        ap_timeout_s: { type: integer, nullable: true }
-        setup_required: { type: boolean }
+        ap_timeout_s: { type: integer, nullable: true, description: Seconds until the AP switches off; null when no countdown runs }
+        setup_required: { type: boolean, description: True until the Wi-Fi password was changed }
+    OtaSlot:
+      type: object
+      properties:
+        slot: { type: string, example: ota_0 }
+        version: { type: string, description: Empty if the slot holds no valid image }
+    OtaStatus:
+      type: object
+      properties:
+        running: { $ref: '#/components/schemas/OtaSlot' }
+        other: { $ref: '#/components/schemas/OtaSlot' }
+        pending_verify: { type: boolean }
+        rollback_happened: { type: boolean, description: The other slot holds an image that failed and was rolled back }
+        boot_failures: { type: integer }
+        last_result: { type: string }
+    Partition:
+      type: object
+      properties:
+        label: { type: string }
+        address: { type: integer }
+        size: { type: integer }
+    Diagnostics:
+      type: object
+      properties:
+        uptime_s: { type: integer }
+        reset_reason: { type: string }
+        heap:
+          type: object
+          properties:
+            free: { type: integer }
+            min_free: { type: integer }
+            largest_block: { type: integer }
+        psram:
+          type: object
+          properties:
+            total: { type: integer }
+            free: { type: integer }
+        partitions:
+          type: object
+          properties:
+            running: { $ref: '#/components/schemas/Partition' }
+            next_update: { $ref: '#/components/schemas/Partition' }
+        boot_failures: { type: integer }
+        usb_state: { type: string }
+        ble: { nullable: true, description: Reserved for M3 }
+        wifi:
+          type: object
+          properties:
+            ssid: { type: string }
+            clients: { type: integer }
     Error:
       type: object
       required: [error]
