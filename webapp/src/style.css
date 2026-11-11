@@ -1,0 +1,38 @@
+/* Plain CSS with variables; light/dark follows the OS (CLAUDE.md §3.7). */
+:root {
+  --bg: #ffffff;
+  --fg: #16181d;
+  --muted: #5a6270;
+  --accent: #1d5fd1;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14161a;
+    --fg: #eceef2;
+    --muted: #a3abb8;
+    --accent: #7aa7ff;
+  }
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font:
+    16px/1.5 system-ui,
+    sans-serif;
+}
+main {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 1rem;
+}
+h1 {
+  color: var(--accent);
+}
+dt {
+  color: var(--muted);
+}
+dd {
+  margin: 0 0 0.5rem;
+}

@@ -1,0 +1,133 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IDF_IMAGE: espressif/idf:v5.5.6
+  # 1.70 MB = 90 % of the 0x1E0000 OTA slot (CLAUDE.md §4.3)
+  FIRMWARE_MAX_BYTES: "1782579"
+  WEBAPP_MAX_KB: "150"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: clang-format
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq clang-format cppcheck
+          find firmware/main firmware/components firmware/test/unit -name '*.[ch]' -print0 | xargs -0 clang-format --dry-run -Werror
+      - name: cppcheck (host-testable components)
+        run: |
+          cppcheck --enable=warning,style,performance --error-exitcode=1 --inline-suppr \
+            --suppress=missingIncludeSystem --std=c11 -I firmware/components/semver/include \
+            -I firmware/components/web_assets/include \
+            firmware/components/semver firmware/components/web_assets/web_bundle.c
+      - name: markdownlint
+        run: npx --yes markdownlint-cli2@0.18.1 "**/*.md"
+      - name: actionlint
+        run: docker run --rm -v "$PWD:/repo" --workdir /repo rhysd/actionlint:1.7.7 -color
+
+  webapp:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: webapp
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: webapp/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run test:coverage
+      - run: npm run build
+      - run: npm run size
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: webapp-dist
+          path: webapp/dist
+          if-no-files-found: error
+
+  host-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: |
+          cmake -S firmware/test -B firmware/test/build -G Ninja
+          cmake --build firmware/test/build
+          ctest --test-dir firmware/test/build --output-on-failure
+
+  firmware:
+    needs: webapp
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.5.6
+    strategy:
+      fail-fast: false
+      matrix:
+        board: [s3_zero, xiao_s3]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: webapp-dist
+          path: webapp/dist
+      - name: Build (${{ matrix.board }})
+        shell: bash
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          . "$IDF_PATH/export.sh"
+          tools/build-firmware.sh ${{ matrix.board }}
+      - name: Size check
+        run: python3 tools/check_firmware_size.py firmware/build-${{ matrix.board }}/hubble.bin "$FIRMWARE_MAX_BYTES"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: firmware-${{ matrix.board }}
+          path: |
+            firmware/build-${{ matrix.board }}/hubble.bin
+            firmware/build-${{ matrix.board }}/bootloader/bootloader.bin
+            firmware/build-${{ matrix.board }}/partition_table/partition-table.bin
+            firmware/build-${{ matrix.board }}/ota_data_initial.bin
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: webapp/package-lock.json
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq doxygen
+      - run: pip install -r docs/requirements.txt
+      - run: mkdir -p docs/api/generated/firmware && doxygen Doxyfile
+      - run: npm ci && npm run docs
+        working-directory: webapp
+      # strict: true in mkdocs.yml fails the build on broken links.
+      - run: mkdocs build
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: docs-site
+          path: site

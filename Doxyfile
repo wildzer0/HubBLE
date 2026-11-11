@@ -1,0 +1,13 @@
+# Doxygen configuration for the firmware API docs (CLAUDE.md §5.2).
+PROJECT_NAME           = "HubBLE firmware"
+OUTPUT_DIRECTORY       = docs/api/generated/firmware
+INPUT                  = firmware/main firmware/components
+FILE_PATTERNS          = *.c *.h
+RECURSIVE              = YES
+EXCLUDE_PATTERNS       = */managed_components/* */build*/* */generated/*
+EXTRACT_ALL            = YES
+EXTRACT_STATIC         = YES
+GENERATE_LATEX         = NO
+WARN_IF_UNDOCUMENTED   = YES
+WARN_AS_ERROR          = NO
+QUIET                  = YES

@@ -1,0 +1,18 @@
+# Common defaults for all boards.
+CONFIG_IDF_TARGET="esp32s3"
+
+# Partition table: two OTA slots, see docs/adr/0005-partition-layout.md.
+CONFIG_PARTITION_TABLE_CUSTOM=y
+
+# OTA rollback (CLAUDE.md §3.8): a new image stays "pending verify" until the
+# application marks it valid.
+CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
+
+# Optimise for size: the app image budget is 1.70 MB (CLAUDE.md §4.3).
+CONFIG_COMPILER_OPTIMIZATION_SIZE=y
+
+# Core dump to flash for post-mortem analysis (CLAUDE.md §3.11).
+CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH=y
+
+# 160 MHz is plenty and saves power; raise only if profiling demands it.
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_160=y
