@@ -12,7 +12,7 @@ jobs:
     # Re-run the full build/test matrix on the tagged commit.
     uses: ./.github/workflows/ci.yml
 
-  release:
+  build:
     needs: ci
     runs-on: ubuntu-latest
     container: espressif/idf:v5.5.6
@@ -50,17 +50,37 @@ jobs:
           tools/build-firmware.sh all
           python3 tools/make_release_assets.py "$HUBBLE_VERSION" firmware release s3_zero xiao_s3
       # TODO(M6): sign the OTA images here with the key from secrets.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-assets
+          path: |
+            release/*
+            release-notes.md
+          if-no-files-found: error
+
+  # Publishing runs on a plain runner: the ESP-IDF container does not ship the gh CLI.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-assets
+          path: out
       - name: Publish GitHub release
-        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
+          VERSION="${GITHUB_REF_NAME#v}"
           PRE=""
-          case "$HUBBLE_VERSION" in 0.*|*-rc.*) PRE="--prerelease" ;; esac
-          gh release create "$GITHUB_REF_NAME" release/* --title "$GITHUB_REF_NAME" --notes-file release-notes.md $PRE --verify-tag
+          case "$VERSION" in 0.*|*-rc.*) PRE="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" out/release/* --title "$GITHUB_REF_NAME" --notes-file out/release-notes.md $PRE --verify-tag
 
   pages:
-    needs: release
+    needs: publish
     runs-on: ubuntu-latest
     permissions:
       pages: write
