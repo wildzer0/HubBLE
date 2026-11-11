@@ -14,13 +14,15 @@
   cmake, ninja, gcc, clang-format present. Docker and ESP-IDF missing.
 - Git repo initialised; public repo `wildzer0/HubBLE` created, `main` pushed, branch `milestone/m0-bootstrap` created.
 - 5.1 done (hygiene files).
+- 5.4, 5.5, 5.6, 5.7 done locally (webapp, embed, docs, CI workflows) — pending: CI run on GitHub, release.
 - 5.3 done: host Unity tests (semver, web_bundle) pass: `cmake -S firmware/test -B firmware/test/build && cmake --build firmware/test/build && ctest --test-dir firmware/test/build`.
 - 5.2 done: firmware builds for BOTH boards locally (s3_zero app 0x3a4b0 in 1.875 MB slot; xiao_s3 in 3 MB slot).
   Components: board, led, semver (pure, for host tests), web_assets (bundle reader + embed). Rollback enabled.
   Build: `. ~/esp/esp-idf/export.sh; tools/build-firmware.sh [s3_zero|xiao_s3|all]` (needs webapp/dist).
 
 ### Next
-- 5.4 web app, 5.5 real web bundle embed, 5.6 docs (incl. docs/hardware.md verify items: LED GPIO21 on both boards), 5.7 CI, release.
+- Add CHANGELOG [0.1.0], push branch, open PR, get CI green, squash-merge, tag v0.1.0, verify release + Pages.
+- Not done in M0 (no code yet): clang-tidy, libFuzzer fuzzing (arrive with HID parser, M3).
 
 ### Environment notes
 - ESP-IDF v5.5.6 installed locally at `~/esp/esp-idf` (user-approved, home only); tools in `~/.espressif`.
