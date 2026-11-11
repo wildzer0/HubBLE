@@ -26,8 +26,8 @@ Branch `milestone/m1-wifi-web-ota`. Status:
    web app (Update/System pages, ws client, mock REST+WS, 19 unit + 9 e2e tests), docs, CHANGELOG [0.2.0], test overlays.
  - Both boards build locally (s3_zero ~0xd4e30 bytes). NOT testable without hardware: Wi-Fi, OTA flow, rollback, heap.
  - Gate files staged in ~/hubble-m1-gate/: v0.2.1-rc.1 (good) and v0.2.1-rc.2 ROLLBACK-TEST (self-test forced to fail).
- - NEXT: push branch, PR, CI green, squash-merge, wait main CI, tag v0.2.0, verify release (tests the NEW fast release.yml for the first time),
-   then final report in Italian + gate instructions (docs/testing/m1.md). Do NOT start M2 until the user confirms the gate.
+ - DONE: PR #7 merged, v0.2.0 released (pre-release, 6 assets; new fast release.yml worked first time, ~8 min tag->release).
+ - WAITING: user hardware gate (docs/testing/m1.md, files in ~/hubble-m1-gate/). Do NOT start M2 until the user confirms the gate.
 Design notes: board check = marker `HUBBLE_BOARD_ID=<id>;` scanned while streaming; AP stays on while no bonded devices
 (BLE not yet present => always on unless Kconfig HUBBLE_ASSUME_BONDED, overlay ap_timeout_test).
 
