@@ -20,3 +20,9 @@ Facts verified against vendor documentation on 2026-11-11.
   consulted in M0 (vendor spec table not reached). To verify on hardware or from the Seeed spec page.
 
 All GPIO numbers live in `firmware/components/board/Kconfig`; no other file may hard-code them.
+
+## Console
+
+Logs go to the native USB Serial/JTAG port (`CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG`): the S3-Zero has no USB-UART
+bridge. In M2 TinyUSB takes over the USB PHY, so the console strategy (and release builds without any CDC
+interface, `CLAUDE.md` §3.2) will be revisited then.

@@ -6,8 +6,8 @@ standard, wired USB HID device. The host needs no Bluetooth, no drivers and no
 software. A built-in web app (served over the dongle's own Wi-Fi access point)
 handles pairing, settings, diagnostics and over-the-air updates.
 
-> **Status:** pre-release, milestone M0 (project bootstrap). No functional
-> features yet. See [CHANGELOG.md](CHANGELOG.md) and the roadmap in
+> **Status:** pre-release, milestone M1 (Wi-Fi AP, web app and OTA updates). BLE and
+> USB HID forwarding are not implemented yet. See [CHANGELOG.md](CHANGELOG.md) and the roadmap in
 > [CLAUDE.md](CLAUDE.md).
 
 ## Supported boards

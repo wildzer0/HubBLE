@@ -34,5 +34,8 @@ nav:
       - Partition layout: adr/0005-partition-layout.md
       - Signing scheme: adr/0006-signing-scheme.md
       - Pairing model: adr/0007-pairing-model.md
+      - Board marker: adr/0008-board-marker.md
+      - USB Serial/JTAG console: adr/0009-usb-serial-jtag-console.md
   - Testing:
       - M0 checklist: testing/m0.md
+      - M1 checklist: testing/m1.md

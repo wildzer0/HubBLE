@@ -1,0 +1,48 @@
+/**
+ * @file web_server.h
+ * @brief HTTP server: embedded web app, REST API, WebSocket events, captive-portal redirects.
+ *
+ * Responsibilities (CLAUDE.md §3.5, §3.7, §4.2):
+ *  - serve the gzipped web app from the firmware image with `Content-Encoding: gzip`;
+ *  - host the REST API (api component) and the WebSocket `/api/v1/ws`;
+ *  - redirect requests for foreign host names (OS captive-portal probes) to the app.
+ * Dependencies: esp_http_server, api, web_assets, wifi_ap, log_buffer, cJSON.
+ * Threading: handlers run on the HTTP server task; web_server_broadcast() may be called from any task.
+ */
+#pragma once
+
+#include <stdbool.h>
+
+#include "esp_err.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/**
+ * @brief Start the HTTP server and the periodic event task.
+ *
+ * @return ESP_OK or the first error.
+ */
+esp_err_t web_server_start(void);
+
+/**
+ * @brief Whether the server is running (OTA self-test).
+ *
+ * @return true if started successfully.
+ */
+bool web_server_is_running(void);
+
+/**
+ * @brief Send an event to every connected WebSocket client.
+ *
+ * Message shape: `{"event":"<name>","data":<json>}`.
+ *
+ * @param event     Event name, e.g. "ota.progress".
+ * @param data_json Already-serialised JSON value for `data`.
+ */
+void web_server_broadcast(const char *event, const char *data_json);
+
+#ifdef __cplusplus
+}
+#endif

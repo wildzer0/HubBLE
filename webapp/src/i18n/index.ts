@@ -24,12 +24,22 @@ export function pickLocale(tag: string | undefined): Locale {
 }
 
 /**
- * Translate a key.
+ * Translate a key, substituting `{name}` placeholders.
  *
  * @param locale Target language.
  * @param key Message key (compile-time checked).
+ * @param params Values for the placeholders.
  * @returns The translated string.
  */
-export function translate(locale: Locale, key: MessageKey): string {
-  return tables[locale][key];
+export function translate(
+  locale: Locale,
+  key: MessageKey,
+  params?: Record<string, string | number>,
+): string {
+  const text = tables[locale][key];
+  if (!params) return text;
+  return text.replace(/\{(\w+)\}/g, (m, name: string) => {
+    const v = params[name];
+    return v === undefined ? m : String(v);
+  });
 }

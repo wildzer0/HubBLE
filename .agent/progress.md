@@ -20,12 +20,16 @@
   Components: board, led, semver (pure, for host tests), web_assets (bundle reader + embed). Rollback enabled.
   Build: `. ~/esp/esp-idf/export.sh; tools/build-firmware.sh [s3_zero|xiao_s3|all]` (needs webapp/dist).
 
-### Next
-- M0 is released: `v0.1.1` pre-release published with all assets (v0.1.0 tag exists but has no release; never touch it).
-- PR `ci/fast-release`: faster release.yml (verify CI, parallel board builds, publish job) + docs.yml (Pages from main;
-  the `github-pages` environment only allows branch `main`, adding a tag policy was denied by the permission classifier).
-  The new release.yml is UNTESTED until the next tag (M1).
-- Then: final report in Italian; M1 needs the hardware gate (see CLAUDE.md §8).
+### Current milestone: M1 — Wi-Fi AP, web server, OTA foundations (target v0.2.0, ⛔ hardware gate, board: S3-Zero)
+Branch `milestone/m1-wifi-web-ota`. Status:
+ - DONE locally: pure logic + host tests (8 suites), IDF components (settings, log_buffer, wifi_ap, captive_portal, web_server, api, ota, diag),
+   web app (Update/System pages, ws client, mock REST+WS, 19 unit + 9 e2e tests), docs, CHANGELOG [0.2.0], test overlays.
+ - Both boards build locally (s3_zero ~0xd4e30 bytes). NOT testable without hardware: Wi-Fi, OTA flow, rollback, heap.
+ - Gate files staged in ~/hubble-m1-gate/: v0.2.1-rc.1 (good) and v0.2.1-rc.2 ROLLBACK-TEST (self-test forced to fail).
+ - NEXT: push branch, PR, CI green, squash-merge, wait main CI, tag v0.2.0, verify release (tests the NEW fast release.yml for the first time),
+   then final report in Italian + gate instructions (docs/testing/m1.md). Do NOT start M2 until the user confirms the gate.
+Design notes: board check = marker `HUBBLE_BOARD_ID=<id>;` scanned while streaming; AP stays on while no bonded devices
+(BLE not yet present => always on unless Kconfig HUBBLE_ASSUME_BONDED, overlay ap_timeout_test).
 
 ### Environment notes
 - ESP-IDF v5.5.6 installed locally at `~/esp/esp-idf` (user-approved, home only); tools in `~/.espressif`.

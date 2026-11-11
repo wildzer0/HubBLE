@@ -1,0 +1,3 @@
+# TEST BUILDS ONLY (M1 hardware gate): the self-test always fails, so the image must be rolled back
+# automatically about CONFIG_HUBBLE_SELFTEST_TIMEOUT_S seconds after it boots.
+CONFIG_HUBBLE_SELFTEST_FORCE_FAIL=y

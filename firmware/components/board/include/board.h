@@ -31,6 +31,7 @@ typedef struct {
     int led_gpio;              /**< GPIO the LED is wired to. */
     bool led_active_low;       /**< true if the plain LED lights when the GPIO is low (GPIO LEDs only). */
     int button_gpio;           /**< GPIO of the BOOT button (last-resort recovery only). */
+    const char *image_marker;  /**< "HUBBLE_BOARD_ID=<id>;" string embedded in the image so OTA can check the board. */
     uint32_t flash_size_mb;    /**< Total flash size in MiB. */
 } board_info_t;
 

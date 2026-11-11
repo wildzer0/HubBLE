@@ -1,0 +1,16 @@
+menu "HubBLE OTA"
+    config HUBBLE_SELFTEST_TIMEOUT_S
+        int "Self-test deadline after boot (seconds)"
+        default 60
+        range 10 600
+        help
+            A freshly installed image must pass its self-test within this time, otherwise it is
+            marked invalid and the bootloader returns to the previous image (CLAUDE.md §3.8).
+
+    config HUBBLE_SELFTEST_FORCE_FAIL
+        bool "Force the self-test to fail (rollback test builds only)"
+        default n
+        help
+            Makes the self-test always fail so the automatic rollback can be verified on hardware
+            (M1 hardware gate). NEVER enable in release builds.
+endmenu
