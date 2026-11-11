@@ -12,12 +12,13 @@
 - Read CLAUDE.md in full.
 - Environment check: git 2.53, gh 2.46 (auth `wildzer0`), node 22.23, npm 10.9, python 3.14.4,
   cmake, ninja, gcc, clang-format present. Docker and ESP-IDF missing.
-- Git repo initialised on `main`.
+- Git repo initialised; public repo `wildzer0/HubBLE` created, `main` pushed, branch `milestone/m0-bootstrap` created.
+- 5.1 done (commit `chore: add repository hygiene files and layout`).
 
 ### Next
-- Create GitHub repo, push initial commit, branch `milestone/m0-bootstrap`.
-- Install ESP-IDF v5.5.6 in the user home only (`~/esp/`), if Python 3.14 allows it.
-- Sub-steps 5.1 → 5.7, then release.
+- **BLOCKED on user decision:** local ESP-IDF v5.5.6 install (clone + `install.sh esp32s3` into `~/esp/`)
+  was denied by the permission classifier. Needed for 5.2 / 5.5 firmware builds.
+- Meanwhile independent steps: 5.3 (host Unity tests), 5.4 (web app), 5.6 (docs), 5.7 (CI).
 
 ### Open issues
-- No Docker locally; local ESP-IDF install may be blocked by Python 3.14 compatibility.
+- No Docker locally; ESP-IDF install needs user approval. Python 3.14 may be incompatible with IDF 5.5 tooling.
