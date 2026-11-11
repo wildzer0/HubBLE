@@ -21,8 +21,9 @@
   Build: `. ~/esp/esp-idf/export.sh; tools/build-firmware.sh [s3_zero|xiao_s3|all]` (needs webapp/dist).
 
 ### Next
-- Add CHANGELOG [0.1.0], push branch, open PR, get CI green, squash-merge, tag v0.1.0, verify release + Pages.
-- Not done in M0 (no code yet): clang-tidy, libFuzzer fuzzing (arrive with HID parser, M3).
+- User chose fix-forward: tag `v0.1.1` (v0.1.0 tag exists but has no release; do not touch it).
+- After the v0.1.1 run succeeds: verify assets (2x ota, 2x factory, manifest.json, SHA256SUMS), Pages deploy,
+  then final report in Italian.
 
 ### Environment notes
 - ESP-IDF v5.5.6 installed locally at `~/esp/esp-idf` (user-approved, home only); tools in `~/.espressif`.
