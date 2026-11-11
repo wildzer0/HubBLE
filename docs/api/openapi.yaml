@@ -1,0 +1,40 @@
+openapi: 3.0.3
+info:
+  title: HubBLE firmware API
+  version: 1.0.0
+  description: REST contract between firmware and web app. M0 documents only /status; more in later milestones.
+servers:
+  - url: http://hubble.local
+paths:
+  /api/v1/status:
+    get:
+      summary: Dongle status
+      responses:
+        '200':
+          description: Current status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+components:
+  schemas:
+    Status:
+      type: object
+      required: [version, board, uptime_s, usb_state, ap_timeout_s, setup_required]
+      properties:
+        version: { type: string, example: 0.1.0 }
+        board: { type: string, example: s3_zero }
+        uptime_s: { type: integer }
+        usb_state: { type: string, enum: [detached, suspended, active] }
+        ap_timeout_s: { type: integer, nullable: true }
+        setup_required: { type: boolean }
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }

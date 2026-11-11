@@ -4,6 +4,6 @@ about: Suggest an improvement
 labels: enhancement
 ---
 
-**Problem to solve**
+## Problem to solve
 
-**Proposed solution**
+## Proposed solution

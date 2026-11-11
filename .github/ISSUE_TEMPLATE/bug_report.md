@@ -4,10 +4,10 @@ about: Something does not work as expected
 labels: bug
 ---
 
-**Board and firmware version**
+## Board and firmware version
 
-**Peripherals involved**
+## Peripherals involved
 
-**Steps to reproduce**
+## Steps to reproduce
 
-**Expected / actual behaviour**
+## Expected / actual behaviour

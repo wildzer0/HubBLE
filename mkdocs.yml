@@ -1,0 +1,38 @@
+site_name: HubBLE
+site_url: https://wildzer0.github.io/HubBLE/
+repo_url: https://github.com/wildzer0/HubBLE
+docs_dir: docs
+strict: true
+theme:
+  name: material
+markdown_extensions:
+  - admonition
+  - pymdownx.superfences
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - User guide: user-guide.md
+  - Hardware: hardware.md
+  - Architecture: architecture.md
+  - Pairing and security: pairing-and-security.md
+  - Security: security.md
+  - OTA and recovery: ota-and-recovery.md
+  - Power: power.md
+  - Latency: latency.md
+  - USB IDs: usb-ids.md
+  - Development: development.md
+  - Release process: release-process.md
+  - Troubleshooting: troubleshooting.md
+  - API:
+      - WebSocket: api/websocket.md
+  - ADRs:
+      - Index: adr/README.md
+      - ESP-IDF over Arduino: adr/0001-esp-idf-over-arduino.md
+      - NimBLE: adr/0002-nimble-ble-stack.md
+      - Preact web app: adr/0003-preact-web-app.md
+      - Embedded web app: adr/0004-embedded-web-app.md
+      - Partition layout: adr/0005-partition-layout.md
+      - Signing scheme: adr/0006-signing-scheme.md
+      - Pairing model: adr/0007-pairing-model.md
+  - Testing:
+      - M0 checklist: testing/m0.md
