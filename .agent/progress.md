@@ -20,12 +20,14 @@
   Components: board, led, semver (pure, for host tests), web_assets (bundle reader + embed). Rollback enabled.
   Build: `. ~/esp/esp-idf/export.sh; tools/build-firmware.sh [s3_zero|xiao_s3|all]` (needs webapp/dist).
 
-### Next
-- M0 is released: `v0.1.1` pre-release published with all assets (v0.1.0 tag exists but has no release; never touch it).
-- PR `ci/fast-release`: faster release.yml (verify CI, parallel board builds, publish job) + docs.yml (Pages from main;
-  the `github-pages` environment only allows branch `main`, adding a tag policy was denied by the permission classifier).
-  The new release.yml is UNTESTED until the next tag (M1).
-- Then: final report in Italian; M1 needs the hardware gate (see CLAUDE.md §8).
+### Current milestone: M1 — Wi-Fi AP, web server, OTA foundations (target v0.2.0, ⛔ hardware gate, board: S3-Zero)
+Branch `milestone/m1-wifi-web-ota`. Plan / sub-steps:
+ 1. Pure logic + host tests: log_buffer, ap_policy, dns reply builder, settings model (password rules), http_guard (CSRF), board_marker scanner, boot_guard.
+ 2. IDF components: settings(NVS), wifi_ap, captive_portal(+mDNS), web_server(+ws), api, ota(+selftest), diag. Console -> USB Serial/JTAG (M0 forgot; S3-Zero has no UART chip).
+ 3. Web app: Update + System pages, ws client, mock REST+WS, i18n, e2e.
+ 4. Docs (openapi, websocket, ota-and-recovery, testing/m1.md), CHANGELOG, PR, release v0.2.0.
+ 5. Gate: build test images v0.2.1-rc.1 (good) and a forced-self-test-failure build; user flashes factory.bin once, then OTA + rollback.
+Design notes: board check = marker string `HUBBLE_BOARD_ID=<id>;` embedded in image and scanned while streaming; AP stays on while no bonded devices (BLE not yet present => always on unless Kconfig HUBBLE_ASSUME_BONDED).
 
 ### Environment notes
 - ESP-IDF v5.5.6 installed locally at `~/esp/esp-idf` (user-approved, home only); tools in `~/.espressif`.

@@ -30,3 +30,22 @@ target_include_directories(test_semver PRIVATE ${COMP}/semver/include)
 
 hubble_add_test(test_web_bundle unit/test_web_bundle.c ${COMP}/web_assets/web_bundle.c)
 target_include_directories(test_web_bundle PRIVATE ${COMP}/web_assets/include)
+
+# --- M1 pure-logic components ---------------------------------------------------
+hubble_add_test(test_log_buffer unit/test_log_buffer.c ${COMP}/log_buffer/log_buffer.c)
+target_include_directories(test_log_buffer PRIVATE ${COMP}/log_buffer/include)
+
+hubble_add_test(test_ap_policy unit/test_ap_policy.c ${COMP}/wifi_ap/ap_policy.c)
+target_include_directories(test_ap_policy PRIVATE ${COMP}/wifi_ap/include)
+
+hubble_add_test(test_dns_reply unit/test_dns_reply.c ${COMP}/captive_portal/dns_reply.c)
+target_include_directories(test_dns_reply PRIVATE ${COMP}/captive_portal/include)
+
+hubble_add_test(test_settings_model unit/test_settings_model.c ${COMP}/settings/settings_model.c)
+target_include_directories(test_settings_model PRIVATE ${COMP}/settings/include)
+
+hubble_add_test(test_http_guard unit/test_http_guard.c ${COMP}/api/http_guard.c)
+target_include_directories(test_http_guard PRIVATE ${COMP}/api/include)
+
+hubble_add_test(test_ota_logic unit/test_ota_logic.c ${COMP}/ota/board_marker.c ${COMP}/ota/boot_guard.c)
+target_include_directories(test_ota_logic PRIVATE ${COMP}/ota/include)
