@@ -12,10 +12,6 @@ loader.)
 
 <esp-web-install-button manifest="../firmware/manifest-s3_zero.json"></esp-web-install-button>
 
-## Seeed Studio XIAO ESP32-S3 (`xiao_s3`, 8 MB)
-
-<esp-web-install-button manifest="../firmware/manifest-xiao_s3.json"></esp-web-install-button>
-
 !!! note
     The buttons appear once a stable release has been published; the images are the `*-factory.bin` files of the latest
     release. If the browser cannot flash, use `esptool` as described in [Getting started](getting-started.md).

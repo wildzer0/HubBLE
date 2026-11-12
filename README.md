@@ -26,7 +26,7 @@ handles pairing, settings, diagnostics and over-the-air updates.
 | Board | Flash | Notes |
 |---|---|---|
 | ESP32-S3-Zero style (ESP32-S3FH4R2) | 4 MB | primary target |
-| Seeed Studio XIAO ESP32-S3 | 8 MB | secondary target |
+| Seeed Studio XIAO ESP32-S3 | 8 MB | paused: source kept, not built or released |
 
 ## Repository layout
 

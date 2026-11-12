@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- The XIAO ESP32-S3 target is paused: CI, releases and the web installer build only the S3-Zero (the XIAO sources stay in the tree).
+
 ## [1.1.3] - 2026-11-12
 
 ### Fixed

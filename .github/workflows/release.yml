@@ -21,15 +21,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          # The eight CI jobs of ci.yml; wait up to ~15 min in case CI on main is still running.
+          # The seven CI jobs of ci.yml; wait up to ~15 min in case CI on main is still running.
           for _ in $(seq 1 60); do
             ok=$(gh api "repos/$GH_REPO/commits/$GITHUB_SHA/check-runs?per_page=100" \
-              --jq '[.check_runs[] | select(.name=="lint" or .name=="webapp" or .name=="webapp-build" or .name=="fuzz" or .name=="docs" or .name=="host-tests" or .name=="firmware (s3_zero)" or .name=="firmware (xiao_s3)") | select(.conclusion=="success")] | map(.name) | unique | length')
+              --jq '[.check_runs[] | select(.name=="lint" or .name=="webapp" or .name=="webapp-build" or .name=="fuzz" or .name=="docs" or .name=="host-tests" or .name=="firmware (s3_zero)") | select(.conclusion=="success")] | map(.name) | unique | length')
             bad=$(gh api "repos/$GH_REPO/commits/$GITHUB_SHA/check-runs?per_page=100" \
               --jq '[.check_runs[] | select(.conclusion=="failure")] | length')
-            echo "green jobs: $ok/8, failed: $bad"
+            echo "green jobs: $ok/7, failed: $bad"
             [ "$bad" -gt 0 ] && { echo "CI failed on this commit"; exit 1; }
-            [ "$ok" -ge 8 ] && exit 0
+            [ "$ok" -ge 7 ] && exit 0
             sleep 15
           done
           echo "Timed out waiting for CI"; exit 1
@@ -51,7 +51,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        board: [s3_zero, xiao_s3]
+        board: [s3_zero] # XIAO ESP32-S3 paused, see docs/hardware.md
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -123,8 +123,8 @@ jobs:
           # Artifacts keep the firmware/build-<board>/ prefix as their common root is stripped;
           # rebuild the layout expected by make_release_assets.py.
           mkdir -p fw
-          for b in s3_zero xiao_s3; do mv "art/build-$b" "fw/build-$b"; done
-          python3 tools/make_release_assets.py "${GITHUB_REF_NAME#v}" fw release s3_zero xiao_s3
+          for b in s3_zero; do mv "art/build-$b" "fw/build-$b"; done
+          python3 tools/make_release_assets.py "${GITHUB_REF_NAME#v}" fw release s3_zero
           rm -f "$RUNNER_TEMP/signing_key.pem"
       - name: Publish GitHub release
         env:

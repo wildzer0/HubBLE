@@ -5,7 +5,7 @@
 | Board id | Board | Flash |
 |---|---|---|
 | `s3_zero` | ESP32-S3-Zero style (ESP32-S3FH4R2) | 4 MB |
-| `xiao_s3` | Seeed Studio XIAO ESP32-S3 | 8 MB |
+| `xiao_s3` | Seeed Studio XIAO ESP32-S3 | 8 MB (support paused: not built or released) |
 
 !!! warning
     The chip must be an **ESP32-S3**. Some listings mention an "ESP32-C3-Zero"; it has no USB OTG and will not work.

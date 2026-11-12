@@ -14,6 +14,10 @@ Facts verified against vendor documentation on 2026-11-11.
 
 ## Seeed Studio XIAO ESP32-S3 (`xiao_s3`)
 
+!!! note
+    Support is paused (decision after v1.1.3): the board definition and its `sdkconfig` defaults stay in the tree, but CI and
+    releases build only `s3_zero`. Re-enable it by adding `xiao_s3` to the matrices in `ci.yml` and `release.yml`.
+
 - Single user LED on **GPIO21, active-low** (LOW = on) and BOOT on GPIO0, per the
   [Seeed wiki](https://wiki.seeedstudio.com/xiao_esp32s3_getting_started).
 - 8 MB flash / 8 MB octal PSRAM and the U.FL antenna connector: **not confirmed** by the sources

@@ -125,6 +125,9 @@ before starting, and re-read the relevant milestone before working on it.
   recovery path (§3.10); no normal feature may require it.
 
 ### 2.2 Secondary board: Seeed Studio XIAO ESP32-S3
+
+> **Paused (user decision after v1.1.3):** only the S3-Zero is built, tested and released. The XIAO sources stay
+> in the tree; re-enable by adding it back to the CI and release matrices.
 - 8 MB flash, 8 MB PSRAM, external U.FL antenna, single user LED (GPIO21,
   active-low — verify).
 - Must be supported as a second build target (separate `sdkconfig` defaults and

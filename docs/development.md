@@ -20,7 +20,7 @@ npm run e2e        # Playwright (mobile viewport) against the mock API
 
 ```bash
 . $IDF_PATH/export.sh
-tools/build-firmware.sh all      # or s3_zero / xiao_s3; builds into firmware/build-<board>/
+tools/build-firmware.sh all      # builds s3_zero (xiao_s3 is paused but can still be named); builds into firmware/build-<board>/
 python3 tools/check_firmware_size.py firmware/build-s3_zero/hubble.bin 1782579
 ```
 

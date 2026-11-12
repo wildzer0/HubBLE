@@ -44,7 +44,7 @@ if [ "$mode" = full ]; then
     # shellcheck disable=SC1091
     . "${IDF_PATH:-$HOME/esp/esp-idf}/export.sh" >/dev/null
     tools/build-firmware.sh all
-    for b in s3_zero xiao_s3; do
+    for b in s3_zero; do
         python3 tools/check_firmware_size.py "firmware/build-$b/hubble.bin" "${FIRMWARE_MAX_BYTES:-1782579}"
     done
 fi

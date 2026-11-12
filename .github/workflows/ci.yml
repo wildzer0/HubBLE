@@ -142,7 +142,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        board: [s3_zero, xiao_s3]
+        board: [s3_zero] # XIAO ESP32-S3 paused, see docs/hardware.md
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

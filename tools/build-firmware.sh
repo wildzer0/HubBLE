@@ -11,7 +11,7 @@
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 boards=("${1:-all}")
-[ "${boards[0]}" = all ] && boards=(s3_zero xiao_s3)
+[ "${boards[0]}" = all ] && boards=(s3_zero) # xiao_s3 is paused (still selectable by name)
 
 # Pack the web app so the firmware can embed it.
 # Signing key: HUBBLE_SIGNING_KEY (release) or the git-ignored development key, created on first use.
