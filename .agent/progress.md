@@ -2,6 +2,11 @@
 
 > Resume protocol: in any new session, read `CLAUDE.md` first, then this file, and continue from "Next".
 
+## POLICY (user, 2026-11-12): local commits only
+No push/PR/tag until the last milestone (see CLAUDE.md §0.2). Verify with `tools/check.sh quick|full`.
+M1 hardware gate is DEFERRED (hardware arrives 2026-11-12): user chose to continue development; run docs/testing/m1.md when the board arrives.
+Active branch: `milestone/m2-usb-hid` (local only).
+
 ## Current milestone: M0 — Project bootstrap (target `v0.1.0`)
 
 ### Decisions (confirmed by the user)

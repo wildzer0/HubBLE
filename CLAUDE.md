@@ -60,6 +60,11 @@ before starting, and re-read the relevant milestone before working on it.
   published tag; fix forward with a patch release.
 - Never force-push `main`. Never commit secrets, keys or credentials.
 - Maintain `CHANGELOG.md` (Keep a Changelog format) on every PR.
+- **Local-only policy (user decision, 2026-11-12):** until the **last milestone**
+  (M8 / `v1.0.0`) do **not** push, open PRs or tag — nothing that triggers CI/CD.
+  Commit locally on the milestone branches and run `tools/check.sh [quick|full]`
+  (local mirror of `ci.yml`) before every commit. Hardware tests use locally built
+  images installed via OTA upload / USB. Ask before the first push.
 - Use the `gh` CLI. At M0, if the repository does not exist yet, ask the user
   for the owner/name and **visibility** (public is recommended: OTA "check for
   updates" downloads release assets from GitHub without credentials; with a
