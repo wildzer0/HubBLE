@@ -16,6 +16,13 @@ it on the dongle (the password is only in the code, not written anywhere else).
 
 ![QR sticker](img/setup-sticker.png)
 
+## Opening the page
+
+After the setup, joining the dongle's Wi-Fi does **not** pop up a page by itself, so the phone keeps the connection
+instead of dropping it for having no internet. Open `http://192.168.4.1` (or `http://hubble.local`) in the browser, or scan
+the second QR code of the sticker. The pop-up can be turned back on in Settings (*Open this page when joining the Wi-Fi*);
+during the first-run setup it is always on.
+
 ## 2. Devices
 
 The app has four tabs along the bottom: **Devices**, **Update**, **Settings** and **System**. The Devices tab shows one card per paired device (tap it for the details): type, connection state, battery, signal, the **security badge** (see below) and the measured
@@ -24,6 +31,7 @@ latency the dongle adds. The top shows the firmware version, the USB state seen 
 competing with Bluetooth). It stays off until you hold **Ctrl and Alt together for 3 seconds** on a paired keyboard, or
 replug the dongle. It is refused while no device is paired, because the Wi-Fi is then the only way to pair one.
 
+A device whose battery is at or below 20 % shows a **Low battery** badge and a warning at the top.
 The **Test input** button opens the input tester and **Add device** starts a pairing.
 
 ![Devices](img/dashboard.png)
@@ -119,3 +127,10 @@ restore** of the settings (paired devices are never exported, they contain keys)
 Off when a device is connected. Slow amber pulse: no device. Blue breathing: Wi-Fi on. Cyan blink: pairing. Magenta blink:
 quarantine challenge. Purple blink: update. Three red blinks at start: a rollback happened. The LED is always off while the
 computer sleeps; brightness is configurable (0 turns it off).
+
+## Help improve compatibility
+
+On a device's page, **Prepare a report** builds a compatibility report (the device's report map, identifiers and the
+connection values). You see exactly what it contains before anything is shared. It never includes what you type, the
+Bluetooth address, the name you gave the device or any Wi-Fi data. You can download it, and when the project's collection
+service is configured you can send it from the page. See [Compatibility](compatibility.md).

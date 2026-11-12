@@ -200,6 +200,16 @@ void settings_get_ota_result(char *out, size_t cap);
 #define SETTINGS_SHIFT_HOLD_MAX_MS     10000
 #define SETTINGS_SHIFT_HOLD_DEFAULT_MS 3000
 
+/**
+ * @brief Whether joining the Wi-Fi should pop up the web app (captive portal). Default false: the dongle then answers
+ * the operating systems' connectivity probes as if the network had internet, so nothing pops up and the phone does not
+ * drop the network; the page is opened from the QR code, `hubble.local` or `192.168.4.1`. Until the setup wizard is
+ * done the popup is always on.
+ */
+bool settings_get_portal_auto(void);
+/** @brief Store the captive-portal popup flag. @param enabled New value. @return ESP_OK or an NVS error. */
+esp_err_t settings_set_portal_auto(bool enabled);
+
 /** @brief Whether a peripheral event may wake the suspended host (default true, CLAUDE.md §3.9). */
 bool settings_get_remote_wakeup(void);
 /** @brief Store the remote-wakeup setting. @param enabled New value. @return ESP_OK or an NVS error. */

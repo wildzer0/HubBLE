@@ -127,6 +127,29 @@ export const en = {
   'wifi_off.done':
     'The Wi-Fi is switching off. Hold Ctrl and Alt together for 3 seconds on a paired keyboard to turn it on again.',
   'wifi_off.no_devices': 'Pair a device first: the Wi-Fi stays on while none is paired.',
+  'settings.portal_auto': 'Open this page when joining the Wi-Fi',
+  'settings.portal_auto_hint':
+    'Off: the phone just stays connected and you open the page from the QR code, hubble.local or 192.168.4.1. On: the phone pops up the page by itself, but some phones then drop the Wi-Fi for having no internet. Always on until the setup is done.',
+  'setup.portal_hint':
+    'From now on the Wi-Fi does not pop up a page by itself: scan the second code, or open http://192.168.4.1 or http://hubble.local in the browser.',
+  'device.battery_low': 'Low battery',
+  'device.battery_low_banner': '{name}: the battery is low ({pct} %). Charge or replace it soon.',
+  'report.heading': 'Help improve compatibility',
+  'report.intro':
+    'Share what the dongle learned about this device (its report map and identifiers) so we can make more keyboards and mice work. No keystrokes, no Bluetooth address, no name you gave it and no Wi-Fi data are included.',
+  'report.prepare': 'Prepare a report',
+  'report.preview': 'This is exactly what would be shared:',
+  'report.notes': 'Notes (optional): anything that does not work?',
+  'report.download': 'Download the report',
+  'report.agree': 'I agree to send this report',
+  'report.send': 'Send',
+  'report.sent': 'Thank you! The report was sent.',
+  'report.send_failed':
+    'Could not send it: your phone probably has no internet while it is connected to the dongle. Download the report and upload it later from the Compatibility page.',
+  'report.how_to_send': 'Download the report and see the Compatibility page for how to send it.',
+  'report.learn_more': 'About the reports',
+  'report.offline': 'Connect the device first: the report needs it to be connected.',
+  'report.failed': 'Could not build the report.',
   'pair.pair_with': 'Pair with {name}',
   'pair.connecting': 'Connecting to {name}…',
   'pair.waiting_device': 'Waiting for the device…',

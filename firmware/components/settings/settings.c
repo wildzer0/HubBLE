@@ -23,6 +23,7 @@ static const char *TAG = "settings";
 #define KEY_STA_PASS    "sta_pass"
 #define KEY_CHANNEL     "upd_pre"
 #define KEY_REM_WAKE    "rem_wake"
+#define KEY_PORTAL_AUTO "portal_auto"
 #define KEY_LED_BRIGHT  "led_pct"
 #define KEY_STATUS_LED  "led_status"
 #define KEY_SHIFT_HOLD  "shift_ms"
@@ -253,6 +254,16 @@ bool settings_get_remote_wakeup(void) {
 /** @copydoc settings_set_remote_wakeup */
 esp_err_t settings_set_remote_wakeup(bool enabled) {
     return set_flag(KEY_REM_WAKE, enabled);
+}
+
+/** @copydoc settings_get_portal_auto */
+bool settings_get_portal_auto(void) {
+    return get_flag(KEY_PORTAL_AUTO, false);
+}
+
+/** @copydoc settings_set_portal_auto */
+esp_err_t settings_set_portal_auto(bool enabled) {
+    return set_flag(KEY_PORTAL_AUTO, enabled);
 }
 
 /** @copydoc settings_get_status_led */

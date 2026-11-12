@@ -40,6 +40,11 @@ jobs:
       - run: mkdir -p docs/api/generated/firmware && doxygen Doxyfile
       - run: npm ci && npm run docs
         working-directory: webapp
+      - name: Compatibility statistics (only once the collection service is deployed)
+        env:
+          STATS_URL: ${{ vars.REPORT_STATS_URL }}
+        run: |
+          [ -z "$STATS_URL" ] || python3 tools/build_compat_page.py "$STATS_URL"
       - run: mkdocs build
       - name: Web installer (latest stable release images, if any)
         env:

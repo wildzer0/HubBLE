@@ -31,6 +31,7 @@ describe('backup parsing', () => {
       update_channel: 'stable',
       sta_configured: false,
       remote_wakeup: true,
+      portal_auto: false,
       led_brightness: 25,
       status_led: false,
       shift_hold_ms: 3000,

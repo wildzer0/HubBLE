@@ -49,6 +49,23 @@ jobs:
       - name: actionlint
         run: docker run --rm -v "$PWD:/repo" --workdir /repo rhysd/actionlint:1.7.7 -color
 
+  # The report collection service (Cloudflare Worker): unit tests and types, no deployment.
+  service:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: service
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: service/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
   # Fast: just what the firmware build needs (the checks below run in parallel with the firmware build).
   webapp-build:
     runs-on: ubuntu-latest
@@ -64,6 +81,8 @@ jobs:
           cache-dependency-path: webapp/package-lock.json
       - run: npm ci
       - run: npm run build
+        env:
+          VITE_REPORT_URL: ${{ vars.REPORT_URL }} # empty until the collection service is deployed
       - run: npm run size
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

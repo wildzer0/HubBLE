@@ -140,6 +140,7 @@ function initialState(opts: MockOptions = {}) {
       update_channel: 'stable',
       sta_configured: false,
       remote_wakeup: true,
+      portal_auto: false,
       led_brightness: 25,
       status_led: false,
       shift_hold_ms: 3000,
@@ -321,13 +322,50 @@ function handleDevices(req: MockRequest): MockResponse | null {
   if (method === 'GET' && path === '/api/v1/devices') {
     return { status: 200, json: { devices: state.devices, max: MAX_DEVICES } };
   }
-  const m = /^\/api\/v1\/devices\/([0-9a-f]{12})(\/report-map)?$/.exec(path);
+  const m = /^\/api\/v1\/devices\/([0-9a-f]{12})(\/report-map|\/report)?$/.exec(path);
   if (!m) return null;
   const dev = state.devices.find((d) => d.id === m[1]);
   if (!dev) return err(404, 'not_found', 'No such device');
   if (m[2]) {
     if (method !== 'GET') return null;
     if (!dev.connected) return err(409, 'not_connected', 'The device is not connected');
+    if (m[2] === '/report') {
+      return {
+        status: 200,
+        json: {
+          format: 'hubble-device-report',
+          version: 1,
+          firmware: { version: state.version, board: 's3_zero' },
+          device: {
+            kind: dev.type,
+            adv_name: dev.name,
+            appearance: dev.type === 'pointer' ? 962 : 961,
+            manufacturer: 'Mock Corp',
+            model: 'MK-1',
+            fw_revision: '1.0.3',
+            pnp: { vendor_id_source: 2, vendor_id: 0x046d, product_id: 0xb023, version: 0x0100 },
+            report_map_hex: MOCK_REPORT_MAP,
+            parse: {
+              result: 0,
+              fields: 8,
+              boot_fallback: false,
+              primary_page: 1,
+              primary_usage: dev.type === 'pointer' ? 2 : 6,
+              has_pointer: dev.type === 'pointer',
+            },
+            security: dev.security,
+            connection: dev.connection,
+            battery_reported: dev.battery !== null,
+            latency_us: {
+              count: 120,
+              avg: dev.latency_us.avg,
+              p95: dev.latency_us.p95,
+              max: dev.latency_us.max,
+            },
+          },
+        },
+      };
+    }
     return { status: 200, json: { hex: MOCK_REPORT_MAP, length: MOCK_REPORT_MAP.length / 2 } };
   }
   if (method === 'GET') return { status: 200, json: dev };

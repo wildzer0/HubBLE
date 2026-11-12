@@ -24,6 +24,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "log_hook.h"
+#include "captive_probe.h"
+#include "settings.h"
 #include "web_assets.h"
 #include "wifi_ap.h"
 
@@ -124,7 +126,25 @@ static esp_err_t static_get(httpd_req_t *req) {
     const bool has_host = httpd_req_get_hdr_value_str(req, "Host", host, sizeof(host)) == ESP_OK;
     if (!host_is_ours(has_host ? host : NULL)) {
         /* OS connectivity probes (Android generate_204, iOS hotspot-detect, Windows connecttest) land here with a
-         * foreign Host. Redirecting makes the OS pop up the captive-portal browser (CLAUDE.md §3.5). */
+         * foreign Host. Redirecting makes the OS pop up the captive-portal browser (CLAUDE.md §3.5): wanted during the
+         * first-run setup, or when the user asked for it. Otherwise answer the probe the way a real internet
+         * connection would, so nothing pops up and the phone keeps the network. */
+        if (settings_is_setup_done() && !settings_get_portal_auto()) {
+            char probe_path[64];
+            const char *query = strchr(req->uri, '?');
+            const size_t probe_len = query ? (size_t)(query - req->uri) : strlen(req->uri);
+            if (probe_len < sizeof(probe_path)) {
+                memcpy(probe_path, req->uri, probe_len);
+                probe_path[probe_len] = '\0';
+                const captive_probe_t probe = captive_probe_classify(probe_path);
+                if (probe != CAPTIVE_PROBE_NONE) {
+                    httpd_resp_set_status(req, captive_probe_status(probe) == 204 ? "204 No Content" : "200 OK");
+                    httpd_resp_set_type(req, captive_probe_type(probe));
+                    httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+                    return httpd_resp_send(req, captive_probe_body(probe), HTTPD_RESP_USE_STRLEN);
+                }
+            }
+        }
         httpd_resp_set_status(req, "302 Found");
         httpd_resp_set_hdr(req, "Location", PORTAL_URL);
         httpd_resp_set_hdr(req, "Cache-Control", "no-store");

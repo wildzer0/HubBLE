@@ -133,6 +133,31 @@ export const it: Record<MessageKey, string> = {
     'Il Wi-Fi si sta spegnendo. Per riaccenderlo tieni premuti Ctrl e Alt insieme per 3 secondi su una tastiera associata.',
   'wifi_off.no_devices':
     'Associa prima un dispositivo: il Wi-Fi resta acceso finché non ce n’è uno.',
+  'settings.portal_auto': 'Apri questa pagina quando ti colleghi al Wi-Fi',
+  'settings.portal_auto_hint':
+    'Spento: il telefono resta semplicemente connesso e apri la pagina dal codice QR, da hubble.local o da 192.168.4.1. Acceso: il telefono apre la pagina da solo, ma alcuni telefoni poi lasciano il Wi-Fi perché senza internet. Sempre acceso finché la configurazione non è completata.',
+  'setup.portal_hint':
+    'D’ora in poi il Wi-Fi non apre una pagina da solo: inquadra il secondo codice, oppure apri http://192.168.4.1 o http://hubble.local nel browser.',
+  'device.battery_low': 'Batteria scarica',
+  'device.battery_low_banner':
+    '{name}: la batteria è scarica ({pct} %). Ricaricala o sostituiscila presto.',
+  'report.heading': 'Aiutaci a migliorare la compatibilità',
+  'report.intro':
+    'Condividi ciò che il dongle ha capito di questo dispositivo (report map e identificativi) per far funzionare più tastiere e mouse. Non include tasti premuti, indirizzo Bluetooth, il nome che gli hai dato né dati Wi-Fi.',
+  'report.prepare': 'Prepara un rapporto',
+  'report.preview': 'Questo è esattamente ciò che verrebbe condiviso:',
+  'report.notes': 'Note (facoltative): c’è qualcosa che non funziona?',
+  'report.download': 'Scarica il rapporto',
+  'report.agree': 'Acconsento all’invio di questo rapporto',
+  'report.send': 'Invia',
+  'report.sent': 'Grazie! Il rapporto è stato inviato.',
+  'report.send_failed':
+    'Invio non riuscito: probabilmente il telefono non ha internet mentre è collegato al dongle. Scarica il rapporto e caricalo più tardi dalla pagina Compatibilità.',
+  'report.how_to_send':
+    'Scarica il rapporto e leggi la pagina Compatibilità per sapere come inviarlo.',
+  'report.learn_more': 'Informazioni sui rapporti',
+  'report.offline': 'Collega prima il dispositivo: il rapporto richiede che sia connesso.',
+  'report.failed': 'Impossibile creare il rapporto.',
   'pair.pair_with': 'Associa {name}',
   'pair.connecting': 'Connessione a {name}…',
   'pair.waiting_device': 'In attesa del dispositivo…',

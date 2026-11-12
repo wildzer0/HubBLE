@@ -623,12 +623,95 @@ static int device_from_uri(httpd_req_t *req, const char **suffix) {
     return slot;
 }
 
+/** Add a string field, or null when it is empty. */
+static void add_str_or_null(cJSON *o, const char *key, const char *value) {
+    if (value != NULL && value[0] != '\0') {
+        cJSON_AddStringToObject(o, key, value);
+    } else {
+        cJSON_AddNullToObject(o, key);
+    }
+}
+
+/**
+ * GET /api/v1/devices/{id}/report: the compatibility report (docs/api/device-report.schema.json). It holds what the
+ * dongle learned about the device, never keystrokes, the Bluetooth address, the user's name for the device or any Wi-Fi
+ * data. The web app shows it to the user before anything is sent.
+ */
+static esp_err_t device_report_get(httpd_req_t *req, int slot) {
+    ble_device_info_t d;
+    ble_report_info_t ri;
+    if (!ble_central_get_device((unsigned)slot, &d) || !ble_central_get_report_info((unsigned)slot, &ri)) {
+        return send_error(req, "409 Conflict", "not_ready", "The device must be connected to build a report");
+    }
+    uint8_t map[HOGP_MAP_MAX_EXPORT];
+    const size_t n = ble_central_get_report_map((unsigned)slot, map, sizeof(map));
+    char *hex = cJSON_malloc(n * 2 + 1);
+    if (hex == NULL) {
+        return send_error(req, "500 Internal Server Error", "no_memory", "Out of memory");
+    }
+    for (size_t i = 0; i < n; i++) {
+        snprintf(&hex[i * 2], 3, "%02x", map[i]);
+    }
+    hex[n * 2] = '\0';
+
+    cJSON *r = cJSON_CreateObject();
+    cJSON_AddStringToObject(r, "format", "hubble-device-report");
+    cJSON_AddNumberToObject(r, "version", 1);
+    cJSON *fw = cJSON_AddObjectToObject(r, "firmware");
+    cJSON_AddStringToObject(fw, "version", esp_app_get_description()->version);
+    cJSON_AddStringToObject(fw, "board", board_get_info()->id);
+    cJSON *dev = cJSON_AddObjectToObject(r, "device");
+    cJSON_AddStringToObject(dev, "kind", ri.keyboard ? "keyboard" : (ri.pointer ? "pointer" : "unknown"));
+    add_str_or_null(dev, "adv_name", ri.info.device_name);
+    if (ri.info.has_appearance) {
+        cJSON_AddNumberToObject(dev, "appearance", ri.info.appearance);
+    } else {
+        cJSON_AddNullToObject(dev, "appearance");
+    }
+    add_str_or_null(dev, "manufacturer", ri.info.manufacturer);
+    add_str_or_null(dev, "model", ri.info.model);
+    add_str_or_null(dev, "fw_revision", ri.info.fw_revision);
+    if (ri.info.has_pnp) {
+        cJSON *pnp = cJSON_AddObjectToObject(dev, "pnp");
+        cJSON_AddNumberToObject(pnp, "vendor_id_source", ri.info.pnp_source);
+        cJSON_AddNumberToObject(pnp, "vendor_id", ri.info.pnp_vendor);
+        cJSON_AddNumberToObject(pnp, "product_id", ri.info.pnp_product);
+        cJSON_AddNumberToObject(pnp, "version", ri.info.pnp_version);
+    } else {
+        cJSON_AddNullToObject(dev, "pnp");
+    }
+    cJSON_AddStringToObject(dev, "report_map_hex", hex);
+    cJSON_free(hex);
+    cJSON *parse = cJSON_AddObjectToObject(dev, "parse");
+    cJSON_AddNumberToObject(parse, "result", ri.parse_result);
+    cJSON_AddNumberToObject(parse, "fields", ri.fields);
+    cJSON_AddBoolToObject(parse, "boot_fallback", ri.boot_fallback);
+    cJSON_AddNumberToObject(parse, "primary_page", ri.primary_page);
+    cJSON_AddNumberToObject(parse, "primary_usage", ri.primary_usage);
+    cJSON_AddBoolToObject(parse, "has_pointer", ri.pointer);
+    cJSON_AddStringToObject(dev, "security", sec_name(ri.security));
+    cJSON *conn = cJSON_AddObjectToObject(dev, "connection");
+    cJSON_AddNumberToObject(conn, "interval_ms", d.conn_itvl_125us * 1.25);
+    cJSON_AddNumberToObject(conn, "latency", d.conn_latency);
+    cJSON_AddNumberToObject(conn, "timeout_ms", d.conn_timeout_10ms * 10);
+    cJSON_AddBoolToObject(dev, "battery_reported", ri.battery_reported);
+    cJSON *lat = cJSON_AddObjectToObject(dev, "latency_us");
+    cJSON_AddNumberToObject(lat, "count", d.latency.count);
+    cJSON_AddNumberToObject(lat, "avg", d.latency.avg_us);
+    cJSON_AddNumberToObject(lat, "p95", d.latency.p95_us);
+    cJSON_AddNumberToObject(lat, "max", d.latency.max_us);
+    return send_json(req, r);
+}
+
 /** GET /api/v1/devices/{id}/report-map: the raw report map as hex (debugging, test fixtures). */
 static esp_err_t device_item_get(httpd_req_t *req) {
     const char *suffix;
     int slot = device_from_uri(req, &suffix);
     if (slot < 0) {
         return ESP_OK;
+    }
+    if (strncmp(suffix, "/report", 7) == 0 && strncmp(suffix, "/report-map", 11) != 0) {
+        return device_report_get(req, slot);
     }
     if (strncmp(suffix, "/report-map", 11) != 0) {
         ble_device_info_t d;
@@ -924,6 +1007,7 @@ static cJSON *settings_json(void) {
     cJSON_AddStringToObject(r, "update_channel", settings_get_prerelease_channel() ? "prerelease" : "stable");
     cJSON_AddBoolToObject(r, "sta_configured", settings_has_sta()); /* Never the credentials themselves. */
     cJSON_AddBoolToObject(r, "remote_wakeup", settings_get_remote_wakeup());
+    cJSON_AddBoolToObject(r, "portal_auto", settings_get_portal_auto());
     cJSON_AddNumberToObject(r, "led_brightness", settings_get_led_brightness());
     cJSON_AddBoolToObject(r, "status_led", settings_get_status_led());
     cJSON_AddNumberToObject(r, "shift_hold_ms", settings_get_shift_hold_ms());
@@ -948,7 +1032,8 @@ static bool settings_object_valid(const cJSON *s) {
     const cJSON *sl = cJSON_GetObjectItemCaseSensitive(s, "status_led");
     const cJSON *lb = cJSON_GetObjectItemCaseSensitive(s, "led_brightness");
     const cJSON *sh = cJSON_GetObjectItemCaseSensitive(s, "shift_hold_ms");
-    if ((rw != NULL && !cJSON_IsBool(rw)) || (sl != NULL && !cJSON_IsBool(sl))) {
+    const cJSON *pa = cJSON_GetObjectItemCaseSensitive(s, "portal_auto");
+    if ((rw != NULL && !cJSON_IsBool(rw)) || (sl != NULL && !cJSON_IsBool(sl)) || (pa != NULL && !cJSON_IsBool(pa))) {
         return false;
     }
     if (lb != NULL && !(cJSON_IsNumber(lb) && lb->valuedouble == (double)lb->valueint && lb->valueint >= 0 &&
@@ -1001,6 +1086,10 @@ static void settings_object_apply(const cJSON *s) {
     if (cJSON_IsBool(rw)) {
         settings_set_remote_wakeup(cJSON_IsTrue(rw));
         usb_hid_set_remote_wakeup_allowed(cJSON_IsTrue(rw)); /* Effective immediately. */
+    }
+    const cJSON *pa = cJSON_GetObjectItemCaseSensitive(s, "portal_auto");
+    if (cJSON_IsBool(pa)) {
+        settings_set_portal_auto(cJSON_IsTrue(pa));
     }
     if (cJSON_IsBool(sl)) {
         settings_set_status_led(cJSON_IsTrue(sl));

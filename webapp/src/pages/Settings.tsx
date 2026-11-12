@@ -105,6 +105,14 @@ export function Settings({ locale, onLocale }: { locale: Locale; onLocale: (l: L
         <h3 class="card-title" id="set-wifi">
           {t('settings.wifi')}
         </h3>
+        <SwitchRow
+          label={t('settings.portal_auto')}
+          hint={t('settings.portal_auto_hint')}
+          checked={form.portal_auto}
+          onChange={(v) => {
+            set({ portal_auto: v });
+          }}
+        />
         <NumberField
           id="boot-window"
           label={t('settings.boot_window')}

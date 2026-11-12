@@ -62,7 +62,7 @@ static const char *TAG = "ble";
 /** Scan: interval/window in 0.625 ms units (full duty while pairing). */
 #define SCAN_ITVL   0x50
 #define SCAN_WINDOW 0x30
-/** Background reconnect scan interval while another device is connected: 30 ms in 200 ms (15 % duty). */
+/** Background reconnect scan interval: 30 ms in 200 ms (15 % duty). */
 #define SCAN_ITVL_BUSY 0x140
 /** Scan window while another device is connected: 10 ms in 50 ms (20 % duty) so its 7.5 ms events are not starved. */
 #define SCAN_WINDOW_BUSY 0x10
@@ -191,14 +191,10 @@ static int slot_by_conn(uint16_t conn) {
  */
 static void conn_params(struct ble_gap_conn_params *p) {
     memset(p, 0, sizeof(*p));
-    /* The connect procedure scans for the peripheral. While another device is already connected (and we are not
-     * pairing) a full-duty scan would steal radio time from its 7.5 ms connection events and from the Wi-Fi AP, so
-     * it is thinned out; reading the flags without the lock is fine for this heuristic. */
-    bool connected = false;
-    for (int i = 0; i < BLE_CENTRAL_MAX_DEVICES; i++) {
-        connected = connected || (s_dev[i].ready && !s_dev[i].pending);
-    }
-    p->scan_itvl = (connected && !pairing_active(&s_fsm)) ? SCAN_ITVL_BUSY : SCAN_ITVL;
+    /* The connect procedure scans for the peripheral. Reconnecting a bonded device needs no more than 15 % duty (its
+     * advertising interval is a few tens of ms), and a full-duty scan is a large part of the radio's heat and steals
+     * time from the connected devices and from the Wi-Fi AP. Pairing keeps the fast scan. */
+    p->scan_itvl = pairing_active(&s_fsm) ? SCAN_ITVL : SCAN_ITVL_BUSY;
     p->scan_window = SCAN_WINDOW;
     p->itvl_min = s_profile.itvl;
     p->itvl_max = s_profile.itvl;
@@ -340,6 +336,7 @@ static void hogp_ready(hogp_t *h, void *ctx) {
         pairing_on_hid_ready(&s_fsm, now_ms(), kbd_challenge, hw_rng);
     }
     UNLOCK();
+    hogp_read_info(h); /* Optional identification for the compatibility report; never blocks the device. */
     if (was_pending) {
         pair_sync(); /* Commits if the machine reached BONDED; otherwise just announces QUARANTINE/CONFIRM. */
         return;
@@ -1162,6 +1159,32 @@ void ble_central_physical_confirm(void) {
     if (waiting) {
         pair_sync();
     }
+}
+
+/** @copydoc ble_central_get_report_info */
+bool ble_central_get_report_info(unsigned slot, ble_report_info_t *out) {
+    if (slot >= BLE_CENTRAL_MAX_DEVICES) {
+        return false;
+    }
+    memset(out, 0, sizeof(*out));
+    LOCK();
+    const dev_t *d = &s_dev[slot];
+    const bool ok = s_reg[slot].used && !d->pending && d->ready;
+    if (ok) {
+        const hogp_t *h = &d->hogp;
+        out->keyboard = hid_norm_is_keyboard(&h->layout);
+        out->pointer = hid_norm_is_pointer(&h->layout);
+        out->boot_fallback = h->boot_fallback;
+        out->parse_result = h->parse_result;
+        out->fields = h->layout.nfields;
+        out->primary_page = h->layout.primary_page;
+        out->primary_usage = h->layout.primary_usage;
+        out->battery_reported = h->bas_level_handle != 0;
+        out->info = h->info;
+        out->security = (sec_level_t)s_reg[slot].sec;
+    }
+    UNLOCK();
+    return ok;
 }
 
 /** @copydoc ble_central_quarantined */

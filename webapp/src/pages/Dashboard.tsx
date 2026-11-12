@@ -12,6 +12,7 @@ import { ConfirmButton } from '../components/ConfirmButton';
 import { Alert, Icon, Pill } from '../components/ui';
 import { useT } from '../i18n/context';
 import { useApi } from '../lib/useApi';
+import { isLowBattery, lowBatteryDevices } from '../lib/battery';
 import { useDevices } from '../lib/useDevices';
 
 /** Status refresh period. */
@@ -40,6 +41,7 @@ function DeviceCard({ device: d }: { device: Device }) {
             {d.connected ? t('device.connected') : t('device.offline')}
           </Pill>
           <SecurityBadge level={d.security} />
+          {isLowBattery(d) && <Pill tone="bad">{t('device.battery_low')}</Pill>}
           {d.battery !== null && <span>{`${String(d.battery)} %`}</span>}
           {d.rssi !== null && <span>{`${String(d.rssi)} dBm`}</span>}
           {d.latency_us.count > 0 && (
@@ -95,6 +97,13 @@ export function Dashboard() {
           {t('dashboard.test_input')}
         </a>
       </div>
+
+      {list &&
+        lowBatteryDevices(list.devices).map((d) => (
+          <Alert key={d.id} kind="warn" role="status" testId="low-battery">
+            {t('device.battery_low_banner', { name: d.name, pct: d.battery ?? 0 })}
+          </Alert>
+        ))}
 
       {failed && !status && (
         <Alert kind="bad" role="alert">

@@ -23,3 +23,7 @@ docs/api/generated/
 .idea/
 *.log
 /firmware/components/web_assets/generated/
+
+# Report service
+service/node_modules/
+service/.wrangler/

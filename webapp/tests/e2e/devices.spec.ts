@@ -44,3 +44,18 @@ test('input tester streams events only while enabled', async ({ page }) => {
   await page.getByRole('button', { name: 'Stop' }).click();
   await expect(page.getByTestId('events').locator('li')).toHaveCount(0);
 });
+
+test('the compatibility report is shown before anything is shared and can be downloaded', async ({
+  page,
+}) => {
+  await page.goto('/#/device/c0ffee000001');
+  const card = page.getByTestId('report-card');
+  await card.getByRole('button', { name: 'Prepare a report' }).click();
+  const json = page.getByTestId('report-json');
+  await expect(json).toContainText('hubble-device-report');
+  await expect(json).toContainText('report_map_hex');
+  await expect(json).not.toContainText('c0ffee000001'); // the device id (its address) is never part of it
+  const download = page.waitForEvent('download');
+  await card.getByRole('button', { name: 'Download the report' }).click();
+  expect((await download).suggestedFilename()).toMatch(/^hubble-report-.*\.json$/);
+});

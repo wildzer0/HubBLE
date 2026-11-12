@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://wildzer0.github.io/HubBLE/api/device-report.schema.json",
+  "title": "HubBLE device compatibility report",
+  "description": "What the dongle learned about one BLE peripheral. It contains NO keystrokes, no Bluetooth address, no user-chosen name and no Wi-Fi data. Sent only after the user has seen it and agreed.",
+  "type": "object",
+  "required": ["format", "version", "firmware", "device"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "hubble-device-report" },
+    "version": { "const": 1 },
+    "firmware": {
+      "type": "object",
+      "required": ["version", "board"],
+      "additionalProperties": false,
+      "properties": {
+        "version": { "type": "string", "maxLength": 32 },
+        "board": { "type": "string", "maxLength": 32 }
+      }
+    },
+    "device": {
+      "type": "object",
+      "required": ["kind", "report_map_hex"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "enum": ["keyboard", "pointer", "unknown"] },
+        "adv_name": { "type": ["string", "null"], "maxLength": 32, "description": "Name the device advertises (not the name the user gave it)" },
+        "appearance": { "type": ["integer", "null"], "minimum": 0, "maximum": 65535 },
+        "manufacturer": { "type": ["string", "null"], "maxLength": 48, "description": "Device Information: Manufacturer Name String" },
+        "model": { "type": ["string", "null"], "maxLength": 48, "description": "Device Information: Model Number String" },
+        "fw_revision": { "type": ["string", "null"], "maxLength": 48, "description": "Device Information: Firmware Revision String" },
+        "pnp": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "description": "Device Information: PnP ID",
+          "properties": {
+            "vendor_id_source": { "type": "integer", "minimum": 0, "maximum": 255 },
+            "vendor_id": { "type": "integer", "minimum": 0, "maximum": 65535 },
+            "product_id": { "type": "integer", "minimum": 0, "maximum": 65535 },
+            "version": { "type": "integer", "minimum": 0, "maximum": 65535 }
+          }
+        },
+        "report_map_hex": { "type": "string", "pattern": "^([0-9a-fA-F]{2})*$", "maxLength": 2048 },
+        "parse": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "result": { "type": "integer", "description": "hid_parse_result_t, 0 = OK" },
+            "fields": { "type": "integer", "minimum": 0 },
+            "boot_fallback": { "type": "boolean" },
+            "primary_page": { "type": "integer", "minimum": 0, "maximum": 65535 },
+            "primary_usage": { "type": "integer", "minimum": 0, "maximum": 65535 },
+            "has_pointer": { "type": "boolean" }
+          }
+        },
+        "security": { "enum": ["green", "yellow", "red", "unknown"] },
+        "connection": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "interval_ms": { "type": "number", "minimum": 0 },
+            "latency": { "type": "integer", "minimum": 0 },
+            "timeout_ms": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "battery_reported": { "type": "boolean", "description": "The device exposes a Battery Level" },
+        "latency_us": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Time between the Bluetooth notification and the USB report being queued",
+          "properties": {
+            "count": { "type": "integer", "minimum": 0 },
+            "avg": { "type": "integer", "minimum": 0 },
+            "p95": { "type": "integer", "minimum": 0 },
+            "max": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "notes": { "type": ["string", "null"], "maxLength": 500, "description": "Optional free text typed by the user" }
+  }
+}

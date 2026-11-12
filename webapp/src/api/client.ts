@@ -9,6 +9,7 @@ import type {
   Backup,
   Device,
   DeviceList,
+  DeviceReport,
   Diagnostics,
   OtaStatus,
   ReportMap,
@@ -177,6 +178,16 @@ export async function forgetDevice(id: string): Promise<void> {
  */
 export function getReportMap(id: string): Promise<ReportMap> {
   return request<ReportMap>('GET', `/api/v1/devices/${id}/report-map`);
+}
+
+/**
+ * Build the compatibility report of a connected device (nothing is sent anywhere by this call).
+ *
+ * @param id Device id.
+ * @returns The report (409 `not_ready` if the device is offline).
+ */
+export function getReport(id: string): Promise<DeviceReport> {
+  return request<DeviceReport>('GET', `/api/v1/devices/${id}/report`);
 }
 
 /** Start a 30 s scan for HID devices. */

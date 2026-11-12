@@ -1,0 +1,19 @@
+# HubBLE device-report collector. Deploy with `npx wrangler deploy` (see README.md).
+name = "hubble-reports"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+
+# Storage: Workers KV. Reports are keyed by their own content hash, so de-duplication is a key lookup, and the
+# per-report summary rides along as key metadata, so the public statistics need no per-report reads.
+# Create the namespace with `npx wrangler kv namespace create REPORTS` and paste the id below.
+[[kv_namespaces]]
+binding = "REPORTS"
+id = "REPLACE_WITH_THE_NAMESPACE_ID"
+
+# Privacy: no request or console logging is kept for this Worker.
+[observability]
+enabled = false
+
+# Secrets (never in this file): set them with `npx wrangler secret put <NAME>`:
+#   ADMIN_TOKEN  bearer token for GET /v1/reports/{id} and GET /v1/export
+#   RATE_SALT    random string mixed into the client hash used by the rate limiter

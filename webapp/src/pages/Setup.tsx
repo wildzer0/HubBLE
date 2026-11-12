@@ -12,7 +12,7 @@ import { useT } from '../i18n/context';
 import { qrSvg, wifiPayload } from '../lib/wifiqr';
 
 /** URL printed on the sticker. */
-const DONGLE_URL = 'http://hubble.local';
+const DONGLE_URL = 'http://192.168.4.1'; // an IP works on every phone; .local does not on Android
 
 /**
  * Printable sticker with both QR codes.
@@ -38,7 +38,9 @@ function Sticker({ ssid, password }: { ssid: string; password: string }) {
         <figcaption>
           {t('setup.qr_url')}
           <br />
-          <strong>hubble.local</strong>
+          <strong>192.168.4.1</strong>
+          <br />
+          <span class="hint">hubble.local</span>
         </figcaption>
       </figure>
     </div>
@@ -88,6 +90,7 @@ export function Setup() {
         <div class="card">
           <h3 class="card-title">{t('setup.sticker')}</h3>
           <p>{t('setup.sticker_hint')}</p>
+          <p class="hint">{t('setup.portal_hint')}</p>
           <Sticker ssid={ssid} password={password} />
           <div class="actions hide-print">
             <button

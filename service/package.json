@@ -1,0 +1,22 @@
+{
+  "name": "hubble-report-service",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cloudflare Worker that collects HubBLE device-compatibility reports and publishes aggregate statistics.",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20261110.1",
+    "prettier": "3.10.0",
+    "typescript": "5.9.3",
+    "vitest": "5.1.0",
+    "wrangler": "4.161.0"
+  }
+}

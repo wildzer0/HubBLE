@@ -393,6 +393,7 @@ static bool build_layout(hogp_t *h) {
     h->boot_fallback = false;
     if (h->map_len > 0) {
         hid_parse_result_t r = hid_parser_parse(h->map, h->map_len, &h->layout);
+        h->parse_result = (int)r;
         ESP_LOGI(TAG, "conn %u: report map %u bytes, parse result %d, %u fields", h->conn, h->map_len, (int)r,
                  h->layout.nfields);
         if (h->layout.nfields > 0) {
@@ -570,6 +571,207 @@ bool hogp_is_keyboard(const hogp_t *h) {
 /** @copydoc hogp_is_pointer */
 bool hogp_is_pointer(const hogp_t *h) {
     return hid_norm_is_pointer(&h->layout);
+}
+
+/* ---- Identification (compatibility report) ------------------------------------------------------ */
+
+#define UUID_GAP_SERVICE  0x1800
+#define UUID_DIS_SERVICE  0x180A
+#define UUID_DEVICE_NAME  0x2A00
+#define UUID_APPEARANCE   0x2A01
+#define UUID_MANUFACTURER 0x2A29
+#define UUID_MODEL_NUMBER 0x2A24
+#define UUID_FW_REVISION  0x2A26
+#define UUID_PNP_ID       0x2A50
+
+/** Identification progress. */
+enum { INFO_IDLE = 0, INFO_SVCS, INFO_GAP_CHRS, INFO_DIS_CHRS, INFO_READ, INFO_DONE };
+/** Which field a queued handle fills. */
+enum { F_NAME = 1, F_APPEARANCE, F_MANUFACTURER, F_MODEL, F_FW_REVISION, F_PNP };
+
+static void info_advance(hogp_t *h);
+
+/** @brief Finish the identification read (also the exit of every failure). */
+static void info_finish(hogp_t *h) {
+    h->info_phase = INFO_DONE;
+    h->info.done = true;
+}
+
+/** @brief GATT callback: all primary services; remember the Generic Access and Device Information ranges. */
+static int on_info_svc(uint16_t conn, const struct ble_gatt_error *err, const struct ble_gatt_svc *svc, void *arg) {
+    (void)conn;
+    hogp_t *h = arg;
+    if (err->status == 0 && svc != NULL) {
+        if (svc->uuid.u.type == BLE_UUID_TYPE_16) {
+            if (BLE_UUID16(&svc->uuid.u)->value == UUID_GAP_SERVICE) {
+                h->info_gap[0] = svc->start_handle;
+                h->info_gap[1] = svc->end_handle;
+            } else if (BLE_UUID16(&svc->uuid.u)->value == UUID_DIS_SERVICE) {
+                h->info_dis[0] = svc->start_handle;
+                h->info_dis[1] = svc->end_handle;
+            }
+        }
+    } else if (err->status == BLE_HS_EDONE) {
+        h->info_phase = INFO_GAP_CHRS;
+        info_advance(h);
+    } else {
+        info_finish(h);
+    }
+    return 0;
+}
+
+/** @brief Field filled by a characteristic UUID inside the given service phase (0 = not wanted). */
+static uint8_t info_field_for(uint8_t phase, uint16_t u) {
+    if (phase == INFO_GAP_CHRS) {
+        return u == UUID_DEVICE_NAME ? F_NAME : (u == UUID_APPEARANCE ? F_APPEARANCE : 0);
+    }
+    switch (u) {
+    case UUID_MANUFACTURER:
+        return F_MANUFACTURER;
+    case UUID_MODEL_NUMBER:
+        return F_MODEL;
+    case UUID_FW_REVISION:
+        return F_FW_REVISION;
+    case UUID_PNP_ID:
+        return F_PNP;
+    default:
+        return 0;
+    }
+}
+
+/** @brief GATT callback: characteristics of the Generic Access or Device Information service. */
+static int on_info_chr(uint16_t conn, const struct ble_gatt_error *err, const struct ble_gatt_chr *chr, void *arg) {
+    (void)conn;
+    hogp_t *h = arg;
+    if (err->status == 0 && chr != NULL) {
+        const uint8_t field =
+            chr->uuid.u.type == BLE_UUID_TYPE_16 ? info_field_for(h->info_phase, BLE_UUID16(&chr->uuid.u)->value) : 0;
+        if (field != 0 && h->info_n < HOGP_INFO_READS && (chr->properties & BLE_GATT_CHR_PROP_READ) != 0) {
+            h->info_handle[h->info_n] = chr->val_handle;
+            h->info_field[h->info_n] = field;
+            h->info_n++;
+        }
+    } else if (err->status == BLE_HS_EDONE) {
+        h->info_phase = h->info_phase == INFO_GAP_CHRS ? INFO_DIS_CHRS : INFO_READ;
+        info_advance(h);
+    } else {
+        info_finish(h);
+    }
+    return 0;
+}
+
+/**
+ * @brief Copy a characteristic value into a bounded printable string.
+ *
+ * @param[out] dst Destination of HOGP_INFO_STR bytes.
+ * @param src Raw bytes.
+ * @param n   Their count.
+ */
+static void info_copy_string(char *dst, const uint8_t *src, size_t n) {
+    size_t o = 0;
+    for (size_t i = 0; i < n && o < HOGP_INFO_STR - 1; i++) {
+        if (src[i] >= 0x20 && src[i] < 0x7F) {
+            dst[o++] = (char)src[i];
+        }
+    }
+    dst[o] = '\0';
+}
+
+/** @brief GATT callback: one identification characteristic was read. */
+static int on_info_read(uint16_t conn, const struct ble_gatt_error *err, struct ble_gatt_attr *attr, void *arg) {
+    (void)conn;
+    hogp_t *h = arg;
+    uint8_t buf[24];
+    if (err->status == 0 && attr != NULL && attr->om != NULL) {
+        size_t n = OS_MBUF_PKTLEN(attr->om);
+        if (n > sizeof(buf)) {
+            n = sizeof(buf);
+        }
+        if (os_mbuf_copydata(attr->om, 0, (int)n, buf) == 0) {
+            switch (h->info_field[h->info_i]) {
+            case F_NAME:
+                info_copy_string(h->info.device_name, buf, n);
+                break;
+            case F_MANUFACTURER:
+                info_copy_string(h->info.manufacturer, buf, n);
+                break;
+            case F_MODEL:
+                info_copy_string(h->info.model, buf, n);
+                break;
+            case F_FW_REVISION:
+                info_copy_string(h->info.fw_revision, buf, n);
+                break;
+            case F_APPEARANCE:
+                if (n >= 2) {
+                    h->info.appearance = (uint16_t)(buf[0] | (buf[1] << 8));
+                    h->info.has_appearance = true;
+                }
+                break;
+            case F_PNP:
+                if (n >= 7) {
+                    h->info.pnp_source = buf[0];
+                    h->info.pnp_vendor = (uint16_t)(buf[1] | (buf[2] << 8));
+                    h->info.pnp_product = (uint16_t)(buf[3] | (buf[4] << 8));
+                    h->info.pnp_version = (uint16_t)(buf[5] | (buf[6] << 8));
+                    h->info.has_pnp = true;
+                }
+                break;
+            default:
+                break;
+            }
+        }
+    }
+    h->info_i++; /* An unreadable characteristic is skipped. */
+    info_advance(h);
+    return 0;
+}
+
+/** @brief Issue the next procedure of the identification read. */
+static void info_advance(hogp_t *h) {
+    int rc = 0;
+    for (;;) {
+        switch (h->info_phase) {
+        case INFO_GAP_CHRS:
+            if (h->info_gap[0] == 0) {
+                h->info_phase = INFO_DIS_CHRS;
+                continue;
+            }
+            rc = ble_gattc_disc_all_chrs(h->conn, h->info_gap[0], h->info_gap[1], on_info_chr, h);
+            goto issued;
+        case INFO_DIS_CHRS:
+            if (h->info_dis[0] == 0) {
+                h->info_phase = INFO_READ;
+                continue;
+            }
+            rc = ble_gattc_disc_all_chrs(h->conn, h->info_dis[0], h->info_dis[1], on_info_chr, h);
+            goto issued;
+        case INFO_READ:
+            if (h->info_i >= h->info_n) {
+                info_finish(h);
+                return;
+            }
+            rc = ble_gattc_read(h->conn, h->info_handle[h->info_i], on_info_read, h);
+            goto issued;
+        default:
+            info_finish(h);
+            return;
+        }
+    }
+issued:
+    if (rc != 0) {
+        info_finish(h); /* Busy or refused: this information is optional. */
+    }
+}
+
+/** @copydoc hogp_read_info */
+void hogp_read_info(hogp_t *h) {
+    if (h->state != HOGP_READY || h->info_phase != INFO_IDLE) {
+        return;
+    }
+    h->info_phase = INFO_SVCS;
+    if (ble_gattc_disc_all_svcs(h->conn, on_info_svc, h) != 0) {
+        info_finish(h);
+    }
 }
 
 /** @copydoc hogp_write_leds */

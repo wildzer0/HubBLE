@@ -21,6 +21,7 @@
 
 #include "esp_err.h"
 #include "hid_parser.h"
+#include "hogp_client.h"
 #include "lat_stats.h"
 #include "pairing.h"
 
@@ -276,6 +277,29 @@ void ble_central_write_leds(uint8_t leds);
  * @return Count.
  */
 unsigned ble_central_connected_count(void);
+
+/** What the dongle knows about one connected device, for the compatibility report (no keystrokes, no address). */
+typedef struct {
+    bool keyboard;          /**< Classified as a keyboard. */
+    bool pointer;           /**< Has pointer axes. */
+    bool boot_fallback;     /**< Using the boot keyboard layout. */
+    int parse_result;       /**< hid_parse_result_t of its Report Map (0 = OK). */
+    unsigned fields;        /**< Fields found in the Report Map. */
+    uint16_t primary_page;  /**< Usage page of the first top-level collection. */
+    uint16_t primary_usage; /**< Its usage. */
+    bool battery_reported;  /**< Exposes a Battery Level. */
+    sec_level_t security;   /**< Security level of the bond. */
+    hogp_info_t info;       /**< Identification strings read from the device. */
+} ble_report_info_t;
+
+/**
+ * @brief Collect the report information of a connected, ready device.
+ *
+ * @param slot Device slot.
+ * @param[out] out Receives the information.
+ * @return false if the slot is not a connected, ready device.
+ */
+bool ble_central_get_report_info(unsigned slot, ble_report_info_t *out);
 
 /**
  * @brief Number of registered (bonded) devices.

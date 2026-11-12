@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { ApiError, forgetDevice, getDevice, getReportMap, renameDevice } from '../api/client';
 import { ConfirmButton } from '../components/ConfirmButton';
+import { ReportCard } from '../components/ReportCard';
 import { SecurityBadge } from '../components/SecurityBadge';
 import { Alert, Icon, Pill } from '../components/ui';
 import { useT } from '../i18n/context';
@@ -216,6 +217,8 @@ export function DeviceDetail({ id }: { id: string }) {
           {t('device.export')}
         </button>
       </section>
+
+      <ReportCard id={id} connected={d.connected} />
 
       <section class="card" aria-labelledby="forget-h">
         <h3 class="card-title" id="forget-h">

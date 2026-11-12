@@ -28,6 +28,27 @@ extern "C" {
 /** Largest Report Map kept; longer maps are truncated (the parser then reports TRUNCATED but keeps the fields). */
 #define HOGP_MAP_MAX 640
 
+/** Longest identification string kept (including the terminating NUL). */
+#define HOGP_INFO_STR 32
+/** Characteristics read for the compatibility report (Generic Access + Device Information). */
+#define HOGP_INFO_READS 6
+
+/** What the peripheral says about itself (Generic Access and Device Information services); all optional. */
+typedef struct {
+    bool done;                        /**< The read finished (successfully or not). */
+    bool has_appearance;              /**< @c appearance is valid. */
+    uint16_t appearance;              /**< GAP appearance. */
+    char device_name[HOGP_INFO_STR];  /**< GAP Device Name (the name the device advertises, not a user rename). */
+    char manufacturer[HOGP_INFO_STR]; /**< Manufacturer Name String. */
+    char model[HOGP_INFO_STR];        /**< Model Number String. */
+    char fw_revision[HOGP_INFO_STR];  /**< Firmware Revision String. */
+    bool has_pnp;                     /**< The PnP ID fields are valid. */
+    uint8_t pnp_source;               /**< Vendor ID source (1 = Bluetooth SIG, 2 = USB-IF). */
+    uint16_t pnp_vendor;              /**< Vendor ID. */
+    uint16_t pnp_product;             /**< Product ID. */
+    uint16_t pnp_version;             /**< Product version. */
+} hogp_info_t;
+
 /** Discovery progress. */
 typedef enum {
     HOGP_IDLE = 0, /**< Not started. */
@@ -69,25 +90,34 @@ typedef struct {
 
 /** Per-connection client state. Treat as opaque outside hogp_client.c except for the documented fields. */
 typedef struct hogp {
-    uint16_t conn;                   /**< NimBLE connection handle. */
-    hogp_state_t state;              /**< Discovery progress. */
-    hogp_cbs_t cbs;                  /**< Owner callbacks. */
-    void *ctx;                       /**< Owner context passed to callbacks. */
-    uint16_t svc_start;              /**< HID service start handle. */
-    uint16_t svc_end;                /**< HID service end handle. */
-    hogp_chr_t chrs[HOGP_MAX_CHARS]; /**< Discovered characteristics. */
-    uint8_t nchrs;                   /**< Entries in @c chrs. */
-    uint8_t step;                    /**< Index used by the per-characteristic phases. */
-    uint8_t phase;                   /**< Internal state-machine phase. */
-    uint16_t map_handle;             /**< Report Map value handle (0 if absent). */
-    uint8_t map[HOGP_MAP_MAX];       /**< Raw Report Map bytes. */
-    uint16_t map_len;                /**< Bytes stored in @c map. */
-    hid_layout_t layout;             /**< Parsed layout (valid once state == HOGP_READY). */
-    bool boot_fallback;              /**< Using the boot keyboard layout because no Report Map was usable. */
-    uint16_t bas_start;              /**< Battery service start handle (0 if absent). */
-    uint16_t bas_end;                /**< Battery service end handle. */
-    uint16_t bas_level_handle;       /**< Battery Level value handle (0 if absent). */
-    uint16_t bas_ccc_handle;         /**< Battery Level CCC handle. */
+    uint16_t conn;                         /**< NimBLE connection handle. */
+    hogp_state_t state;                    /**< Discovery progress. */
+    hogp_cbs_t cbs;                        /**< Owner callbacks. */
+    void *ctx;                             /**< Owner context passed to callbacks. */
+    uint16_t svc_start;                    /**< HID service start handle. */
+    uint16_t svc_end;                      /**< HID service end handle. */
+    hogp_chr_t chrs[HOGP_MAX_CHARS];       /**< Discovered characteristics. */
+    uint8_t nchrs;                         /**< Entries in @c chrs. */
+    uint8_t step;                          /**< Index used by the per-characteristic phases. */
+    uint8_t phase;                         /**< Internal state-machine phase. */
+    uint16_t map_handle;                   /**< Report Map value handle (0 if absent). */
+    uint8_t map[HOGP_MAP_MAX];             /**< Raw Report Map bytes. */
+    uint16_t map_len;                      /**< Bytes stored in @c map. */
+    hid_layout_t layout;                   /**< Parsed layout (valid once state == HOGP_READY). */
+    bool boot_fallback;                    /**< Using the boot keyboard layout because no Report Map was usable. */
+    uint16_t bas_start;                    /**< Battery service start handle (0 if absent). */
+    uint16_t bas_end;                      /**< Battery service end handle. */
+    uint16_t bas_level_handle;             /**< Battery Level value handle (0 if absent). */
+    uint16_t bas_ccc_handle;               /**< Battery Level CCC handle. */
+    int parse_result;                      /**< hid_parse_result_t of the Report Map (0 = OK). */
+    hogp_info_t info;                      /**< Identification strings, read after the device is ready. */
+    uint8_t info_phase;                    /**< Internal progress of the identification read. */
+    uint8_t info_n;                        /**< Characteristics queued for reading. */
+    uint8_t info_i;                        /**< Next one to read. */
+    uint16_t info_gap[2];                  /**< Generic Access service handle range (0 = absent). */
+    uint16_t info_dis[2];                  /**< Device Information service handle range (0 = absent). */
+    uint16_t info_handle[HOGP_INFO_READS]; /**< Value handles queued for reading. */
+    uint8_t info_field[HOGP_INFO_READS];   /**< Which field each handle fills. */
 } hogp_t;
 
 /**
@@ -129,6 +159,17 @@ bool hogp_is_battery(const hogp_t *h, uint16_t attr_handle);
  * @param h Client.
  */
 void hogp_read_battery(hogp_t *h);
+
+/**
+ * @brief Read the device's identification (Generic Access name and appearance, Device Information strings and PnP ID).
+ *
+ * Best effort and strictly after the device is ready, so a device that lacks these services or answers badly is never
+ * affected: every failure simply ends the read. The result accumulates in @c h->info; @c info.done tells when it is
+ * complete. Does nothing if the client is not ready or the read already started.
+ *
+ * @param h Client.
+ */
+void hogp_read_info(hogp_t *h);
 
 /**
  * @brief Write the keyboard LED state to the device (no-op if the device has no LED output).

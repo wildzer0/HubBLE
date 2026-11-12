@@ -296,6 +296,8 @@ export interface Settings {
   sta_configured: boolean;
   /** A key press, click or movement wakes the suspended host. */
   remote_wakeup: boolean;
+  /** Joining the Wi-Fi pops up this page (captive portal). Off by default; always on until the setup wizard is done. */
+  portal_auto: boolean;
   /** LED brightness in percent; 0 turns the status LED off. */
   led_brightness: number;
   /** Show dim green while a device is connected. */
@@ -354,4 +356,40 @@ export interface WifiNetwork {
   rssi: number;
   /** True if the network needs a password. */
   secure: boolean;
+}
+
+/** Compatibility report (`GET /api/v1/devices/{id}/report`, schema `docs/api/device-report.schema.json`). */
+export interface DeviceReport {
+  format: 'hubble-device-report';
+  version: 1;
+  firmware: { version: string; board: string };
+  device: {
+    kind: 'keyboard' | 'pointer' | 'unknown';
+    adv_name: string | null;
+    appearance: number | null;
+    manufacturer: string | null;
+    model: string | null;
+    fw_revision: string | null;
+    pnp: {
+      vendor_id_source: number;
+      vendor_id: number;
+      product_id: number;
+      version: number;
+    } | null;
+    report_map_hex: string;
+    parse: {
+      result: number;
+      fields: number;
+      boot_fallback: boolean;
+      primary_page: number;
+      primary_usage: number;
+      has_pointer: boolean;
+    };
+    security: SecurityLevel;
+    connection: { interval_ms: number; latency: number; timeout_ms: number };
+    battery_reported: boolean;
+    latency_us: { count: number; avg: number; p95: number; max: number };
+  };
+  /** Optional text the user typed. */
+  notes?: string | null;
 }

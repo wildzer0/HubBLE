@@ -6,6 +6,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Compatibility reports: **Prepare a report** on a device's page shows exactly what would be shared (report map, identifiers
+  read from the device's Generic Access and Device Information services, connection values, latency) and lets you download
+  or send it. `GET /api/v1/devices/{id}/report`, schema in `docs/api/device-report.schema.json`.
+- `service/`: a Cloudflare Worker that collects the reports, validates them, de-duplicates and rate-limits, and publishes
+  aggregate statistics; `docs/compatibility.md` and `tools/build_compat_page.py` turn them into a public table.
+- Low-battery warning (20 % or less) on the Devices page, with a badge on the card.
+- Setting *Open this page when joining the Wi-Fi*.
+
+### Changed
+
+- Joining the Wi-Fi no longer pops up the page by default after the setup: the dongle answers the operating systems'
+  connectivity probes as if the network had internet, so the phone stays connected. The QR code of the sticker now opens
+  `http://192.168.4.1`. The pop-up stays on during the first-run setup.
+- Cooler: CPU at 80 MHz and the background reconnect scan at 15 % duty.
+
 ## [1.1.7] - 2026-11-12
 
 ### Fixed
