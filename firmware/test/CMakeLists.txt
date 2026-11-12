@@ -82,3 +82,10 @@ hubble_add_test(test_ota_manifest unit/test_ota_manifest.c ${COMP}/ota_manifest/
 target_include_directories(test_ota_manifest PRIVATE ${COMP}/ota_manifest/include ${COMP}/semver/include)
 target_include_directories(test_ota_manifest PRIVATE ${cjson_SOURCE_DIR})
 target_link_libraries(test_ota_manifest PRIVATE cjson)
+
+# --- M7 pure-logic components ---------------------------------------------------
+hubble_add_test(test_power_policy unit/test_power_policy.c ${COMP}/power/power_policy.c)
+target_include_directories(test_power_policy PRIVATE ${COMP}/power/include)
+
+hubble_add_test(test_led_pattern unit/test_led_pattern.c ${COMP}/led/led_pattern.c)
+target_include_directories(test_led_pattern PRIVATE ${COMP}/led/include)

@@ -20,6 +20,14 @@ void ap_policy_init(ap_policy_t *p, const ap_policy_config_t *cfg) {
 ap_policy_decision_t ap_policy_step(ap_policy_t *p, const ap_policy_inputs_t *in) {
     ap_policy_decision_t d = {.ap_on = true, .remaining_s = -1};
 
+    /* Host asleep (CLAUDE.md §3.9): the AP is off, even with no bonds. Only a running OTA keeps it up. The clocks keep
+     * running, so a boot window that has not expired is still there after the resume. */
+    if (in->host_suspended && !in->ota_active) {
+        d.ap_on = false;
+        d.remaining_s = 0;
+        return d;
+    }
+
     /* Rule 1: no bonds yet (first-run convenience) or OTA running: always on, no countdown.
      * The idle timer restarts when this condition ends, so the AP does not vanish mid-session. */
     if (in->bonded_devices == 0 || in->ota_active) {

@@ -19,6 +19,7 @@
 #include <stdbool.h>
 
 #include "esp_err.h"
+#include "power_policy.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -44,6 +45,13 @@ esp_err_t bridge_init(void (*on_changed)(int slot));
  * @param emit   Receives the `data` JSON object of each event (called on the tap task).
  */
 void bridge_set_input_tap(bool (*active)(void), void (*emit)(const char *json));
+
+/**
+ * @brief Current power mode (low while the host has been suspended for longer than the debounce time).
+ *
+ * @return POWER_ACTIVE or POWER_LOW.
+ */
+power_mode_t bridge_power_mode(void);
 
 #ifdef __cplusplus
 }

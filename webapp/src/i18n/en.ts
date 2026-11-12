@@ -245,6 +245,19 @@ export const en = {
   'online.error.install_failed':
     'The image was rejected (invalid or wrongly signed) and was not installed.',
   'online.error.busy': 'Another update operation is running.',
+  'settings.power': 'Power',
+  'settings.remote_wakeup': 'Wake the computer from sleep with the devices',
+  'settings.remote_wakeup_hint':
+    'A key press, click or movement wakes a sleeping computer. The first event is used only to wake it and is not forwarded. Some computers or BIOS settings disable USB wake-up.',
+  'settings.led': 'LED',
+  'settings.led_brightness': 'LED brightness (0-100 %, 0 = off)',
+  'settings.status_led': 'Show dim green while a device is connected',
+  'settings.shift_hold': 'Hold both Shift keys for (s)',
+  'settings.led_hint':
+    'The LED is always off while the computer sleeps. The Shift time applies after the next restart of the dongle.',
+  'system.power': 'Power',
+  'system.power_active': 'Full speed',
+  'system.power_low': 'Low power (computer asleep)',
 } as const;
 
 /** Union of all valid translation keys. */

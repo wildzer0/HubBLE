@@ -22,6 +22,10 @@ static const char *TAG = "settings";
 #define KEY_STA_SSID    "sta_ssid"
 #define KEY_STA_PASS    "sta_pass"
 #define KEY_CHANNEL     "upd_pre"
+#define KEY_REM_WAKE    "rem_wake"
+#define KEY_LED_BRIGHT  "led_pct"
+#define KEY_STATUS_LED  "led_status"
+#define KEY_SHIFT_HOLD  "shift_ms"
 #define KEY_BOOT_WIN    "boot_win_s"
 #define KEY_IDLE_TMO    "idle_tmo_s"
 #define KEY_BOOT_FAIL   "boot_fail"
@@ -220,6 +224,78 @@ esp_err_t settings_set_prerelease_channel(bool prerelease) {
         return ESP_ERR_INVALID_STATE;
     }
     esp_err_t err = nvs_set_u8(s_nvs, KEY_CHANNEL, prerelease ? 1 : 0);
+    return err == ESP_OK ? nvs_commit(s_nvs) : err;
+}
+
+/** @brief Read a boolean setting stored as u8. */
+static bool get_flag(const char *key, bool def) {
+    uint8_t v = def ? 1 : 0;
+    if (s_ready && nvs_get_u8(s_nvs, key, &v) != ESP_OK) {
+        v = def ? 1 : 0;
+    }
+    return v != 0;
+}
+
+/** @brief Store a boolean setting as u8. */
+static esp_err_t set_flag(const char *key, bool value) {
+    if (!s_ready) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    esp_err_t err = nvs_set_u8(s_nvs, key, value ? 1 : 0);
+    return err == ESP_OK ? nvs_commit(s_nvs) : err;
+}
+
+/** @copydoc settings_get_remote_wakeup */
+bool settings_get_remote_wakeup(void) {
+    return get_flag(KEY_REM_WAKE, true);
+}
+
+/** @copydoc settings_set_remote_wakeup */
+esp_err_t settings_set_remote_wakeup(bool enabled) {
+    return set_flag(KEY_REM_WAKE, enabled);
+}
+
+/** @copydoc settings_get_status_led */
+bool settings_get_status_led(void) {
+    return get_flag(KEY_STATUS_LED, false);
+}
+
+/** @copydoc settings_set_status_led */
+esp_err_t settings_set_status_led(bool enabled) {
+    return set_flag(KEY_STATUS_LED, enabled);
+}
+
+/** @copydoc settings_get_led_brightness */
+uint8_t settings_get_led_brightness(void) {
+    return (uint8_t)get_u32(KEY_LED_BRIGHT, SETTINGS_LED_BRIGHTNESS_DEFAULT);
+}
+
+/** @copydoc settings_set_led_brightness */
+esp_err_t settings_set_led_brightness(uint32_t percent) {
+    if (percent > SETTINGS_LED_BRIGHTNESS_MAX) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!s_ready) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    esp_err_t err = nvs_set_u32(s_nvs, KEY_LED_BRIGHT, percent);
+    return err == ESP_OK ? nvs_commit(s_nvs) : err;
+}
+
+/** @copydoc settings_get_shift_hold_ms */
+uint32_t settings_get_shift_hold_ms(void) {
+    return get_u32(KEY_SHIFT_HOLD, SETTINGS_SHIFT_HOLD_DEFAULT_MS);
+}
+
+/** @copydoc settings_set_shift_hold_ms */
+esp_err_t settings_set_shift_hold_ms(uint32_t ms) {
+    if (ms < SETTINGS_SHIFT_HOLD_MIN_MS || ms > SETTINGS_SHIFT_HOLD_MAX_MS) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!s_ready) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    esp_err_t err = nvs_set_u32(s_nvs, KEY_SHIFT_HOLD, ms);
     return err == ESP_OK ? nvs_commit(s_nvs) : err;
 }
 

@@ -130,6 +130,13 @@ void ota_selftest_start(void);
  */
 const char *ota_result_text(ota_result_t r);
 
+/**
+ * @brief Whether an install session (file upload or online download) is open.
+ *
+ * @return true while a session is running (used by the status LED).
+ */
+bool ota_session_active(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -290,6 +290,19 @@ unsigned ble_central_bonded_count(void);
  */
 bool ble_central_has_keyboard(void);
 
+/**
+ * @brief Change the connection parameters requested from every peripheral (power management, CLAUDE.md §3.9).
+ *
+ * The profile is remembered and used for new connections too. Connected peripherals receive a connection update at
+ * once; a peripheral may refuse or take a moment to apply it. The active profile is the Kconfig one
+ * (7.5 ms by default); the low-power one has a long interval and a high peripheral latency.
+ *
+ * @param itvl_units   Connection interval, 1.25 ms units.
+ * @param latency      Peripheral latency.
+ * @param timeout_10ms Supervision timeout, 10 ms units.
+ */
+void ble_central_set_conn_profile(uint16_t itvl_units, uint16_t latency, uint16_t timeout_10ms);
+
 #ifdef __cplusplus
 }
 #endif

@@ -140,6 +140,8 @@ export interface Diagnostics {
   usb_state: UsbState;
   /** BLE stack facts. */
   ble: { ready: boolean; connected: number; bonded: number };
+  /** Power management state. */
+  power: { mode: 'active' | 'low'; remote_wakeup: boolean };
   /** Keyboard LED bits last sent by the host (Num/Caps/Scroll Lock). */
   keyboard_leds?: number;
   /** Wi-Fi AP facts. */
@@ -288,6 +290,14 @@ export interface Settings {
   update_channel: 'stable' | 'prerelease';
   /** True when Wi-Fi credentials for updates are saved (the credentials themselves are never returned). */
   sta_configured: boolean;
+  /** A key press, click or movement wakes the suspended host. */
+  remote_wakeup: boolean;
+  /** LED brightness in percent; 0 turns the status LED off. */
+  led_brightness: number;
+  /** Show dim green while a device is connected. */
+  status_led: boolean;
+  /** Hold time of the both-Shift gesture in ms (applies from the next boot). */
+  shift_hold_ms: number;
 }
 
 /** Response of `GET /api/v1/devices/{id}/report-map`. */

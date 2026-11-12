@@ -15,6 +15,9 @@ import { useApi } from '../lib/useApi';
 /** Allowed range of the AP windows, seconds (matches the firmware limits). */
 const WINDOW_MIN_S = 30;
 const WINDOW_MAX_S = 86400;
+/** Allowed hold time of the both-Shift gesture, ms. */
+const SHIFT_MIN_MS = 1000;
+const SHIFT_MAX_MS = 10000;
 /** Longest Wi-Fi network name. */
 const STA_SSID_MAX = 32;
 
@@ -137,7 +140,13 @@ export function Settings({ locale, onLocale }: { locale: Locale; onLocale: (l: L
   }
 
   const valid = (v: number) => Number.isInteger(v) && v >= WINDOW_MIN_S && v <= WINDOW_MAX_S;
-  const ok = valid(form.ap_boot_window_s) && valid(form.ap_idle_timeout_s);
+  const ledOk =
+    Number.isInteger(form.led_brightness) && form.led_brightness >= 0 && form.led_brightness <= 100;
+  const shiftOk =
+    Number.isInteger(form.shift_hold_ms) &&
+    form.shift_hold_ms >= SHIFT_MIN_MS &&
+    form.shift_hold_ms <= SHIFT_MAX_MS;
+  const ok = valid(form.ap_boot_window_s) && valid(form.ap_idle_timeout_s) && ledOk && shiftOk;
   const save = async () => {
     try {
       setForm(await putSettings(form));
@@ -199,6 +208,78 @@ export function Settings({ locale, onLocale }: { locale: Locale; onLocale: (l: L
           {t('settings.window_hint', { min: WINDOW_MIN_S, max: WINDOW_MAX_S })}{' '}
           {t('settings.restart_hint')}
         </p>
+
+        <h3>{t('settings.power')}</h3>
+        <p>
+          <label>
+            <input
+              type="checkbox"
+              checked={form.remote_wakeup}
+              onChange={(e) => {
+                setForm({ ...form, remote_wakeup: e.currentTarget.checked });
+                setMsg(null);
+              }}
+            />{' '}
+            {t('settings.remote_wakeup')}
+          </label>
+        </p>
+        <p class="muted">{t('settings.remote_wakeup_hint')}</p>
+
+        <h3>{t('settings.led')}</h3>
+        <p>
+          <label>
+            {t('settings.led_brightness')}{' '}
+            <input
+              id="led-brightness"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={100}
+              value={form.led_brightness}
+              aria-invalid={!ledOk}
+              onInput={(e) => {
+                setForm({ ...form, led_brightness: e.currentTarget.valueAsNumber });
+                setMsg(null);
+              }}
+            />
+          </label>
+        </p>
+        <p>
+          <label>
+            <input
+              type="checkbox"
+              checked={form.status_led}
+              onChange={(e) => {
+                setForm({ ...form, status_led: e.currentTarget.checked });
+                setMsg(null);
+              }}
+            />{' '}
+            {t('settings.status_led')}
+          </label>
+        </p>
+        <p>
+          <label>
+            {t('settings.shift_hold')}{' '}
+            <input
+              id="shift-hold"
+              type="number"
+              inputMode="numeric"
+              min={SHIFT_MIN_MS / 1000}
+              max={SHIFT_MAX_MS / 1000}
+              step={0.5}
+              value={form.shift_hold_ms / 1000}
+              aria-invalid={!shiftOk}
+              onInput={(e) => {
+                setForm({
+                  ...form,
+                  shift_hold_ms: Math.round(e.currentTarget.valueAsNumber * 1000),
+                });
+                setMsg(null);
+              }}
+            />
+          </label>
+        </p>
+        <p class="muted">{t('settings.led_hint')}</p>
 
         <h3>{t('settings.updates')}</h3>
         <p>

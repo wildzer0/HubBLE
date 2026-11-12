@@ -30,6 +30,10 @@ describe('backup parsing', () => {
       ...good.settings,
       update_channel: 'stable',
       sta_configured: false,
+      remote_wakeup: true,
+      led_brightness: 25,
+      status_led: false,
+      shift_hold_ms: 3000,
     });
     const pre = { ...good, settings: { ...good.settings, update_channel: 'prerelease' } };
     expect(parseBackup(JSON.stringify(pre))?.settings.update_channel).toBe('prerelease');

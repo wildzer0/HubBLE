@@ -9,6 +9,7 @@
 
 #include "ble_central.h"
 #include "ota_online.h"
+#include "power_policy.h"
 #include "combo.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -47,7 +48,15 @@ typedef struct {
     hid_norm_event_t ev; /**< The decoded event. */
 } tap_item_t;
 
+/** Power task period when no USB event wakes it earlier, ms (it also drives the suspend debounce). */
+#define POWER_POLL_MS 250
+/** Power task stack and priority. */
+#define POWER_TASK_STACK 3072
+#define POWER_TASK_PRIO  5
+
 static void (*s_on_changed)(int slot);
+static TaskHandle_t s_power_task;
+static volatile power_mode_t s_power_mode = POWER_ACTIVE;
 static bool (*s_tap_active)(void);
 static void (*s_tap_emit)(const char *json);
 static QueueHandle_t s_tap_queue;
@@ -142,7 +151,7 @@ static void on_changed(int slot) {
 static void combo_task(void *arg) {
     (void)arg;
     combo_t combo;
-    combo_init(&combo, 0); /* Hold time becomes a setting in M5. */
+    combo_init(&combo, settings_get_shift_hold_ms()); /* Setting; applies from the next boot. */
     for (;;) {
         vTaskDelay(pdMS_TO_TICKS(COMBO_POLL_MS));
         hid_kbd_report_t k;
@@ -229,11 +238,75 @@ void bridge_set_input_tap(bool (*active)(void), void (*emit)(const char *json)) 
     s_tap_emit = emit;
 }
 
+/**
+ * @brief USB state changed (TinyUSB task): wake the power task so a resume is handled at once.
+ *
+ * @param state New USB state (unused: the task re-reads it).
+ */
+static void on_usb_state(usb_state_t state) {
+    (void)state;
+    if (s_power_task != NULL) {
+        xTaskNotifyGive(s_power_task);
+    }
+}
+
+/**
+ * @brief Apply a power mode: BLE connection profile, AP policy input. (The LED reads the mode on its own.)
+ *
+ * @param mode New mode.
+ */
+static void apply_power_mode(power_mode_t mode) {
+    if (mode == POWER_LOW) {
+        const power_profile_t p =
+            power_low_profile(CONFIG_HUBBLE_POWER_LOW_ITVL_UNITS, CONFIG_HUBBLE_POWER_LOW_LATENCY);
+        ESP_LOGI(TAG, "host suspended: low-power mode");
+        ble_central_set_conn_profile(p.itvl_units, p.latency, p.timeout_10ms);
+        wifi_ap_set_host_suspended(true);
+    } else {
+        ESP_LOGI(TAG, "host awake: full speed");
+        ble_central_set_conn_profile(CONFIG_HUBBLE_BLE_CONN_ITVL_UNITS, CONFIG_HUBBLE_BLE_CONN_LATENCY,
+                                     CONFIG_HUBBLE_BLE_SUPERVISION_TIMEOUT_10MS);
+        wifi_ap_set_host_suspended(false);
+    }
+}
+
+/**
+ * @brief Power task (CLAUDE.md §3.9): follow the USB suspend state.
+ *
+ * Suspend enters low power after a debounce; resume restores the 7.5 ms profile immediately (the USB event wakes the
+ * task through a notification).
+ *
+ * @param arg Unused.
+ */
+static void power_task(void *arg) {
+    (void)arg;
+    power_tracker_t t;
+    power_tracker_init(&t, CONFIG_HUBBLE_POWER_SUSPEND_DELAY_MS);
+    for (;;) {
+        ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(POWER_POLL_MS));
+        const bool suspended = usb_hid_get_state() == USB_STATE_SUSPENDED;
+        const power_mode_t mode = power_tracker_step(&t, (uint64_t)(esp_timer_get_time() / 1000), suspended);
+        if (mode != s_power_mode) {
+            s_power_mode = mode;
+            apply_power_mode(mode);
+        }
+    }
+}
+
+/** @copydoc bridge_power_mode */
+power_mode_t bridge_power_mode(void) {
+    return s_power_mode;
+}
+
 /** @copydoc bridge_init */
 esp_err_t bridge_init(void (*on_changed_cb)(int slot)) {
     s_on_changed = on_changed_cb;
     const ble_central_cbs_t cbs = {.on_report = on_report, .on_link = on_link, .on_changed = on_changed};
     usb_hid_set_leds_callback(on_host_leds);
+    usb_hid_set_state_callback(on_usb_state);
+    if (xTaskCreate(power_task, "power", POWER_TASK_STACK, NULL, POWER_TASK_PRIO, &s_power_task) != pdPASS) {
+        return ESP_ERR_NO_MEM;
+    }
     if (s_tap_emit != NULL) {
         s_tap_queue = xQueueCreate(TAP_QUEUE_LEN, sizeof(tap_item_t));
         if (s_tap_queue == NULL ||

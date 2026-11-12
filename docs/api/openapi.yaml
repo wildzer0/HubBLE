@@ -193,7 +193,7 @@ paths:
         '200': { $ref: '#/components/responses/Ok' }
   /api/v1/settings:
     get:
-      summary: Settings (`require_confirmation`, `ap_boot_window_s`, `ap_idle_timeout_s`, `update_channel`, `sta_configured`; never secrets)
+      summary: Settings (`require_confirmation`, `ap_boot_window_s`, `ap_idle_timeout_s`, `update_channel`, `sta_configured`, `remote_wakeup`, `led_brightness` 0-100, `status_led`, `shift_hold_ms` 1000-10000; never secrets)
       description: The AP times (30..86400 s) apply from the next restart.
       responses:
         '200': { description: Settings }

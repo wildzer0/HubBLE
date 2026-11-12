@@ -104,6 +104,13 @@ static volatile bool s_synced;               /**< Host synchronised with the con
 static bool s_bg_active;                     /**< A background connect is in progress. */
 static uint8_t s_own_addr_type;              /**< Own address type from ble_hs_id_infer_auto(). */
 static volatile uint8_t s_leds;              /**< Last keyboard LED state from the host. */
+/** Connection parameters currently requested (7.5 ms profile until the power task asks otherwise). */
+static struct {
+    uint16_t itvl;
+    uint16_t latency;
+    uint16_t timeout;
+} s_profile = {CONFIG_HUBBLE_BLE_CONN_ITVL_UNITS, CONFIG_HUBBLE_BLE_CONN_LATENCY,
+               CONFIG_HUBBLE_BLE_SUPERVISION_TIMEOUT_10MS};
 static esp_timer_handle_t s_pair_timer;      /**< 1 s tick driving the pairing timeouts and the lock. */
 static esp_timer_handle_t s_reconnect_timer; /**< Delayed reconcile after a disconnect. */
 static esp_timer_handle_t s_stats_timer;     /**< Periodic RSSI/parameter refresh. */
@@ -178,10 +185,10 @@ static void conn_params(struct ble_gap_conn_params *p) {
     memset(p, 0, sizeof(*p));
     p->scan_itvl = SCAN_ITVL;
     p->scan_window = SCAN_WINDOW;
-    p->itvl_min = CONFIG_HUBBLE_BLE_CONN_ITVL_UNITS;
-    p->itvl_max = CONFIG_HUBBLE_BLE_CONN_ITVL_UNITS;
-    p->latency = CONFIG_HUBBLE_BLE_CONN_LATENCY;
-    p->supervision_timeout = CONFIG_HUBBLE_BLE_SUPERVISION_TIMEOUT_10MS;
+    p->itvl_min = s_profile.itvl;
+    p->itvl_max = s_profile.itvl;
+    p->latency = s_profile.latency;
+    p->supervision_timeout = s_profile.timeout;
 }
 
 /**
@@ -372,10 +379,10 @@ static void on_connected(uint16_t conn_handle, void *arg) {
 
     /* Ask for the target interval (the central may set it directly), then encrypt. For a bonded device this
      * re-uses the stored LTK; for the pairing candidate it starts bonding. */
-    struct ble_gap_upd_params up = {.itvl_min = CONFIG_HUBBLE_BLE_CONN_ITVL_UNITS,
-                                    .itvl_max = CONFIG_HUBBLE_BLE_CONN_ITVL_UNITS,
-                                    .latency = CONFIG_HUBBLE_BLE_CONN_LATENCY,
-                                    .supervision_timeout = CONFIG_HUBBLE_BLE_SUPERVISION_TIMEOUT_10MS};
+    struct ble_gap_upd_params up = {.itvl_min = s_profile.itvl,
+                                    .itvl_max = s_profile.itvl,
+                                    .latency = s_profile.latency,
+                                    .supervision_timeout = s_profile.timeout};
     ble_gap_update_params(conn_handle, &up);
     int rc = ble_gap_security_initiate(conn_handle);
     if (rc != 0) {
@@ -1191,6 +1198,33 @@ unsigned ble_central_connected_count(void) {
     }
     UNLOCK();
     return n;
+}
+
+/** @copydoc ble_central_set_conn_profile */
+void ble_central_set_conn_profile(uint16_t itvl_units, uint16_t latency, uint16_t timeout_10ms) {
+    uint16_t handles[BLE_CENTRAL_MAX_DEVICES];
+    size_t n = 0;
+    LOCK();
+    s_profile.itvl = itvl_units;
+    s_profile.latency = latency;
+    s_profile.timeout = timeout_10ms;
+    for (int i = 0; i < BLE_CENTRAL_MAX_DEVICES; i++) {
+        if (s_dev[i].conn != NO_CONN) {
+            handles[n++] = s_dev[i].conn;
+        }
+    }
+    UNLOCK();
+    /* The controller call is made outside the lock; it only queues a request. Peripherals may refuse it, which is
+     * harmless: the link just keeps the old parameters (the stats timer shows what was really negotiated). */
+    for (size_t i = 0; i < n; i++) {
+        struct ble_gap_upd_params up = {
+            .itvl_min = itvl_units, .itvl_max = itvl_units, .latency = latency, .supervision_timeout = timeout_10ms};
+        const int rc = ble_gap_update_params(handles[i], &up);
+        if (rc != 0) {
+            ESP_LOGW(TAG, "connection update rejected locally (%d)", rc);
+        }
+    }
+    ESP_LOGI(TAG, "connection profile: %.2f ms, latency %u", itvl_units * 1.25, (unsigned)latency);
 }
 
 /** @copydoc ble_central_has_keyboard */

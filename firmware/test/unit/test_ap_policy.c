@@ -93,6 +93,24 @@ static void test_force_on(void) {
     TEST_ASSERT_TRUE(ap_policy_step(&p, &in).ap_on);
 }
 
+/** Host suspended: AP off even without bonds, but an OTA keeps it; the boot window survives the sleep. */
+static void test_host_suspend(void) {
+    ap_policy_t p;
+    ap_policy_init(&p, &k_cfg);
+    ap_policy_inputs_t in = {.now_ms = 10 * 1000ULL, .bonded_devices = 0, .host_suspended = true};
+    TEST_ASSERT_FALSE(ap_policy_step(&p, &in).ap_on);
+    in.ota_active = true;
+    TEST_ASSERT_TRUE(ap_policy_step(&p, &in).ap_on);
+    /* Bonded, inside the boot window: suspended -> off, resumed -> on again with the remaining time. */
+    in = quiet(100);
+    in.host_suspended = true;
+    TEST_ASSERT_FALSE(ap_policy_step(&p, &in).ap_on);
+    in = quiet(150);
+    ap_policy_decision_t d = ap_policy_step(&p, &in);
+    TEST_ASSERT_TRUE(d.ap_on);
+    TEST_ASSERT_EQUAL_INT32(150, d.remaining_s);
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_no_bonds_always_on);
@@ -101,5 +119,6 @@ int main(void) {
     RUN_TEST(test_client_without_webapp);
     RUN_TEST(test_ota_holds_ap);
     RUN_TEST(test_force_on);
+    RUN_TEST(test_host_suspend);
     return UNITY_END();
 }

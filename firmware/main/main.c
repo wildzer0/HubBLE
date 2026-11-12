@@ -18,9 +18,11 @@
 #include "esp_app_desc.h"
 #include "esp_log.h"
 #include "esp_system.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "led.h"
+#include "led_status.h"
 #include "log_hook.h"
 #include "ota.h"
 #include "ota_online.h"
@@ -38,7 +40,9 @@ static const char *TAG = "hubble";
 /** Duration of the white boot flash (CLAUDE.md §3.6: "white, short"). */
 #define BOOT_LED_FLASH_MS 300
 /** Boot-flash brightness; kept low because WS2812 LEDs are very bright. */
-#define BOOT_LED_LEVEL 32
+/** How often the LED task re-reads brightness and the status-LED flag from NVS, ms. */
+#define LED_SETTINGS_REFRESH_MS 1000
+#define BOOT_LED_LEVEL          32
 /** Red blink brightness used to signal "a rollback happened". */
 #define ERROR_LED_LEVEL 64
 /** Number of red blinks (CLAUDE.md §3.6: "red, 3 blinks"). */
@@ -133,6 +137,38 @@ static void on_ble_changed(int slot) {
     }
 }
 
+/**
+ * @brief Fill the status-LED inputs (called by the LED task about 20 times per second).
+ *
+ * Brightness and the "status LED" flag come from NVS and are re-read once per second at most.
+ *
+ * @param in Receives the current inputs.
+ */
+static void led_sample(led_inputs_t *in) {
+    static uint32_t last_read_ms;
+    static uint8_t brightness = SETTINGS_LED_BRIGHTNESS_DEFAULT;
+    static bool status_led;
+    const uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
+    if (last_read_ms == 0 || now - last_read_ms >= LED_SETTINGS_REFRESH_MS) {
+        brightness = settings_get_led_brightness();
+        status_led = settings_get_status_led();
+        last_read_ms = now ? now : 1;
+    }
+    wifi_ap_status_t ap;
+    wifi_ap_get_status(&ap);
+    ble_pairing_status_t ps;
+    ble_central_pairing_status(&ps);
+    in->brightness = brightness;
+    in->status_led = status_led;
+    in->host_suspended = bridge_power_mode() == POWER_LOW;
+    in->ota_active = ota_session_active();
+    in->quarantine = ps.state == PAIR_QUARANTINE;
+    in->pairing = ps.state == PAIR_SCANNING || ps.state == PAIR_CONNECTING || ps.state == PAIR_PAIRING ||
+                  ps.state == PAIR_CONFIRM;
+    in->ap_on = ap.on;
+    in->connected = ble_central_connected_count();
+}
+
 /** @brief Entry point called by ESP-IDF after the system is up. */
 void app_main(void) {
     /* The log hook comes first so that everything, including the banner, reaches the web app's log view. */
@@ -158,6 +194,7 @@ void app_main(void) {
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "USB HID init failed: %s", esp_err_to_name(err));
     }
+    usb_hid_set_remote_wakeup_allowed(settings_get_remote_wakeup()); /* CLAUDE.md §3.9, default on. */
     err = wifi_ap_init();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Wi-Fi AP init failed: %s", esp_err_to_name(err));
@@ -177,6 +214,7 @@ void app_main(void) {
         ESP_LOGE(TAG, "BLE bridge init failed: %s", esp_err_to_name(err));
     }
 
+    led_status_start(led_sample); /* Status patterns (CLAUDE.md §3.6); off while the host sleeps. */
     ota_set_progress_cb(on_ota_progress);
     ota_online_set_changed_cb(on_ota_online_changed);
     ota_selftest_register("settings", check_settings);

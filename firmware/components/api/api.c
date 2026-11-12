@@ -13,6 +13,7 @@
 
 #include "ble_central.h"
 #include "board.h"
+#include "bridge.h"
 #include "cJSON.h"
 #include "diag.h"
 #include "esp_app_desc.h"
@@ -291,6 +292,9 @@ static esp_err_t diagnostics_get(httpd_req_t *req) {
     cJSON_AddBoolToObject(ble, "ready", ble_central_is_ready());
     cJSON_AddNumberToObject(ble, "connected", ble_central_connected_count());
     cJSON_AddNumberToObject(ble, "bonded", ble_central_bonded_count());
+    cJSON *pw = cJSON_AddObjectToObject(r, "power");
+    cJSON_AddStringToObject(pw, "mode", bridge_power_mode() == POWER_LOW ? "low" : "active");
+    cJSON_AddBoolToObject(pw, "remote_wakeup", settings_get_remote_wakeup());
     cJSON *wifi = cJSON_AddObjectToObject(r, "wifi");
     cJSON_AddStringToObject(wifi, "ssid", ap.ssid);
     cJSON_AddNumberToObject(wifi, "clients", ap.clients);
@@ -891,6 +895,10 @@ static cJSON *settings_json(void) {
     cJSON_AddNumberToObject(r, "ap_idle_timeout_s", settings_get_idle_timeout_s());
     cJSON_AddStringToObject(r, "update_channel", settings_get_prerelease_channel() ? "prerelease" : "stable");
     cJSON_AddBoolToObject(r, "sta_configured", settings_has_sta()); /* Never the credentials themselves. */
+    cJSON_AddBoolToObject(r, "remote_wakeup", settings_get_remote_wakeup());
+    cJSON_AddNumberToObject(r, "led_brightness", settings_get_led_brightness());
+    cJSON_AddBoolToObject(r, "status_led", settings_get_status_led());
+    cJSON_AddNumberToObject(r, "shift_hold_ms", settings_get_shift_hold_ms());
     return r;
 }
 
@@ -906,6 +914,21 @@ static bool settings_object_valid(const cJSON *s) {
     const cJSON *it = cJSON_GetObjectItemCaseSensitive(s, "ap_idle_timeout_s");
     const cJSON *ch = cJSON_GetObjectItemCaseSensitive(s, "update_channel");
     if (rc != NULL && !cJSON_IsBool(rc)) {
+        return false;
+    }
+    const cJSON *rw = cJSON_GetObjectItemCaseSensitive(s, "remote_wakeup");
+    const cJSON *sl = cJSON_GetObjectItemCaseSensitive(s, "status_led");
+    const cJSON *lb = cJSON_GetObjectItemCaseSensitive(s, "led_brightness");
+    const cJSON *sh = cJSON_GetObjectItemCaseSensitive(s, "shift_hold_ms");
+    if ((rw != NULL && !cJSON_IsBool(rw)) || (sl != NULL && !cJSON_IsBool(sl))) {
+        return false;
+    }
+    if (lb != NULL && !(cJSON_IsNumber(lb) && lb->valuedouble == (double)lb->valueint && lb->valueint >= 0 &&
+                        lb->valueint <= SETTINGS_LED_BRIGHTNESS_MAX)) {
+        return false;
+    }
+    if (sh != NULL && !(cJSON_IsNumber(sh) && sh->valuedouble == (double)sh->valueint &&
+                        sh->valueint >= SETTINGS_SHIFT_HOLD_MIN_MS && sh->valueint <= SETTINGS_SHIFT_HOLD_MAX_MS)) {
         return false;
     }
     if (ch != NULL && !(cJSON_IsString(ch) &&
@@ -942,6 +965,24 @@ static void settings_object_apply(const cJSON *s) {
     }
     if (cJSON_IsNumber(it)) {
         settings_set_idle_timeout_s((uint32_t)it->valueint);
+    }
+    const cJSON *rw = cJSON_GetObjectItemCaseSensitive(s, "remote_wakeup");
+    const cJSON *sl = cJSON_GetObjectItemCaseSensitive(s, "status_led");
+    const cJSON *lb = cJSON_GetObjectItemCaseSensitive(s, "led_brightness");
+    const cJSON *sh = cJSON_GetObjectItemCaseSensitive(s, "shift_hold_ms");
+    if (cJSON_IsBool(rw)) {
+        settings_set_remote_wakeup(cJSON_IsTrue(rw));
+        usb_hid_set_remote_wakeup_allowed(cJSON_IsTrue(rw)); /* Effective immediately. */
+    }
+    if (cJSON_IsBool(sl)) {
+        settings_set_status_led(cJSON_IsTrue(sl));
+    }
+    if (cJSON_IsNumber(lb)) {
+        settings_set_led_brightness((uint32_t)lb->valueint);
+    }
+    if (cJSON_IsNumber(sh)) {
+        settings_set_shift_hold_ms(
+            (uint32_t)sh->valueint); /* Applies from the next boot (the combo task reads it once). */
     }
     const cJSON *ch = cJSON_GetObjectItemCaseSensitive(s, "update_channel");
     if (cJSON_IsString(ch)) {

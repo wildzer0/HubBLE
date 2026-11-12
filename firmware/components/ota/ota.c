@@ -186,6 +186,11 @@ ota_result_t ota_session_begin(size_t total) {
     return OTA_OK;
 }
 
+/** @copydoc ota_session_active */
+bool ota_session_active(void) {
+    return atomic_load(&s_busy);
+}
+
 /** @copydoc ota_session_abort */
 void ota_session_abort(void) {
     if (atomic_load(&s_busy)) {

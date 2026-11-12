@@ -251,4 +251,17 @@ export const it: Record<MessageKey, string> = {
   'online.error.install_failed':
     'L’immagine è stata rifiutata (non valida o firmata male) e non è stata installata.',
   'online.error.busy': 'Un’altra operazione di aggiornamento è in corso.',
+  'settings.power': 'Consumi',
+  'settings.remote_wakeup': 'Sveglia il computer dalla sospensione con i dispositivi',
+  'settings.remote_wakeup_hint':
+    'Un tasto, un clic o un movimento sveglia un computer in sospensione. Il primo evento serve solo a svegliarlo e non viene inoltrato. Alcuni computer o impostazioni del BIOS disattivano la sveglia via USB.',
+  'settings.led': 'LED',
+  'settings.led_brightness': 'Luminosità LED (0-100 %, 0 = spento)',
+  'settings.status_led': 'Mostra verde tenue quando un dispositivo è connesso',
+  'settings.shift_hold': 'Tieni premuti entrambi gli Shift per (s)',
+  'settings.led_hint':
+    'Il LED è sempre spento mentre il computer è in sospensione. Il tempo degli Shift si applica dopo il prossimo riavvio del dongle.',
+  'system.power': 'Consumi',
+  'system.power_active': 'Piena velocità',
+  'system.power_low': 'Basso consumo (computer in sospensione)',
 };

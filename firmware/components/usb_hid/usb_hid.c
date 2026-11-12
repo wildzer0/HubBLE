@@ -107,6 +107,8 @@ static hid_merge_t s_merge;
 static uint8_t s_dirty;
 /** Current bus state (usb_state_t); written by the TinyUSB task, read anywhere. */
 static volatile usb_state_t s_state = USB_STATE_DETACHED;
+/** State-change listener (power task). */
+static void (*s_state_cb)(usb_state_t state);
 /** Host enabled remote wakeup for the current suspend (from the suspend event). */
 static volatile bool s_host_allows_wakeup;
 /** Application setting: may we wake the host? */
@@ -195,6 +197,14 @@ static void on_usb_event(tinyusb_event_t *event, void *arg) {
         break;
     }
     ESP_LOGI(TAG, "USB state -> %s", usb_hid_state_name(s_state));
+    if (s_state_cb != NULL) {
+        s_state_cb(s_state);
+    }
+}
+
+/** @copydoc usb_hid_set_state_callback */
+void usb_hid_set_state_callback(void (*cb)(usb_state_t state)) {
+    s_state_cb = cb;
 }
 
 /**

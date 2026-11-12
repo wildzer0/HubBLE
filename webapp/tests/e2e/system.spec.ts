@@ -6,6 +6,7 @@ test.beforeEach(({ request }) => resetMock(request));
 test('system page shows diagnostics and live log lines', async ({ page }) => {
   await page.goto('/#/system');
   await expect(page.getByTestId('heap')).toHaveText('138.7 KiB');
+  await expect(page.getByTestId('power')).toHaveText('Full speed');
   await expect(page.getByTestId('log')).toContainText('mock: tick', { timeout: 5000 });
 });
 

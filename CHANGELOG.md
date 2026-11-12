@@ -38,6 +38,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Releases API + `manifest.json`, HTTPS download with SHA-256 check, board check, minimum version, anti-downgrade
   confirmation, physical confirmation, `ota.state` event, `POST /ota/check|install`, `PUT /settings/sta`.
   Pure `ota_manifest` component with host tests.
+- Power management (M7): follows the USB host. After a debounce the dongle enters low power (40 ms connection interval,
+  peripheral latency 10, AP and LED off); resume restores 7.5 ms at once; remote wakeup setting (default on, the waking
+  event is not forwarded). Status LED patterns (booting, AP, pairing, quarantine, update, no device) with brightness and
+  optional "device connected" indication; configurable Shift-combo hold time. Pure `power` and `led_pattern` logic with
+  host tests; `ap_policy` honours the host suspend; `docs/power.md`.
 - Secure pairing (M4): Passkey Entry (DisplayOnly) for keyboards, quarantine + click/code challenges for Just Works
   devices, legacy pairing refused unless overridden, optional physical confirmation (both Shifts 3 s on a paired
   keyboard), 60 s lock after 3 failures, security badges (green/yellow/red). Pure `pairing` state machine with host tests.

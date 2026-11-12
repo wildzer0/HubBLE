@@ -165,6 +165,10 @@ export function System() {
           <dd>{d.partitions.running.label}</dd>
           <dt>{t('system.usb')}</dt>
           <dd>{d.usb_state}</dd>
+          <dt>{t('system.power')}</dt>
+          <dd data-testid="power">
+            {d.power.mode === 'low' ? t('system.power_low') : t('system.power_active')}
+          </dd>
           <dt>{t('system.ble')}</dt>
           <dd data-testid="ble">
             {t('system.ble_value', { c: d.ble.connected, b: d.ble.bonded })}

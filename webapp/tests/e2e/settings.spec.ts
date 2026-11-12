@@ -56,3 +56,23 @@ test('factory reset needs a confirmation and restarts the wizard', async ({ page
   await page.goto('/#/dashboard');
   await expect(page).toHaveURL(/#\/setup$/);
 });
+
+test('power and LED settings validate and persist', async ({ page }) => {
+  await page.goto('/#/settings');
+  const wake = page.getByLabel('Wake the computer from sleep with the devices');
+  await expect(wake).toBeChecked();
+  await wake.uncheck();
+  await page.getByLabel(/LED brightness/).fill('150');
+  await expect(page.getByRole('button', { name: 'Save settings' })).toBeDisabled();
+  await page.getByLabel(/LED brightness/).fill('60');
+  await page.getByLabel('Hold both Shift keys for (s)').fill('5');
+  await page.getByLabel('Show dim green while a device is connected').check();
+  await page.getByRole('button', { name: 'Save settings' }).click();
+  await expect(page.getByText('Settings saved.')).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByLabel('Wake the computer from sleep with the devices')).not.toBeChecked();
+  await expect(page.getByLabel(/LED brightness/)).toHaveValue('60');
+  await expect(page.getByLabel('Hold both Shift keys for (s)')).toHaveValue('5');
+  await expect(page.getByLabel('Show dim green while a device is connected')).toBeChecked();
+});

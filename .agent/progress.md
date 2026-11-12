@@ -82,3 +82,11 @@ Done: ota_manifest (host-tested), ota_online engine, wifi_ap STA, settings STA/c
 ota.state), web Update/Settings UI + mock + e2e, release.yml signing step, docs (key-management, ADR 6, security, ota).
 Not verifiable without hardware: signature rejection on device, TLS to GitHub, APSTA channel behaviour, heap (docs/testing/m6.md).
 Next: M7 (power management). Tag only at the end.
+
+## M7 — Power management (same local branch)
+
+Done: power_policy (debounce + low profile, host-tested), ap_policy host_suspended, led_pattern + led_status task,
+settings (remote_wakeup, led_brightness, status_led, shift_hold_ms), ble_central_set_conn_profile, bridge power task,
+usb_hid state callback, diagnostics power, web settings/System, docs/power.md, docs/testing/m7.md.
+Not verifiable without hardware: wake-up behaviour, peripheral acceptance of low-power params, measurements.
+Next: M8 hardening and 1.0 (needs the release key generated with the user, first push after asking). Tag only there.

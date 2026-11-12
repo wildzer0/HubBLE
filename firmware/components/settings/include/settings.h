@@ -192,6 +192,34 @@ void settings_set_ota_result(const char *text);
  */
 void settings_get_ota_result(char *out, size_t cap);
 
+/** LED brightness limits (percent) and default. 0 disables the status LED. */
+#define SETTINGS_LED_BRIGHTNESS_MAX     100
+#define SETTINGS_LED_BRIGHTNESS_DEFAULT 25
+/** Both-Shift hold time limits and default, ms (CLAUDE.md §3.5: default 3 s). */
+#define SETTINGS_SHIFT_HOLD_MIN_MS     1000
+#define SETTINGS_SHIFT_HOLD_MAX_MS     10000
+#define SETTINGS_SHIFT_HOLD_DEFAULT_MS 3000
+
+/** @brief Whether a peripheral event may wake the suspended host (default true, CLAUDE.md §3.9). */
+bool settings_get_remote_wakeup(void);
+/** @brief Store the remote-wakeup setting. @param enabled New value. @return ESP_OK or an NVS error. */
+esp_err_t settings_set_remote_wakeup(bool enabled);
+
+/** @brief LED brightness in percent (0 = LED off). */
+uint8_t settings_get_led_brightness(void);
+/** @brief Store the LED brightness. @param percent 0..100. @return ESP_OK, ESP_ERR_INVALID_ARG or an NVS error. */
+esp_err_t settings_set_led_brightness(uint32_t percent);
+
+/** @brief Whether the LED shows dim green while a device is connected (default false). */
+bool settings_get_status_led(void);
+/** @brief Store the status-LED setting. @param enabled New value. @return ESP_OK or an NVS error. */
+esp_err_t settings_set_status_led(bool enabled);
+
+/** @brief Hold time of the both-Shift gesture in ms. Applied at the next boot. */
+uint32_t settings_get_shift_hold_ms(void);
+/** @brief Store the Shift hold time. @param ms 1000..10000. @return ESP_OK, ESP_ERR_INVALID_ARG or an NVS error. */
+esp_err_t settings_set_shift_hold_ms(uint32_t ms);
+
 #ifdef __cplusplus
 }
 #endif

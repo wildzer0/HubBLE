@@ -150,6 +150,15 @@ void usb_hid_set_remote_wakeup_allowed(bool enabled);
  */
 void usb_hid_shutdown(void);
 
+/**
+ * @brief Register a callback for USB state changes (attach, detach, suspend, resume).
+ *
+ * Called from the TinyUSB task: it must be quick and non-blocking (the power task uses it to wake up at once).
+ *
+ * @param cb Callback, or NULL.
+ */
+void usb_hid_set_state_callback(void (*cb)(usb_state_t state));
+
 #ifdef __cplusplus
 }
 #endif

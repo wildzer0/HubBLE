@@ -139,6 +139,10 @@ function initialState(opts: MockOptions = {}) {
       ap_idle_timeout_s: 180,
       update_channel: 'stable',
       sta_configured: false,
+      remote_wakeup: true,
+      led_brightness: 25,
+      status_led: false,
+      shift_hold_ms: 3000,
     } as Settings,
     online: { state: 'idle', channel: 'stable', wifi_configured: false } as OnlineUpdate,
     scenario: 'available' as OtaScenario,
@@ -466,9 +470,11 @@ function handleSettings(req: MockRequest): MockResponse | null {
     if (b?.format !== 'hubble-backup' || b.version !== 1 || !validSettings(b.settings)) {
       return err(400, 'bad_backup', 'Not a valid HubBLE backup');
     }
+    // Older backups lack the newer fields: keep the current values for them.
+    const incoming = b.settings as Partial<Settings>;
     state.settings = {
-      ...b.settings,
-      update_channel: (b.settings as Partial<Settings>).update_channel ?? 'stable',
+      ...state.settings,
+      ...incoming,
       sta_configured: state.settings.sta_configured,
     };
     return { status: 200, json: { ok: true } };
@@ -484,7 +490,11 @@ function validSettings(s: Partial<Settings> | undefined): s is Settings {
     win(s.ap_boot_window_s) &&
     win(s.ap_idle_timeout_s) &&
     // Older backups (and clients) may omit the channel.
-    [undefined, 'stable', 'prerelease'].includes(s.update_channel)
+    [undefined, 'stable', 'prerelease'].includes(s.update_channel) &&
+    (s.led_brightness === undefined ||
+      (Number.isInteger(s.led_brightness) && s.led_brightness >= 0 && s.led_brightness <= 100)) &&
+    (s.shift_hold_ms === undefined ||
+      (Number.isInteger(s.shift_hold_ms) && s.shift_hold_ms >= 1000 && s.shift_hold_ms <= 10000))
   );
 }
 
@@ -526,6 +536,7 @@ function mockDiagnostics(): Diagnostics {
     },
     boot_failures: 0,
     usb_state: 'detached',
+    power: { mode: 'active', remote_wakeup: state.settings.remote_wakeup },
     ble: {
       ready: true,
       connected: state.devices.filter((d) => d.connected).length,

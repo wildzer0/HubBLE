@@ -78,6 +78,14 @@ esp_err_t wifi_ap_sta_connect(const char *ssid, const char *password, uint32_t t
 /** @brief Leave the station network and return to AP-only mode. Safe to call when not connected. */
 void wifi_ap_sta_disconnect(void);
 
+/**
+ * @brief Tell the AP manager that the host suspended (or resumed) the USB bus: the AP is switched off while suspended
+ *        (unless an OTA runs) and the policy resumes afterwards (CLAUDE.md §3.9).
+ *
+ * @param suspended true while the bus is suspended (after the power debounce).
+ */
+void wifi_ap_set_host_suspended(bool suspended);
+
 #ifdef __cplusplus
 }
 #endif

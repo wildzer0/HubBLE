@@ -8,6 +8,7 @@
  *  3. while at least one Wi-Fi client is connected AND the web app is open
  *     (WebSocket heartbeat alive); after the last such client leaves it stays on
  *     for the idle timeout;
+ *  0. never while the host is suspended (power saving, CLAUDE.md §3.9), except while an OTA runs;
  *  4. when a "force on" request arrives (double-Shift combo, M3); this counts as
  *     activity, so the idle timeout then applies.
  * Dependencies: libc only. Threading: caller serialises access (single manager task).
@@ -35,6 +36,7 @@ typedef struct {
     bool ws_alive;           /**< A web app WebSocket heartbeat was seen recently. */
     bool ota_active;         /**< An OTA upload/install is in progress. */
     bool force_on;           /**< One-shot request to switch the AP on (e.g. Shift combo). */
+    bool host_suspended;     /**< The host suspended the USB bus: AP off (unless an OTA runs). */
 } ap_policy_inputs_t;
 
 /** Result of one evaluation. */
