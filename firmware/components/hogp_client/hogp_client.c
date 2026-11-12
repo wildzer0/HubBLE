@@ -414,7 +414,11 @@ static void advance(hogp_t *h) {
             }
             if (h->step < h->nchrs) {
                 const hogp_chr_t *c = &h->chrs[h->step];
-                rc = ble_gattc_disc_all_dscs(h->conn, (uint16_t)(c->val_handle + 1), c->end_handle, on_dsc, h);
+                /* NimBLE wants the handle of the characteristic VALUE here (it treats it as already seen and reports
+                 * only the handles after it). Passing value+1 made it discard the first descriptor of every
+                 * characteristic: the CCC or the Report Reference went missing, nothing was subscribed and no input
+                 * ever arrived. */
+                rc = ble_gattc_disc_all_dscs(h->conn, c->val_handle, c->end_handle, on_dsc, h);
                 goto issued;
             }
             h->phase = h->map_handle != 0 ? PH_MAP : PH_REFS;
@@ -462,7 +466,8 @@ static void advance(hogp_t *h) {
         }
         case PH_BAS_DSC:
             if (h->bas_level_handle < h->bas_end) {
-                rc = ble_gattc_disc_all_dscs(h->conn, (uint16_t)(h->bas_level_handle + 1), h->bas_end, on_bas_dsc, h);
+                rc = ble_gattc_disc_all_dscs(h->conn, h->bas_level_handle, h->bas_end, on_bas_dsc,
+                                             h); /* value handle, see above */
                 goto issued_optional;
             }
             h->phase = PH_BAS_READ;

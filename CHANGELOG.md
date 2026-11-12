@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **No HID input at all**: descriptor discovery was started one handle too late, so NimBLE dropped the first descriptor
+  of every characteristic (the CCC or the Report Reference) and silently skipped characteristics with a single
+  descriptor. Nothing was subscribed, so no key or click ever arrived and the pairing challenge could not be passed.
+  The Battery Level CCC had the same problem.
+
 ### Added
 
 - Pairing page: while a challenge is active it shows how many signals the dongle has received from the device being
