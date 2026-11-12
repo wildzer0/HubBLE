@@ -295,7 +295,9 @@ static int on_bas_chr(uint16_t conn, const struct ble_gatt_error *err, const str
     (void)conn;
     hogp_t *h = arg;
     if (err->status == 0 && chr != NULL) {
-        h->bas_level_handle = chr->val_handle;
+        if (h->bas_level_handle == 0) { /* Keep the first Battery Level characteristic of the service. */
+            h->bas_level_handle = chr->val_handle;
+        }
     } else {
         h->phase = (err->status == BLE_HS_EDONE && h->bas_level_handle != 0) ? PH_BAS_DSC : PH_DONE;
         advance(h);
@@ -326,8 +328,16 @@ static int on_bas_read(uint16_t conn, const struct ble_gatt_error *err, struct b
     hogp_t *h = arg;
     uint8_t level;
     if (err->status == 0 && attr != NULL && attr->om != NULL && OS_MBUF_PKTLEN(attr->om) >= 1 &&
-        os_mbuf_copydata(attr->om, 0, 1, &level) == 0 && level <= 100 && h->cbs.on_battery != NULL) {
-        h->cbs.on_battery(h, level, h->ctx);
+        os_mbuf_copydata(attr->om, 0, 1, &level) == 0) {
+        /* Log what the device really says: a wrong percentage is either the device's own value or our reading. */
+        ESP_LOGI(TAG, "conn %u: battery level characteristic 0x%04x returned %u (%u byte%s)", h->conn,
+                 (unsigned)h->bas_level_handle, (unsigned)level, (unsigned)OS_MBUF_PKTLEN(attr->om),
+                 OS_MBUF_PKTLEN(attr->om) == 1 ? "" : "s");
+        if (level <= 100 && h->cbs.on_battery != NULL) {
+            h->cbs.on_battery(h, level, h->ctx);
+        }
+    } else {
+        ESP_LOGW(TAG, "conn %u: battery level read failed (status %d)", h->conn, err->status);
     }
     h->phase = h->bas_ccc_handle != 0 ? PH_BAS_SUB : PH_DONE;
     advance(h);
@@ -501,6 +511,9 @@ static void advance(hogp_t *h) {
         case PH_DONE:
         default:
             h->state = HOGP_READY;
+            ESP_LOGI(TAG, "conn %u: battery service 0x%04x-0x%04x, level handle 0x%04x, ccc 0x%04x", h->conn,
+                     (unsigned)h->bas_start, (unsigned)h->bas_end, (unsigned)h->bas_level_handle,
+                     (unsigned)h->bas_ccc_handle);
             /* One line per characteristic: enough to see why a device that reports "ready" sends no input
              * (missing Report Reference, no CCC, not an input report, subscription refused). */
             for (unsigned i = 0; i < h->nchrs; i++) {

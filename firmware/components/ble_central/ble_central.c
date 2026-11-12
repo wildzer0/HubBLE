@@ -561,6 +561,9 @@ static void on_notify(struct ble_gap_event *ev) {
     if (hogp_is_battery(&dv->hogp, ev->notify_rx.attr_handle)) {
         uint8_t level;
         if (len >= 1 && os_mbuf_copydata(ev->notify_rx.om, 0, 1, &level) == 0 && level <= 100) {
+            if (dv->battery != level) {
+                ESP_LOGI(TAG, "slot %d battery notification: %u%%", slot, (unsigned)level);
+            }
             dv->battery = level;
         }
         UNLOCK();

@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Battery: the first Battery Level characteristic of the service is kept (the last one used to win when a device lists
+  several), and the log shows what the device returns and which handles are used, to tell a wrong value reported by the
+  device from a wrong reading.
+
 ## [1.2.1] - 2026-11-13
 
 ### Fixed
