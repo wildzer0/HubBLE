@@ -23,6 +23,14 @@ but NimBLE uses internal RAM); 7.5 ms interval acceptance; legacy pairing of the
 Fixtures pending: firmware/test/fixtures/{yunzii-b68,protoarc-em06}.hex.
 Next: M4 (secure pairing: passkey, quarantine/challenges, state machine host-tested). Tag only at the very end.
 
+## M4 — Secure pairing (same local branch)
+DONE (builds, check.sh green; hardware-untested): pure `pairing` FSM (21 host tests), ble_central refactored onto it (DisplayOnly passkey,
+quarantine routed through bridge, legacy check via ble_store_read_peer_sec().sc, confirmation via both-Shifts combo, 60 s lock),
+security badges persisted in the registry (reg_rec_t gained sec/kbd: older registries reset), GET/PUT /settings require_confirmation,
+pairing.* WS events, docs/pairing-and-security.md, security.md, docs/testing/m4.md.
+Risks: BK3632 pairing mode unknown (passkey vs Just Works vs legacy); NimBLE must accept mitm=1 with DisplayOnly against NoInputNoOutput peers.
+Next: M5 complete web app (Preact pages, setup wizard, QR, input tester, settings, backup/restore, i18n, Playwright). Tag only at the end.
+
 ## Current milestone: M0 — Project bootstrap (target `v0.1.0`)
 
 ### Decisions (confirmed by the user)

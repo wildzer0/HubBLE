@@ -20,6 +20,8 @@
 typedef struct {
     uint8_t used;            /**< 1 when the slot is assigned. */
     uint8_t addr_type;       /**< BLE address type. */
+    uint8_t sec;             /**< sec_level_t of the bond (security badge). */
+    uint8_t kbd;             /**< 1 if the device is a keyboard (can confirm pairings). */
     uint8_t addr[6];         /**< Address in NimBLE order (least significant byte first). */
     char name[REG_NAME_MAX]; /**< Device name. */
 } reg_rec_t;

@@ -37,5 +37,9 @@ Planned for later milestones: `device.updated`, `device.removed`, `pairing.*`, `
 - `device.updated`: the device object of `GET /api/v1/devices` (id, name, connected, ready, battery, rssi, connection, latency_us...).
   Sent on connect/disconnect, discovery done, battery change, rename.
 - `device.removed`: `{ "slot": n, "removed": true }` after a device was forgotten.
-- `pairing.state`: `{}`; a hint that the pairing state changed, poll `GET /api/v1/pairing/scan` for the details (the detailed
-  `pairing.passkey`/`pairing.challenge`/`pairing.result` events arrive with M4).
+- `pairing.state`: the pairing status object (`state`, `reason`, `level`, `device`, `remaining_s`, `lock_remaining_s`,
+  `needs_confirmation`, and when present `passkey` / `challenge`), sent on every change.
+- `pairing.passkey`: same object, sent while a 6-digit `passkey` must be typed on the keyboard.
+- `pairing.challenge`: same object, sent in quarantine and on every progress step (`challenge.kind` is `clicks` or `code`,
+  `challenge.value` the sequence (`L`/`R`/`M`) or the code, `challenge.progress`/`length`).
+- `pairing.result`: same object when the pairing ended (`state` `bonded` with `level`, or `failed` with `reason`).

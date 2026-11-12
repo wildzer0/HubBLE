@@ -22,6 +22,7 @@
 #include "esp_err.h"
 #include "hid_parser.h"
 #include "lat_stats.h"
+#include "pairing.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -35,18 +36,11 @@ extern "C" {
 #define BLE_CENTRAL_NAME_MAX 32
 /** Battery level value meaning "unknown". */
 #define BLE_BATTERY_UNKNOWN 0xFF
-/** Maximum time a pairing attempt may take (CLAUDE.md §3.4: 60 s). */
+/** Maximum time of the connect + pair phase (CLAUDE.md §3.4: 60 s). */
 #define BLE_PAIRING_TIMEOUT_MS 60000
 
-/** What the pairing flow is doing. */
-typedef enum {
-    BLE_PAIR_IDLE = 0,   /**< Nothing. */
-    BLE_PAIR_SCANNING,   /**< Scanning for HID devices to list. */
-    BLE_PAIR_CONNECTING, /**< Connecting to the chosen device. */
-    BLE_PAIR_PAIRING,    /**< Link up, bonding / discovering. */
-    BLE_PAIR_DONE,       /**< Last attempt succeeded (state returns to IDLE on the next request). */
-    BLE_PAIR_FAILED,     /**< Last attempt failed. */
-} ble_pair_state_t;
+/** Pairing flow states (see pairing.h). */
+typedef pair_state_t ble_pair_state_t;
 
 /** One entry of the pairing scan list. */
 typedef struct {
@@ -67,6 +61,7 @@ typedef struct {
     bool connected;                  /**< Link is up. */
     bool ready;                      /**< HID discovery finished: reports flow. */
     bool keyboard;                   /**< Has keyboard input fields. */
+    sec_level_t security;            /**< Security badge of the bond. */
     bool boot_fallback;              /**< Using the boot keyboard layout (no usable report map). */
     uint8_t battery;                 /**< Battery percent or BLE_BATTERY_UNKNOWN. */
     int8_t rssi;                     /**< Last RSSI (0 if unknown). */
@@ -136,7 +131,8 @@ int ble_central_find_by_id(const char *id);
  * Pauses the background reconnect while scanning. Fails if a pairing flow is already running or all slots are used.
  *
  * @param duration_ms Scan time in ms.
- * @return ESP_OK, ESP_ERR_INVALID_STATE (busy / not ready) or ESP_ERR_NO_MEM (no free slot).
+ * @return ESP_OK, ESP_ERR_INVALID_STATE (busy / not ready), ESP_ERR_NO_MEM (no free slot) or ESP_ERR_NOT_ALLOWED
+ * (locked).
  */
 esp_err_t ble_central_scan_start(uint32_t duration_ms);
 
@@ -149,13 +145,15 @@ esp_err_t ble_central_scan_start(uint32_t duration_ms);
 size_t ble_central_scan_results(ble_scan_result_t *out);
 
 /**
- * @brief Start pairing with a device from the scan list (CLAUDE.md §3.4 step 1; M3: Just Works).
+ * @brief Start pairing with a device from the scan list (CLAUDE.md §3.4).
  *
- * @param addr      Address, most significant byte first.
- * @param addr_type BLE address type from the scan list.
- * @return ESP_OK, ESP_ERR_INVALID_STATE (busy), ESP_ERR_NO_MEM (no free slot) or an error.
+ * @param addr         Address, most significant byte first.
+ * @param addr_type    BLE address type from the scan list.
+ * @param allow_legacy Per-pairing override accepting legacy pairing (security level red).
+ * @return ESP_OK, ESP_ERR_INVALID_STATE (busy), ESP_ERR_NO_MEM (no free slot), ESP_ERR_NOT_ALLOWED (locked after
+ *         repeated failures; see ble_central_pairing_status().lock_remaining_s).
  */
-esp_err_t ble_central_pair(const uint8_t addr[6], uint8_t addr_type);
+esp_err_t ble_central_pair(const uint8_t addr[6], uint8_t addr_type, bool allow_legacy);
 
 /**
  * @brief Cancel scanning / pairing and drop a half-paired device (and its bond).
@@ -168,6 +166,66 @@ void ble_central_pair_cancel(void);
  * @return One of ble_pair_state_t.
  */
 ble_pair_state_t ble_central_pair_state(void);
+
+/** Snapshot of the pairing state machine for the API / WebSocket. */
+typedef struct {
+    pair_state_t state;                     /**< State. */
+    pair_fail_t fail;                       /**< Last failure reason (valid in PAIR_FAILED). */
+    sec_level_t level;                      /**< Security level reached so far. */
+    bool has_passkey;                       /**< A passkey must be typed on the keyboard now. */
+    uint32_t passkey;                       /**< The passkey (only while has_passkey). */
+    challenge_kind_t challenge_kind;        /**< Challenge kind (PAIR_QUARANTINE). */
+    char challenge[CHALLENGE_CODE_LEN + 1]; /**< Click sequence ('L','R','M') or typed code. */
+    uint8_t challenge_pos;                  /**< Inputs matched so far. */
+    uint8_t challenge_len;                  /**< Inputs needed. */
+    uint32_t remaining_ms;                  /**< Time left in the current phase. */
+    uint32_t lock_remaining_s;              /**< Seconds of pairing lock left (0 = not locked). */
+    bool need_confirm;                      /**< This pairing needs the physical confirmation. */
+    bool require_confirm;                   /**< Setting value. */
+    char name[BLE_CENTRAL_NAME_MAX];        /**< Name of the device being paired. */
+} ble_pairing_status_t;
+
+/**
+ * @brief Snapshot the pairing state machine.
+ *
+ * @param[out] out Receives the status.
+ */
+void ble_central_pairing_status(ble_pairing_status_t *out);
+
+/**
+ * @brief Apply the "Require physical confirmation" setting to the running state machine.
+ *
+ * @param enabled New value.
+ */
+void ble_central_set_require_confirm(bool enabled);
+
+/**
+ * @brief The physical confirmation happened (both Shifts held 3 s on a paired keyboard). Ignored unless a pairing waits
+ * for it.
+ */
+void ble_central_physical_confirm(void);
+
+/**
+ * @brief Whether a slot is the pairing candidate in quarantine (its input must not reach the host).
+ *
+ * @param slot Slot index.
+ * @return true if quarantined.
+ */
+bool ble_central_quarantined(unsigned slot);
+
+/**
+ * @brief Feed the mouse button state of the quarantined device to the click challenge.
+ *
+ * @param buttons hid_mouse_button_t bits currently pressed.
+ */
+void ble_central_challenge_buttons(uint8_t buttons);
+
+/**
+ * @brief Feed the pressed keys of the quarantined keyboard to the code challenge.
+ *
+ * @param keys Pressed key usages (6 entries).
+ */
+void ble_central_challenge_keys(const uint8_t keys[6]);
 
 /**
  * @brief Forget a device: disconnect, delete the bond and free the slot.

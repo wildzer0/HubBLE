@@ -72,6 +72,21 @@ esp_err_t settings_reset_ap_password(void);
  */
 bool settings_is_setup_done(void);
 
+/**
+ * @brief Setting "Require physical confirmation" for new pairings (default on).
+ *
+ * @return true if enabled.
+ */
+bool settings_get_require_confirm(void);
+
+/**
+ * @brief Store the "Require physical confirmation" setting.
+ *
+ * @param enabled New value.
+ * @return ESP_OK or an NVS error.
+ */
+esp_err_t settings_set_require_confirm(bool enabled);
+
 /** @brief AP boot window in seconds (stored value or the default). */
 uint32_t settings_get_boot_window_s(void);
 

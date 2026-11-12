@@ -151,13 +151,13 @@ paths:
       responses:
         '200': { description: "{ state, results: [{ address, address_type, name, rssi, appearance }] }" }
     post:
-      summary: Start a 30 s scan (409 when busy or all four slots are used)
+      summary: Start a 30 s scan (409 when busy or all four slots are used, 429 when locked)
       responses:
         '200': { $ref: '#/components/responses/Ok' }
         '409': { $ref: '#/components/responses/Error' }
   /api/v1/pairing/start:
     post:
-      summary: Pair with `{ address, address_type }` (M3 Just Works; secure flows in M4)
+      summary: Pair with `{ address, address_type, allow_legacy? }`; 429 `pairing_locked` after 3 failures
       responses:
         '200': { $ref: '#/components/responses/Ok' }
         '409': { $ref: '#/components/responses/Error' }
@@ -166,6 +166,15 @@ paths:
       summary: Cancel scanning / pairing
       responses:
         '200': { $ref: '#/components/responses/Ok' }
+  /api/v1/settings:
+    get:
+      summary: Settings (`require_confirmation`; the rest arrives with M5)
+      responses:
+        '200': { description: Settings }
+    put:
+      summary: Update settings
+      responses:
+        '200': { description: Settings }
   /api/v1/debug/input:
     post:
       summary: Inject test input (only in builds with the debug_usb overlay)

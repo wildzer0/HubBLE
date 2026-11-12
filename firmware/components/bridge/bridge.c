@@ -47,6 +47,17 @@ static void on_report(unsigned slot, const hid_layout_t *layout, uint8_t report_
     if (!hid_norm_decode(layout, report_id, data, len, &ev)) {
         return;
     }
+    if (ble_central_quarantined(slot)) {
+        /* Quarantine (CLAUDE.md §3.4): a Just Works device being paired is connected but MUTED. Its input only
+         * feeds the pairing challenge and never reaches the host. */
+        if (ev.has_mouse) {
+            ble_central_challenge_buttons(ev.buttons);
+        }
+        if (ev.has_keyboard) {
+            ble_central_challenge_keys(ev.keys);
+        }
+        return;
+    }
     if (ev.has_keyboard) {
         usb_hid_keyboard(slot, ev.modifiers, ev.keys, HID_KBD_MAX_KEYS);
     }
@@ -114,6 +125,9 @@ static void combo_task(void *arg) {
         case COMBO_AP_ON:
             ESP_LOGI(TAG, "both Shifts held: Wi-Fi AP on");
             wifi_ap_request_on();
+            /* The same gesture is the physical confirmation of a pairing waiting for it (CLAUDE.md §3.4.3). The
+             * candidate is quarantined, so this can only come from an already paired keyboard. */
+            ble_central_physical_confirm();
             break;
         case COMBO_RECOVERY:
             ESP_LOGW(TAG, "recovery combo: resetting the Wi-Fi password");

@@ -17,11 +17,12 @@ static const char *TAG = "settings";
 /** NVS namespace for all HubBLE settings. */
 #define NS "hubble"
 /** NVS key names (max 15 chars). */
-#define KEY_AP_PASS    "ap_pass"
-#define KEY_BOOT_WIN   "boot_win_s"
-#define KEY_IDLE_TMO   "idle_tmo_s"
-#define KEY_BOOT_FAIL  "boot_fail"
-#define KEY_OTA_RESULT "ota_result"
+#define KEY_AP_PASS     "ap_pass"
+#define KEY_REQ_CONFIRM "req_conf"
+#define KEY_BOOT_WIN    "boot_win_s"
+#define KEY_IDLE_TMO    "idle_tmo_s"
+#define KEY_BOOT_FAIL   "boot_fail"
+#define KEY_OTA_RESULT  "ota_result"
 
 /** Open namespace handle; 0 until settings_init() succeeds. */
 static nvs_handle_t s_nvs;
@@ -90,6 +91,24 @@ esp_err_t settings_reset_ap_password(void) {
         err = nvs_commit(s_nvs);
     }
     return err;
+}
+
+/** @copydoc settings_get_require_confirm */
+bool settings_get_require_confirm(void) {
+    uint8_t v = 1; /* Default ON (CLAUDE.md §3.4.3). */
+    if (s_ready && nvs_get_u8(s_nvs, KEY_REQ_CONFIRM, &v) != ESP_OK) {
+        v = 1;
+    }
+    return v != 0;
+}
+
+/** @copydoc settings_set_require_confirm */
+esp_err_t settings_set_require_confirm(bool enabled) {
+    if (!s_ready) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    esp_err_t err = nvs_set_u8(s_nvs, KEY_REQ_CONFIRM, enabled ? 1 : 0);
+    return err == ESP_OK ? nvs_commit(s_nvs) : err;
 }
 
 /** @copydoc settings_is_setup_done */

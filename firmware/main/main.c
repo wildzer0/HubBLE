@@ -121,7 +121,7 @@ static bool check_usb(void) {
 static void on_ble_changed(int slot) {
     char json[BLE_EVENT_JSON_MAX];
     if (slot < 0) {
-        web_server_broadcast("pairing.state", "{}");
+        api_pairing_events(web_server_broadcast);
     } else if (api_device_event_json(slot, json, sizeof(json))) {
         web_server_broadcast(strstr(json, "\"removed\"") != NULL ? "device.removed" : "device.updated", json);
     }

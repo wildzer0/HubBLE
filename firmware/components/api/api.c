@@ -423,6 +423,21 @@ static esp_err_t reboot_download_post(httpd_req_t *req) {
 /** Longest accepted device id (12 hex digits). */
 #define DEVICE_ID_LEN 12
 
+/** @brief Security badge name for the API (green = passkey/SC, yellow = Just Works verified, red = legacy). */
+static const char *sec_name(sec_level_t s) {
+    switch (s) {
+    case SEC_GREEN:
+        return "green";
+    case SEC_YELLOW:
+        return "yellow";
+    case SEC_RED:
+        return "red";
+    case SEC_UNKNOWN:
+    default:
+        return "unknown";
+    }
+}
+
 /**
  * @brief Build the JSON object describing a device.
  *
@@ -460,7 +475,7 @@ static cJSON *device_json(const ble_device_info_t *d) {
     cJSON_AddNumberToObject(lat, "avg", d->latency.avg_us);
     cJSON_AddNumberToObject(lat, "p95", d->latency.p95_us);
     cJSON_AddNumberToObject(lat, "max", d->latency.max_us);
-    cJSON_AddStringToObject(o, "security", "unknown"); /* Security badges arrive with M4. */
+    cJSON_AddStringToObject(o, "security", sec_name(d->security));
     return o;
 }
 
@@ -597,22 +612,102 @@ static esp_err_t device_item_delete(httpd_req_t *req) {
 }
 
 /** @brief Name of a pairing state for the API. */
-static const char *pair_state_name(ble_pair_state_t s) {
+static const char *pair_state_name(pair_state_t s) {
     switch (s) {
-    case BLE_PAIR_SCANNING:
+    case PAIR_SCANNING:
         return "scanning";
-    case BLE_PAIR_CONNECTING:
+    case PAIR_CONNECTING:
         return "connecting";
-    case BLE_PAIR_PAIRING:
+    case PAIR_PAIRING:
         return "pairing";
-    case BLE_PAIR_DONE:
-        return "done";
-    case BLE_PAIR_FAILED:
+    case PAIR_QUARANTINE:
+        return "quarantine";
+    case PAIR_CONFIRM:
+        return "confirm";
+    case PAIR_BONDED:
+        return "bonded";
+    case PAIR_FAILED:
         return "failed";
-    case BLE_PAIR_IDLE:
+    case PAIR_IDLE:
     default:
         return "idle";
     }
+}
+
+/** @brief Failure reason name for the API. */
+static const char *fail_name(pair_fail_t f) {
+    switch (f) {
+    case FAIL_TIMEOUT:
+        return "timeout";
+    case FAIL_CANCELLED:
+        return "cancelled";
+    case FAIL_LEGACY:
+        return "legacy_rejected";
+    case FAIL_SECURITY:
+        return "security_failed";
+    case FAIL_NO_HID:
+        return "no_hid_service";
+    case FAIL_CHALLENGE:
+        return "challenge_failed";
+    case FAIL_NONE:
+    default:
+        return "none";
+    }
+}
+
+/**
+ * @brief Build the pairing status object (shared by REST and WebSocket).
+ *
+ * @return New cJSON object (caller owns it).
+ */
+static cJSON *pairing_json(void) {
+    ble_pairing_status_t s;
+    ble_central_pairing_status(&s);
+    cJSON *o = cJSON_CreateObject();
+    cJSON_AddStringToObject(o, "state", pair_state_name(s.state));
+    if (s.state == PAIR_FAILED) {
+        cJSON_AddStringToObject(o, "reason", fail_name(s.fail));
+    }
+    cJSON_AddStringToObject(o, "level", sec_name(s.level));
+    cJSON_AddStringToObject(o, "device", s.name);
+    cJSON_AddNumberToObject(o, "remaining_s", (s.remaining_ms + 999) / 1000);
+    cJSON_AddNumberToObject(o, "lock_remaining_s", s.lock_remaining_s);
+    cJSON_AddBoolToObject(o, "needs_confirmation", s.need_confirm);
+    if (s.has_passkey) {
+        char pk[PAIR_PASSKEY_DIGITS + 1];
+        snprintf(pk, sizeof(pk), "%06u", (unsigned)s.passkey); /* zero padded: the user types all six digits */
+        cJSON_AddStringToObject(o, "passkey", pk);
+    }
+    if (s.challenge_kind != CHALLENGE_NONE) {
+        cJSON *ch = cJSON_AddObjectToObject(o, "challenge");
+        cJSON_AddStringToObject(ch, "kind", s.challenge_kind == CHALLENGE_MOUSE ? "clicks" : "code");
+        cJSON_AddStringToObject(ch, "value", s.challenge);
+        cJSON_AddNumberToObject(ch, "progress", s.challenge_pos);
+        cJSON_AddNumberToObject(ch, "length", s.challenge_len);
+    }
+    return o;
+}
+
+/** @copydoc api_pairing_events */
+void api_pairing_events(void (*emit)(const char *event, const char *json)) {
+    ble_pairing_status_t s;
+    ble_central_pairing_status(&s);
+    cJSON *o = pairing_json();
+    char *text = cJSON_PrintUnformatted(o);
+    if (text != NULL) {
+        emit("pairing.state", text);
+        if (s.has_passkey) {
+            emit("pairing.passkey", text);
+        }
+        if (s.state == PAIR_QUARANTINE) {
+            emit("pairing.challenge", text);
+        }
+        if (s.state == PAIR_BONDED || s.state == PAIR_FAILED) {
+            emit("pairing.result", text);
+        }
+        cJSON_free(text);
+    }
+    cJSON_Delete(o);
 }
 
 /** GET /api/v1/pairing/scan: pairing state and the scan list. */
@@ -621,6 +716,7 @@ static esp_err_t pairing_scan_get(httpd_req_t *req) {
     size_t n = ble_central_scan_results(res);
     cJSON *r = cJSON_CreateObject();
     cJSON_AddStringToObject(r, "state", pair_state_name(ble_central_pair_state()));
+    cJSON_AddItemToObject(r, "pairing", pairing_json());
     cJSON *arr = cJSON_AddArrayToObject(r, "results");
     for (size_t i = 0; i < n; i++) {
         cJSON *o = cJSON_CreateObject();
@@ -644,6 +740,10 @@ static esp_err_t pairing_scan_post(httpd_req_t *req) {
         return ESP_OK;
     }
     esp_err_t err = ble_central_scan_start(PAIRING_SCAN_MS);
+    if (err == ESP_ERR_NOT_ALLOWED) {
+        return send_error(req, "429 Too Many Requests", "pairing_locked",
+                          "Pairing is locked for 60 s after 3 failed attempts");
+    }
     if (err == ESP_ERR_NO_MEM) {
         return send_error(req, "409 Conflict", "no_free_slot", "Four devices are already paired; forget one first");
     }
@@ -690,11 +790,17 @@ static esp_err_t pairing_start_post(httpd_req_t *req) {
     uint8_t addr[6];
     bool ok = cJSON_IsString(a) && parse_address(a->valuestring, addr);
     uint8_t type = cJSON_IsNumber(t) ? (uint8_t)t->valueint : 0;
+    const cJSON *lg = cJSON_GetObjectItemCaseSensitive(j, "allow_legacy");
+    bool allow_legacy = cJSON_IsTrue(lg); /* Per-pairing override; results in security level red. */
     cJSON_Delete(j);
     if (!ok) {
         return send_error(req, "400 Bad Request", "bad_address", "address must be 12 hex digits");
     }
-    esp_err_t err = ble_central_pair(addr, type);
+    esp_err_t err = ble_central_pair(addr, type, allow_legacy);
+    if (err == ESP_ERR_NOT_ALLOWED) {
+        return send_error(req, "429 Too Many Requests", "pairing_locked",
+                          "Pairing is locked for 60 s after 3 failed attempts");
+    }
     if (err == ESP_ERR_NO_MEM) {
         return send_error(req, "409 Conflict", "no_free_slot", "Four devices are already paired; forget one first");
     }
@@ -715,6 +821,32 @@ static esp_err_t pairing_cancel_post(httpd_req_t *req) {
     cJSON *r = cJSON_CreateObject();
     cJSON_AddBoolToObject(r, "ok", true);
     return send_json(req, r);
+}
+
+/** GET /api/v1/settings: non-secret settings (more arrive with M5). */
+static esp_err_t settings_get(httpd_req_t *req) {
+    cJSON *r = cJSON_CreateObject();
+    cJSON_AddBoolToObject(r, "require_confirmation", settings_get_require_confirm());
+    return send_json(req, r);
+}
+
+/** PUT /api/v1/settings: update settings (currently `require_confirmation`). */
+static esp_err_t settings_put(httpd_req_t *req) {
+    if (!guard(req, CT_JSON)) {
+        return ESP_OK;
+    }
+    cJSON *j = read_json_body(req);
+    if (j == NULL) {
+        return ESP_OK;
+    }
+    const cJSON *rc = cJSON_GetObjectItemCaseSensitive(j, "require_confirmation");
+    if (cJSON_IsBool(rc)) {
+        bool on = cJSON_IsTrue(rc);
+        settings_set_require_confirm(on);
+        ble_central_set_require_confirm(on);
+    }
+    cJSON_Delete(j);
+    return settings_get(req);
 }
 
 #if CONFIG_HUBBLE_USB_DEBUG_INJECT
@@ -816,6 +948,8 @@ esp_err_t api_register(httpd_handle_t server) {
         {.uri = "/api/v1/pairing/scan", .method = HTTP_POST, .handler = pairing_scan_post},
         {.uri = "/api/v1/pairing/start", .method = HTTP_POST, .handler = pairing_start_post},
         {.uri = "/api/v1/pairing/cancel", .method = HTTP_POST, .handler = pairing_cancel_post},
+        {.uri = "/api/v1/settings", .method = HTTP_GET, .handler = settings_get},
+        {.uri = "/api/v1/settings", .method = HTTP_PUT, .handler = settings_put},
 #if CONFIG_HUBBLE_USB_DEBUG_INJECT
         {.uri = "/api/v1/debug/input", .method = HTTP_POST, .handler = debug_input_post},
 #endif

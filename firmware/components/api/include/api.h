@@ -23,9 +23,9 @@ extern "C" {
 
 /** Number of URI handlers api_register() adds (so the server can size max_uri_handlers). */
 #if CONFIG_HUBBLE_USB_DEBUG_INJECT
-#define API_URI_HANDLER_COUNT 17
+#define API_URI_HANDLER_COUNT 19
 #else
-#define API_URI_HANDLER_COUNT 16
+#define API_URI_HANDLER_COUNT 18
 #endif
 
 /**
@@ -37,6 +37,14 @@ extern "C" {
  * @return true if the JSON was produced (false for an invalid slot or a too small buffer).
  */
 bool api_device_event_json(int slot, char *out, size_t cap);
+
+/**
+ * @brief Emit the WebSocket events describing the current pairing state: `pairing.state` always, plus
+ *        `pairing.passkey`, `pairing.challenge` or `pairing.result` when applicable (all carry the status object).
+ *
+ * @param emit Called once per event with the event name and its JSON payload.
+ */
+void api_pairing_events(void (*emit)(const char *event, const char *json));
 
 /**
  * @brief Register all REST handlers.

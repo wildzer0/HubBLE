@@ -35,11 +35,11 @@ jobs:
             -I firmware/components/semver/include -I firmware/components/web_assets/include \
             -I firmware/components/log_buffer/include -I firmware/components/wifi_ap/include \
             -I firmware/components/captive_portal/include -I firmware/components/settings/include \
-            -I firmware/components/api/include -I firmware/components/ota/include -I firmware/components/hid_report/include -I firmware/components/hid_parser/include -I firmware/components/hid_normalizer/include -I firmware/components/combo/include -I firmware/components/lat_stats/include \
+            -I firmware/components/api/include -I firmware/components/ota/include -I firmware/components/hid_report/include -I firmware/components/hid_parser/include -I firmware/components/hid_normalizer/include -I firmware/components/combo/include -I firmware/components/lat_stats/include -I firmware/components/pairing/include \
             firmware/components/semver/semver.c firmware/components/web_assets/web_bundle.c \
             firmware/components/log_buffer/log_buffer.c firmware/components/wifi_ap/ap_policy.c \
             firmware/components/captive_portal/dns_reply.c firmware/components/settings/settings_model.c \
-            firmware/components/api/http_guard.c firmware/components/hid_report/hid_report.c firmware/components/hid_parser/hid_parser.c firmware/components/hid_normalizer/hid_normalizer.c firmware/components/combo/combo.c firmware/components/lat_stats/lat_stats.c firmware/components/ota/board_marker.c \
+            firmware/components/api/http_guard.c firmware/components/hid_report/hid_report.c firmware/components/hid_parser/hid_parser.c firmware/components/hid_normalizer/hid_normalizer.c firmware/components/combo/combo.c firmware/components/lat_stats/lat_stats.c firmware/components/pairing/pairing.c firmware/components/ota/board_marker.c \
             firmware/components/ota/boot_guard.c
       - name: markdownlint
         run: npx --yes markdownlint-cli2@0.18.1 "**/*.md"

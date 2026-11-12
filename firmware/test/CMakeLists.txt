@@ -65,3 +65,7 @@ target_link_options(test_hid_parser PRIVATE -fsanitize=address,undefined)
 
 hubble_add_test(test_combo_lat unit/test_combo_lat.c ${COMP}/combo/combo.c ${COMP}/lat_stats/lat_stats.c)
 target_include_directories(test_combo_lat PRIVATE ${COMP}/combo/include ${COMP}/lat_stats/include)
+
+# --- M4 pure-logic components ---------------------------------------------------
+hubble_add_test(test_pairing unit/test_pairing.c ${COMP}/pairing/pairing.c)
+target_include_directories(test_pairing PRIVATE ${COMP}/pairing/include)

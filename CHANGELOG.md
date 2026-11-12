@@ -25,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - REST: `/devices`, `/devices/{id}` (+ `/report-map`), `/pairing/scan|start|cancel`; WebSocket `device.updated|removed`.
   M3 pairing is Just Works; the secure pairing flows come in M4.
 
+- Secure pairing (M4): Passkey Entry (DisplayOnly) for keyboards, quarantine + click/code challenges for Just Works
+  devices, legacy pairing refused unless overridden, optional physical confirmation (both Shifts 3 s on a paired
+  keyboard), 60 s lock after 3 failures, security badges (green/yellow/red). Pure `pairing` state machine with host tests.
+- `GET/PUT /api/v1/settings` (`require_confirmation`), pairing status in `GET /api/v1/pairing/scan`, `pairing.*` events.
+
 ### Changed
 
 - The USB Serial/JTAG console is removed (TinyUSB owns the USB PHY); see ADR 10. Logs stay in the web app.
