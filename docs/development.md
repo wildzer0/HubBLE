@@ -24,6 +24,37 @@ tools/build-firmware.sh all      # builds s3_zero (xiao_s3 is paused but can sti
 python3 tools/check_firmware_size.py firmware/build-s3_zero/hubble.bin 1782579
 ```
 
+## Building for another board
+
+Only the **S3-Zero** (`s3_zero`) is built, tested and released at the moment. The XIAO ESP32-S3 (`xiao_s3`) definition is
+kept in the tree and can still be built by name, but nothing checks it:
+
+```bash
+tools/build-firmware.sh xiao_s3      # local build only, output in firmware/build-xiao_s3/
+```
+
+To bring the XIAO back into CI and releases, add `xiao_s3` to the `board:` matrices of `.github/workflows/ci.yml` and
+`release.yml`, to the `for b in ...` loop in `tools/check.sh`, to the board list of `tools/build-firmware.sh` (`all`),
+to the `make_release_assets.py` call in `release.yml`, and raise the number of jobs `verify-ci` waits for (it counts
+`firmware (<board>)` checks).
+
+To add a **new** board (a hypothetical `my_board`):
+
+1. **`firmware/components/board/Kconfig`**: add a `HUBBLE_BOARD_MY_BOARD` choice entry and give it a line in every
+   derived symbol (`HUBBLE_BOARD_ID` = `my_board`, `HUBBLE_BOARD_NAME`, LED type, LED GPIO and polarity, flash size).
+   No GPIO number may appear anywhere else in the firmware (CLAUDE.md §2.3).
+2. **`firmware/sdkconfig.defaults.my_board`**: select the board (`CONFIG_HUBBLE_BOARD_MY_BOARD=y`), the flash size, the
+   partition table (`partitions/partitions_4mb.csv` or `_8mb.csv`, or a new one with two OTA slots) and the PSRAM mode
+   (copy `sdkconfig.defaults.s3_zero` or `.xiao_s3` as a start). Only ESP32-S3 boards work: the dongle needs the native
+   USB device.
+3. **`firmware/CMakeLists.txt`**: add the id to the `HUBBLE_BOARD MATCHES` list.
+4. **Build and check**: `tools/build-firmware.sh my_board`, then
+   `python3 tools/check_firmware_size.py firmware/build-my_board/hubble.bin <limit>` (90 % of one OTA slot).
+5. **Hardware facts**: record the LED, button and PSRAM details in `docs/hardware.md` and test with
+   `docs/testing/m1.md`.
+6. **Pipelines**: only when the board is meant to be supported, add it as described above for the XIAO. A board that
+   is released must have its own factory image, because the OTA check refuses images built for another board id.
+
 Test overlays (never for releases) build into `build-<board>-<overlay>/`:
 
 ```bash
