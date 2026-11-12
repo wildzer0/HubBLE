@@ -21,15 +21,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          # The six CI jobs of ci.yml; wait up to ~15 min in case CI on main is still running.
+          # The eight CI jobs of ci.yml; wait up to ~15 min in case CI on main is still running.
           for _ in $(seq 1 60); do
             ok=$(gh api "repos/$GH_REPO/commits/$GITHUB_SHA/check-runs?per_page=100" \
-              --jq '[.check_runs[] | select(.name=="lint" or .name=="webapp" or .name=="docs" or .name=="host-tests" or .name=="firmware (s3_zero)" or .name=="firmware (xiao_s3)") | select(.conclusion=="success")] | map(.name) | unique | length')
+              --jq '[.check_runs[] | select(.name=="lint" or .name=="webapp" or .name=="webapp-build" or .name=="fuzz" or .name=="docs" or .name=="host-tests" or .name=="firmware (s3_zero)" or .name=="firmware (xiao_s3)") | select(.conclusion=="success")] | map(.name) | unique | length')
             bad=$(gh api "repos/$GH_REPO/commits/$GITHUB_SHA/check-runs?per_page=100" \
               --jq '[.check_runs[] | select(.conclusion=="failure")] | length')
-            echo "green jobs: $ok/6, failed: $bad"
+            echo "green jobs: $ok/8, failed: $bad"
             [ "$bad" -gt 0 ] && { echo "CI failed on this commit"; exit 1; }
-            [ "$ok" -ge 6 ] && exit 0
+            [ "$ok" -ge 8 ] && exit 0
             sleep 15
           done
           echo "Timed out waiting for CI"; exit 1

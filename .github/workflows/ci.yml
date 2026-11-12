@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
   workflow_call:
+  # Longer fuzzing than the per-push smoke run.
+  schedule:
+    - cron: "0 3 * * *"
 
 permissions:
   contents: read
@@ -46,6 +49,28 @@ jobs:
       - name: actionlint
         run: docker run --rm -v "$PWD:/repo" --workdir /repo rhysd/actionlint:1.7.7 -color
 
+  # Fast: just what the firmware build needs (the checks below run in parallel with the firmware build).
+  webapp-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: webapp
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: webapp/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm run size
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: webapp-dist
+          path: webapp/dist
+          if-no-files-found: error
+
   webapp:
     runs-on: ubuntu-latest
     defaults:
@@ -63,15 +88,17 @@ jobs:
       - run: npm run lint
       - run: npm run format:check
       - run: npm run test:coverage
-      - run: npm run build
-      - run: npm run size
-      - run: npx playwright install --with-deps chromium
-      - run: npm run e2e
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - name: Cache Playwright browsers
+        id: pw
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          name: webapp-dist
-          path: webapp/dist
-          if-no-files-found: error
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('webapp/package-lock.json') }}
+      - run: npx playwright install --with-deps chromium
+        if: steps.pw.outputs.cache-hit != 'true'
+      - run: npx playwright install-deps chromium
+        if: steps.pw.outputs.cache-hit == 'true'
+      - run: npm run e2e
 
   host-tests:
     runs-on: ubuntu-latest
@@ -80,18 +107,24 @@ jobs:
       - run: |
           cmake -S firmware/test -B firmware/test/build -G Ninja
           cmake --build firmware/test/build
-          ctest --test-dir firmware/test/build --output-on-failure
+          ctest --test-dir firmware/test/build --output-on-failure -j"$(nproc)"
       - name: Host tests under ASan/LSan/UBSan
         run: |
           cmake -S firmware/test -B firmware/test/build-asan -G Ninja -DHUBBLE_SANITIZE=ON
           cmake --build firmware/test/build-asan
-          ctest --test-dir firmware/test/build-asan --output-on-failure
+          ctest --test-dir firmware/test/build-asan --output-on-failure -j"$(nproc)"
+
+  # Separate job so the (bounded) fuzzing does not lengthen the critical path.
+  fuzz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Fuzzing (libFuzzer, bounded)
         env:
           CC: clang
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq clang
-          tools/fuzz.sh "${FUZZ_SECONDS:-60}"
+          tools/fuzz.sh "${{ github.event_name == 'schedule' && 600 || 20 }}"
       - name: Upload fuzz findings
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -103,7 +136,7 @@ jobs:
           if-no-files-found: ignore
 
   firmware:
-    needs: webapp
+    needs: webapp-build
     runs-on: ubuntu-latest
     container: espressif/idf:v5.5.6
     strategy:
@@ -118,12 +151,25 @@ jobs:
         with:
           name: webapp-dist
           path: webapp/dist
+      # ccache makes a warm build (only HubBLE sources changed) take a fraction of the cold ESP-IDF compile.
+      - name: Cache compiler output
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .ccache
+          key: ccache-${{ matrix.board }}-${{ github.sha }}
+          restore-keys: ccache-${{ matrix.board }}-
       - name: Build (${{ matrix.board }})
         shell: bash
+        env:
+          IDF_CCACHE_ENABLE: "1"
+          CCACHE_DIR: ${{ github.workspace }}/.ccache
+          CCACHE_BASEDIR: ${{ github.workspace }}
+          CCACHE_MAXSIZE: 300M
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           . "$IDF_PATH/export.sh"
           tools/build-firmware.sh ${{ matrix.board }}
+          ccache -s | head -5
       - name: Size check
         run: python3 tools/check_firmware_size.py firmware/build-${{ matrix.board }}/hubble.bin "$FIRMWARE_MAX_BYTES"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
