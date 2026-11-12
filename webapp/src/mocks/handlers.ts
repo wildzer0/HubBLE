@@ -354,6 +354,14 @@ export const MOCK_REPORT_MAP =
   '05010906a101050719e029e715002501750195088102950175088101950575010508190129059102950175039101' +
   '95067508150025650507190029658100c0';
 
+/** Networks the mock scan "finds" (strongest first, like the firmware). */
+const MOCK_NETWORKS = [
+  { ssid: 'Casa-Rossi', rssi: -42, secure: true },
+  { ssid: 'TIM-38291746', rssi: -58, secure: true },
+  { ssid: 'Vodafone-Guest', rssi: -66, secure: false },
+  { ssid: 'FRITZ!Box 7590', rssi: -78, secure: true },
+];
+
 /** Handle STA credentials and the online update endpoints; null otherwise. */
 function handleOnline(req: MockRequest): MockResponse | null {
   const { method, path } = req;
@@ -371,6 +379,9 @@ function handleOnline(req: MockRequest): MockResponse | null {
     }
     state.settings = { ...state.settings, sta_configured: ssid !== '' };
     return { status: 200, json: state.settings };
+  }
+  if (method === 'GET' && path === '/api/v1/wifi/scan') {
+    return { status: 200, json: { networks: MOCK_NETWORKS } };
   }
   if (method === 'POST' && path === '/api/v1/ota/check') {
     const bad = guard(req, 'application/json');

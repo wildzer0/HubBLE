@@ -1082,6 +1082,44 @@ static esp_err_t settings_sta_put(httpd_req_t *req) {
     return settings_get(req); /* Reports sta_configured only. */
 }
 
+/** GET /api/v1/wifi/scan: nearby Wi-Fi networks for the "Wi-Fi network for updates" picker. */
+static esp_err_t wifi_scan_get(httpd_req_t *req) {
+    /* A GET has no CSRF header, but the scan is slow and exposes the neighbourhood: still require our own Host. */
+    char host[64];
+    if (get_hdr(req, "Host", host, sizeof(host)) != NULL && !http_guard_host_ours(host)) {
+        return send_error(req, "403 Forbidden", "forbidden", "Cross-origin request");
+    }
+    ou_status_t u;
+    ota_online_get_status(&u);
+    const ble_pair_state_t ps = ble_central_pair_state();
+    const bool update_busy = u.state == OU_CONNECTING || u.state == OU_CHECKING || u.state == OU_AWAIT_CONFIRM ||
+                             u.state == OU_DOWNLOADING || u.state == OU_INSTALLED;
+    const bool pairing_busy = ps == PAIR_SCANNING || ps == PAIR_CONNECTING || ps == PAIR_PAIRING;
+    if (update_busy || pairing_busy) {
+        return send_error(req, "503 Service Unavailable", "busy",
+                          "The radio is busy with an update or a pairing; try again in a moment");
+    }
+    wifi_scan_net_t nets[WIFI_SCAN_LIST_MAX];
+    size_t n = 0;
+    const esp_err_t err = wifi_ap_scan(nets, WIFI_SCAN_LIST_MAX, &n);
+    if (err == ESP_ERR_INVALID_STATE) {
+        return send_error(req, "503 Service Unavailable", "busy", "Another Wi-Fi operation is running");
+    }
+    if (err != ESP_OK) {
+        return send_error(req, "500 Internal Server Error", "scan_failed", "The Wi-Fi scan failed");
+    }
+    cJSON *r = cJSON_CreateObject();
+    cJSON *arr = cJSON_AddArrayToObject(r, "networks");
+    for (size_t i = 0; i < n; i++) {
+        cJSON *o = cJSON_CreateObject();
+        cJSON_AddStringToObject(o, "ssid", nets[i].ssid); /* cJSON escapes the name. */
+        cJSON_AddNumberToObject(o, "rssi", nets[i].rssi);
+        cJSON_AddBoolToObject(o, "secure", nets[i].secure);
+        cJSON_AddItemToArray(arr, o);
+    }
+    return send_json(req, r);
+}
+
 /** POST /api/v1/ota/check {"channel":"stable"|"prerelease"}: start looking for an update on GitHub. */
 static esp_err_t ota_check_post(httpd_req_t *req) {
     if (!guard(req, CT_JSON)) {
@@ -1245,6 +1283,7 @@ esp_err_t api_register(httpd_handle_t server) {
         {.uri = "/api/v1/settings", .method = HTTP_GET, .handler = settings_get},
         {.uri = "/api/v1/settings", .method = HTTP_PUT, .handler = settings_put},
         {.uri = "/api/v1/settings/sta", .method = HTTP_PUT, .handler = settings_sta_put},
+        {.uri = "/api/v1/wifi/scan", .method = HTTP_GET, .handler = wifi_scan_get},
         {.uri = "/api/v1/ota/check", .method = HTTP_POST, .handler = ota_check_post},
         {.uri = "/api/v1/ota/install", .method = HTTP_POST, .handler = ota_install_post},
         {.uri = "/api/v1/backup", .method = HTTP_GET, .handler = backup_get},

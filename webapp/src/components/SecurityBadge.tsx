@@ -1,13 +1,11 @@
 /**
  * @file SecurityBadge.tsx
- * @description Security level badge (green / yellow / red) with a text label so colour is never the
- * only carrier of the information (accessibility).
+ * @description Security level badge (green / yellow / red). The level is carried by the text as well as the
+ * colour so colour is never the only carrier of the information (accessibility).
  */
 import type { SecurityLevel } from '../api/types';
 import { useT } from '../i18n/context';
-
-/** Emoji shown for each level. */
-const ICON: Record<SecurityLevel, string> = { green: '🟢', yellow: '🟡', red: '🔴', unknown: '⚪' };
+import { Pill, SECURITY_TONE } from './ui';
 
 /**
  * Render the badge.
@@ -18,8 +16,8 @@ const ICON: Record<SecurityLevel, string> = { green: '🟢', yellow: '🟡', red
 export function SecurityBadge({ level }: { level: SecurityLevel }) {
   const t = useT();
   return (
-    <span class={`badge badge-${level}`} data-testid="security">
-      <span aria-hidden="true">{ICON[level]}</span> {t(`security.${level}`)}
-    </span>
+    <Pill tone={SECURITY_TONE[level]} testId="security">
+      {t(`security.${level}`)}
+    </Pill>
   );
 }

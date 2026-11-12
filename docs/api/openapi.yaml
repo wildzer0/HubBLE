@@ -69,6 +69,32 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/Ok' }
         '409': { $ref: '#/components/responses/Error' }
+  /api/v1/wifi/scan:
+    get:
+      summary: Scan for nearby Wi-Fi networks (for choosing the network used for updates)
+      description: >
+        Blocks for a couple of seconds while the radio scans (the AP stays up, phones may see short stalls). Hidden networks
+        are left out, names are deduplicated (strongest access point wins), sorted by signal, at most 20.
+        503 `busy` while an update check or a pairing is running, or another scan is in progress.
+      responses:
+        '200':
+          description: Networks
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  networks:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        ssid: { type: string }
+                        rssi: { type: integer, description: dBm }
+                        secure: { type: boolean, description: false for an open network }
+        '403': { $ref: '#/components/responses/Error' }
+        '500': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
   /api/v1/ota/install:
     post:
       summary: Install the release found by the last check (`{ allow_downgrade?: bool }`)

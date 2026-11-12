@@ -11,20 +11,34 @@ test('without a saved network the page asks for one and hides the check button',
   await expect(page.getByRole('button', { name: 'Check for updates' })).toHaveCount(0);
 });
 
-test('Wi-Fi credentials are write-only: saved, never shown again, can be forgotten', async ({
-  page,
-}) => {
+test('the network is chosen from a scan; the credentials are write-only', async ({ page }) => {
   await page.goto('/#/settings');
   await expect(page.getByTestId('sta-state')).toHaveText('No network saved.');
-  await page.getByLabel('Network name').fill('HomeNet');
-  await page.getByLabel(/Password \(empty/).fill('secret-pass');
+  await page.getByRole('button', { name: 'Search networks' }).click();
+  const nets = page.getByTestId('network');
+  await expect(nets).toHaveCount(4);
+  await expect(nets.first()).toContainText('Casa-Rossi'); // strongest first
+  await nets.first().click();
+  await page.getByLabel('Password for Casa-Rossi').fill('secret-pass');
   await page.getByRole('button', { name: 'Save network' }).click();
   await expect(page.getByText('Network saved.')).toBeVisible();
   await expect(page.getByTestId('sta-state')).toHaveText('A network is saved.');
-  await expect(page.getByLabel('Network name')).toHaveValue('');
-  await expect(page.getByLabel(/Password \(empty/)).toHaveValue('');
+  await page.getByRole('button', { name: 'Change network' }).click();
+  await page.getByTestId('network').nth(2).click(); // an open network needs no password
+  await expect(page.getByLabel(/Password for/)).toHaveCount(0);
+  await page.getByRole('button', { name: 'Save network' }).click();
   await page.getByRole('button', { name: 'Forget network' }).click();
   await expect(page.getByTestId('sta-state')).toHaveText('No network saved.');
+});
+
+test('a hidden network can be typed by hand', async ({ page }) => {
+  await page.goto('/#/settings');
+  await page.getByRole('button', { name: 'Search networks' }).click();
+  await page.getByTestId('network-other').click();
+  await page.getByLabel('Network name').fill('HiddenNet');
+  await page.getByLabel(/Password/).fill('secret-pass');
+  await page.getByRole('button', { name: 'Save network' }).click();
+  await expect(page.getByTestId('sta-state')).toHaveText('A network is saved.');
 });
 
 test('check, release details and install of a newer signed version', async ({ page, request }) => {

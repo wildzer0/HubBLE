@@ -7,6 +7,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { ApiError, forgetDevice, getDevice, getReportMap, renameDevice } from '../api/client';
 import { ConfirmButton } from '../components/ConfirmButton';
 import { SecurityBadge } from '../components/SecurityBadge';
+import { Alert, Icon, Pill } from '../components/ui';
 import { useT } from '../i18n/context';
 import { downloadText } from '../lib/download';
 import { useApi } from '../lib/useApi';
@@ -26,7 +27,7 @@ const NAME_MAX = 31;
  */
 function BatteryChart({ samples }: { samples: number[] }) {
   const t = useT();
-  if (samples.length < 2) return <p class="muted">{t('device.history_wait')}</p>;
+  if (samples.length < 2) return <p class="hint">{t('device.history_wait')}</p>;
   const w = 200;
   const h = 40;
   const pts = samples
@@ -66,10 +67,19 @@ export function DeviceDetail({ id }: { id: string }) {
 
   if (!d) {
     return (
-      <section>
-        {failed ? <p role="alert">{t('device.not_found')}</p> : <p>{t('common.loading')}</p>}
-        <a href="#/dashboard">{t('device.back')}</a>
-      </section>
+      <>
+        <a class="back" href="#/dashboard">
+          <Icon name="back" />
+          {t('device.back')}
+        </a>
+        {failed ? (
+          <Alert kind="bad" role="alert">
+            {t('device.not_found')}
+          </Alert>
+        ) : (
+          <p class="muted">{t('common.loading')}</p>
+        )}
+      </>
     );
   }
 
@@ -105,26 +115,43 @@ export function DeviceDetail({ id }: { id: string }) {
     }
   };
 
+  const row = (k: string, v: string | number, testId?: string) => (
+    <div class="row">
+      <dt>{k}</dt>
+      <dd data-testid={testId}>{v}</dd>
+    </div>
+  );
+
   return (
-    <section aria-labelledby="dev-h">
-      <p>
-        <a href="#/dashboard">{t('device.back')}</a>
-      </p>
-      <h2 id="dev-h">{d.name}</h2>
-      <SecurityBadge level={d.security} />
-      <p class="muted">
-        {t(`device.type.${d.type}`)} · {d.connected ? t('device.connected') : t('device.offline')}
-      </p>
+    <>
+      <div class="page-head">
+        <a class="back" href="#/dashboard">
+          <Icon name="back" />
+          {t('device.back')}
+        </a>
+      </div>
+      <div class="stack">
+        <h2 id="dev-h">{d.name}</h2>
+        <div class="actions">
+          <Pill tone={d.connected ? 'ok' : 'off'}>
+            {d.connected ? t('device.connected') : t('device.offline')}
+          </Pill>
+          <SecurityBadge level={d.security} />
+          <span class="muted">{t(`device.type.${d.type}`)}</span>
+        </div>
+      </div>
 
       <form
+        class="card"
         onSubmit={(e) => {
           e.preventDefault();
           void rename();
         }}
       >
-        <label>
-          {t('device.name')}{' '}
+        <label class="field">
+          <span>{t('device.name')}</span>
           <input
+            class="input"
             value={shownName}
             maxLength={NAME_MAX}
             onInput={(e) => {
@@ -132,58 +159,75 @@ export function DeviceDetail({ id }: { id: string }) {
               setMsg(null);
             }}
           />
-        </label>{' '}
-        <button type="submit" disabled={shownName.trim() === '' || shownName === d.name}>
+        </label>
+        <button
+          type="submit"
+          class="btn primary"
+          disabled={shownName.trim() === '' || shownName === d.name}
+        >
           {t('device.rename')}
         </button>
       </form>
 
-      <h3>{t('device.connection')}</h3>
-      <dl>
-        <dt>{t('device.interval')}</dt>
-        <dd data-testid="interval">{d.connection.interval_ms} ms</dd>
-        <dt>{t('device.slave_latency')}</dt>
-        <dd>{d.connection.latency}</dd>
-        <dt>{t('device.timeout')}</dt>
-        <dd>{d.connection.timeout_ms} ms</dd>
-        <dt>{t('device.rssi')}</dt>
-        <dd>{d.rssi === null ? '–' : `${String(d.rssi)} dBm`}</dd>
-        <dt>{t('device.battery')}</dt>
-        <dd>{d.battery === null ? '–' : `${String(d.battery)} %`}</dd>
-        <dt>{t('device.reconnects')}</dt>
-        <dd>{d.reconnects}</dd>
-        <dt>{t('device.last_seen')}</dt>
-        <dd>{t('device.seconds_ago', { s: d.last_seen_s })}</dd>
-      </dl>
-
-      <h3>{t('device.latency')}</h3>
-      {d.latency_us.count === 0 ? (
-        <p class="muted">–</p>
-      ) : (
-        <dl>
-          <dt>{t('device.lat_min')}</dt>
-          <dd>{(d.latency_us.min / 1000).toFixed(2)} ms</dd>
-          <dt>{t('device.lat_avg')}</dt>
-          <dd data-testid="lat-avg">{(d.latency_us.avg / 1000).toFixed(2)} ms</dd>
-          <dt>{t('device.lat_p95')}</dt>
-          <dd>{(d.latency_us.p95 / 1000).toFixed(2)} ms</dd>
-          <dt>{t('device.lat_max')}</dt>
-          <dd>{(d.latency_us.max / 1000).toFixed(2)} ms</dd>
+      <section class="card" aria-labelledby="conn-h">
+        <h3 class="card-title" id="conn-h">
+          {t('device.connection')}
+        </h3>
+        <dl class="rows">
+          {row(t('device.interval'), `${String(d.connection.interval_ms)} ms`, 'interval')}
+          {row(t('device.slave_latency'), d.connection.latency)}
+          {row(t('device.timeout'), `${String(d.connection.timeout_ms)} ms`)}
+          {row(t('device.rssi'), d.rssi === null ? '–' : `${String(d.rssi)} dBm`)}
+          {row(t('device.battery'), d.battery === null ? '–' : `${String(d.battery)} %`)}
+          {row(t('device.reconnects'), d.reconnects)}
+          {row(t('device.last_seen'), t('device.seconds_ago', { s: d.last_seen_s }))}
         </dl>
+      </section>
+
+      <section class="card" aria-labelledby="lat-h">
+        <h3 class="card-title" id="lat-h">
+          {t('device.latency')}
+        </h3>
+        {d.latency_us.count === 0 ? (
+          <p class="muted">–</p>
+        ) : (
+          <dl class="rows">
+            {row(t('device.lat_min'), `${(d.latency_us.min / 1000).toFixed(2)} ms`)}
+            {row(t('device.lat_avg'), `${(d.latency_us.avg / 1000).toFixed(2)} ms`, 'lat-avg')}
+            {row(t('device.lat_p95'), `${(d.latency_us.p95 / 1000).toFixed(2)} ms`)}
+            {row(t('device.lat_max'), `${(d.latency_us.max / 1000).toFixed(2)} ms`)}
+          </dl>
+        )}
+      </section>
+
+      <section class="card" aria-labelledby="hist-h">
+        <h3 class="card-title" id="hist-h">
+          {t('device.history')}
+        </h3>
+        <BatteryChart samples={samples} />
+      </section>
+
+      <section class="card" aria-labelledby="map-h">
+        <h3 class="card-title" id="map-h">
+          {t('device.report_map')}
+        </h3>
+        <p class="hint">{t('device.report_map_hint')}</p>
+        <button type="button" class="btn" onClick={() => void exportMap()}>
+          {t('device.export')}
+        </button>
+      </section>
+
+      <section class="card" aria-labelledby="forget-h">
+        <h3 class="card-title" id="forget-h">
+          {t('device.forget_h')}
+        </h3>
+        <ConfirmButton label={t('device.forget')} onConfirm={() => void forget()} />
+      </section>
+      {msg && (
+        <Alert kind={msg.ok ? 'ok' : 'bad'} role={msg.ok ? 'status' : 'alert'}>
+          {msg.text}
+        </Alert>
       )}
-
-      <h3>{t('device.history')}</h3>
-      <BatteryChart samples={samples} />
-
-      <h3>{t('device.report_map')}</h3>
-      <p class="muted">{t('device.report_map_hint')}</p>
-      <button type="button" onClick={() => void exportMap()}>
-        {t('device.export')}
-      </button>
-
-      <h3>{t('device.forget_h')}</h3>
-      <ConfirmButton label={t('device.forget')} onConfirm={() => void forget()} />
-      {msg && <p role={msg.ok ? 'status' : 'alert'}>{msg.text}</p>}
-    </section>
+    </>
   );
 }

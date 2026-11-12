@@ -14,6 +14,7 @@
 #include <stdint.h>
 
 #include "esp_err.h"
+#include "wifi_scan_list.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -74,6 +75,21 @@ bool wifi_ap_is_initialized(void);
  *         ESP_ERR_INVALID_STATE if the AP is not running.
  */
 esp_err_t wifi_ap_sta_connect(const char *ssid, const char *password, uint32_t timeout_ms);
+
+/**
+ * @brief Scan for nearby Wi-Fi networks, for the "pick a network" list of the web app. Blocks for a couple of seconds.
+ *
+ * Switches to APSTA for the duration of the scan and back to AP-only afterwards. The AP keeps its channel, but the
+ * radio is busy hopping channels, so phones on the AP may see short stalls (not disconnections). Hidden networks are
+ * left out, names are deduplicated and the list is sorted by signal (see wifi_scan_list_clean()).
+ *
+ * @param[out] out   Receives up to @p max networks.
+ * @param max        Capacity of @p out (use WIFI_SCAN_LIST_MAX).
+ * @param[out] count Number of networks written.
+ * @return ESP_OK; ESP_ERR_INVALID_STATE if the AP is off, a scan or a join is already running; ESP_ERR_NO_MEM or a
+ *         Wi-Fi driver error otherwise.
+ */
+esp_err_t wifi_ap_scan(wifi_scan_net_t *out, size_t max, size_t *count);
 
 /** @brief Leave the station network and return to AP-only mode. Safe to call when not connected. */
 void wifi_ap_sta_disconnect(void);

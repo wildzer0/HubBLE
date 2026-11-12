@@ -14,6 +14,7 @@ import type {
   ReportMap,
   ScanResponse,
   Settings,
+  WifiNetwork,
   Status,
 } from './types';
 
@@ -254,6 +255,15 @@ export async function restoreBackup(backup: Backup): Promise<void> {
  */
 export function setStaCredentials(ssid: string, password: string): Promise<Settings> {
   return request<Settings>('PUT', '/api/v1/settings/sta', { ssid, password });
+}
+
+/**
+ * Scan for nearby Wi-Fi networks (the dongle needs a few seconds).
+ *
+ * @returns Networks sorted by signal strength, strongest first.
+ */
+export async function scanWifi(): Promise<WifiNetwork[]> {
+  return (await request<{ networks: WifiNetwork[] }>('GET', '/api/v1/wifi/scan')).networks;
 }
 
 /**

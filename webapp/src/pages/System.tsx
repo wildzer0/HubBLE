@@ -12,6 +12,7 @@ import {
   rebootDownload,
   restoreBackup,
 } from '../api/client';
+import { Alert } from '../components/ui';
 import { ConfirmButton } from '../components/ConfirmButton';
 import { PasswordForm } from '../components/PasswordForm';
 import { subscribe } from '../api/live';
@@ -48,16 +49,16 @@ function LiveLog() {
   );
 
   return (
-    <section aria-labelledby="log-h">
-      <h3 id="log-h">{t('system.logs')}</h3>
+    <section class="card" aria-labelledby="log-h">
+      <h3 class="card-title" id="log-h">
+        {t('system.logs')}
+      </h3>
       <pre class="log" tabIndex={0} aria-live="off" data-testid="log">
         {lines.length === 0 ? t('system.logs_empty') : lines.join('\n')}
       </pre>
-      <p>
-        <a href="/api/v1/logs" download="hubble.log">
-          {t('system.logs_download')}
-        </a>
-      </p>
+      <a class="btn" href="/api/v1/logs" download="hubble.log">
+        {t('system.logs_download')}
+      </a>
     </section>
   );
 }
@@ -98,29 +99,32 @@ function BackupSection() {
   };
 
   return (
-    <section aria-labelledby="bk-h">
-      <h3 id="bk-h">{t('system.backup')}</h3>
-      <p class="muted">{t('system.backup_hint')}</p>
-      <p>
-        <button type="button" onClick={() => void download()}>
-          {t('system.backup_download')}
-        </button>
-      </p>
-      <p>
-        <label>
-          {t('system.restore_choose')}{' '}
-          <input
-            type="file"
-            accept="application/json,.json"
-            onChange={(e) => {
-              const f = e.currentTarget.files?.[0];
-              if (f) void restore(f);
-              e.currentTarget.value = '';
-            }}
-          />
-        </label>
-      </p>
-      {msg && <p role={msg.ok ? 'status' : 'alert'}>{msg.text}</p>}
+    <section class="card" aria-labelledby="bk-h">
+      <h3 class="card-title" id="bk-h">
+        {t('system.backup')}
+      </h3>
+      <p class="hint">{t('system.backup_hint')}</p>
+      <button type="button" class="btn" onClick={() => void download()}>
+        {t('system.backup_download')}
+      </button>
+      <label class="field">
+        <span>{t('system.restore_choose')}</span>
+        <input
+          class="input"
+          type="file"
+          accept="application/json,.json"
+          onChange={(e) => {
+            const f = e.currentTarget.files?.[0];
+            if (f) void restore(f);
+            e.currentTarget.value = '';
+          }}
+        />
+      </label>
+      {msg && (
+        <Alert kind={msg.ok ? 'ok' : 'bad'} role={msg.ok ? 'status' : 'alert'}>
+          {msg.text}
+        </Alert>
+      )}
     </section>
   );
 }
@@ -146,73 +150,92 @@ export function System() {
     );
   };
 
+  const row = (k: string, v: string | number, testId?: string) => (
+    <div class="row">
+      <dt>{k}</dt>
+      <dd data-testid={testId}>{v}</dd>
+    </div>
+  );
+
   return (
-    <section aria-labelledby="sys-h">
+    <>
       <h2 id="sys-h">{t('system.heading')}</h2>
-      <h3>{t('system.diagnostics')}</h3>
-      {failed && !d && <p role="alert">{t('common.error')}</p>}
-      {d && (
-        <dl>
-          <dt>{t('system.uptime')}</dt>
-          <dd>{formatDuration(d.uptime_s)}</dd>
-          <dt>{t('system.reset_reason')}</dt>
-          <dd>{d.reset_reason}</dd>
-          <dt>{t('system.heap')}</dt>
-          <dd data-testid="heap">{formatBytes(d.heap.free)}</dd>
-          <dt>{t('system.psram')}</dt>
-          <dd>{formatBytes(d.psram.free)}</dd>
-          <dt>{t('system.partition')}</dt>
-          <dd>{d.partitions.running.label}</dd>
-          <dt>{t('system.usb')}</dt>
-          <dd>{d.usb_state}</dd>
-          <dt>{t('system.power')}</dt>
-          <dd data-testid="power">
-            {d.power.mode === 'low' ? t('system.power_low') : t('system.power_active')}
-          </dd>
-          <dt>{t('system.ble')}</dt>
-          <dd data-testid="ble">
-            {t('system.ble_value', { c: d.ble.connected, b: d.ble.bonded })}
-          </dd>
-          <dt>{t('system.wifi_clients')}</dt>
-          <dd>{d.wifi.clients}</dd>
-          <dt>{t('system.boot_failures')}</dt>
-          <dd>{d.boot_failures}</dd>
-        </dl>
-      )}
+
+      <section class="card" aria-labelledby="diag-h">
+        <h3 class="card-title" id="diag-h">
+          {t('system.diagnostics')}
+        </h3>
+        {failed && !d && (
+          <Alert kind="bad" role="alert">
+            {t('common.error')}
+          </Alert>
+        )}
+        {d && (
+          <dl class="rows">
+            {row(t('system.uptime'), formatDuration(d.uptime_s))}
+            {row(t('system.reset_reason'), d.reset_reason)}
+            {row(t('system.heap'), formatBytes(d.heap.free), 'heap')}
+            {row(t('system.psram'), formatBytes(d.psram.free))}
+            {row(t('system.partition'), d.partitions.running.label)}
+            {row(t('system.usb'), d.usb_state)}
+            {row(
+              t('system.power'),
+              d.power.mode === 'low' ? t('system.power_low') : t('system.power_active'),
+              'power',
+            )}
+            {row(
+              t('system.ble'),
+              t('system.ble_value', { c: d.ble.connected, b: d.ble.bonded }),
+              'ble',
+            )}
+            {row(t('system.wifi_clients'), d.wifi.clients)}
+            {row(t('system.boot_failures'), d.boot_failures)}
+          </dl>
+        )}
+      </section>
 
       <LiveLog />
+      <PasswordForm />
+      <BackupSection />
 
-      <h3>{t('system.actions')}</h3>
-      <p>
+      <section class="card" aria-labelledby="act-h">
+        <h3 class="card-title" id="act-h">
+          {t('system.actions')}
+        </h3>
         <ConfirmButton
+          danger={false}
           label={t('system.reboot')}
           onConfirm={() => {
             send(reboot);
           }}
         />
-      </p>
-      <p>
         <ConfirmButton
+          danger={false}
           label={t('system.reboot_download')}
           onConfirm={() => {
             send(rebootDownload);
           }}
         />
-      </p>
-      <p class="muted">{t('system.reboot_download_hint')}</p>
-      {sent && <p role="status">{t('system.action_done')}</p>}
+        <p class="hint">{t('system.reboot_download_hint')}</p>
+        {sent && (
+          <Alert kind="ok" role="status">
+            {t('system.action_done')}
+          </Alert>
+        )}
+      </section>
 
-      <PasswordForm />
-      <BackupSection />
-
-      <h3>{t('system.factory')}</h3>
-      <p class="muted">{t('system.factory_hint')}</p>
-      <ConfirmButton
-        label={t('system.factory_reset')}
-        onConfirm={() => {
-          send(factoryReset);
-        }}
-      />
-    </section>
+      <section class="card" aria-labelledby="fac-h">
+        <h3 class="card-title" id="fac-h">
+          {t('system.factory')}
+        </h3>
+        <p class="hint">{t('system.factory_hint')}</p>
+        <ConfirmButton
+          label={t('system.factory_reset')}
+          onConfirm={() => {
+            send(factoryReset);
+          }}
+        />
+      </section>
+    </>
   );
 }

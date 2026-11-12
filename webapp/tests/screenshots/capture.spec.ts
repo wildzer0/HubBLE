@@ -69,6 +69,9 @@ test('capture the user guide screenshots', async ({ page, request }) => {
   await page.goto('/#/settings');
   await page.getByLabel('Require physical confirmation').waitFor();
   await shot(page, 'settings');
+  await page.getByRole('button', { name: 'Search networks' }).click();
+  await page.getByTestId('network').first().waitFor();
+  await page.getByTestId('wifi-picker').screenshot({ path: path.join(OUT, 'settings-wifi.png') });
 
   // Update: an update found on GitHub.
   await saveSta(request);

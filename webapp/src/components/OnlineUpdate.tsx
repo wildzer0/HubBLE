@@ -8,6 +8,7 @@ import { ApiError, checkForUpdates, installUpdate } from '../api/client';
 import { subscribe } from '../api/live';
 import type { OnlineUpdate } from '../api/types';
 import { useT } from '../i18n/context';
+import { Alert } from './ui';
 
 /** States in which the engine is working and the page must keep refreshing. */
 const ACTIVE = ['connecting', 'checking', 'confirm', 'downloading', 'installed'];
@@ -72,17 +73,20 @@ export function OnlineUpdateSection({
       : 0;
 
   return (
-    <section aria-labelledby="online-h" data-testid="online">
-      <h3 id="online-h">{t('online.heading')}</h3>
+    <section class="card" aria-labelledby="online-h" data-testid="online">
+      <h3 class="card-title" id="online-h">
+        {t('online.heading')}
+      </h3>
       {!online.wifi_configured ? (
-        <p class="notice">
+        <Alert>
           {t('online.no_wifi')} <a href="#/settings">{t('online.go_settings')}</a>
-        </p>
+        </Alert>
       ) : (
         <>
-          <label>
-            {t('online.channel')}{' '}
+          <label class="field">
+            <span>{t('online.channel')}</span>
             <select
+              class="input"
               value={channel}
               disabled={working}
               onChange={(e) => {
@@ -93,46 +97,52 @@ export function OnlineUpdateSection({
               <option value="prerelease">{t('online.channel_prerelease')}</option>
             </select>
           </label>
-          <p>
-            <button
-              type="button"
-              disabled={working}
-              onClick={() => {
-                setDowngradeOk(false);
-                void run(() => checkForUpdates(channel));
-              }}
-            >
-              {t('online.check')}
-            </button>
-          </p>
-          <p class="muted">{t('online.ap_hint')}</p>
+          <button
+            type="button"
+            class="btn primary"
+            disabled={working}
+            onClick={() => {
+              setDowngradeOk(false);
+              void run(() => checkForUpdates(channel));
+            }}
+          >
+            {t('online.check')}
+          </button>
+          <p class="hint">{t('online.ap_hint')}</p>
         </>
       )}
-      {error && <p role="alert">{error}</p>}
+      {error && (
+        <Alert kind="bad" role="alert">
+          {error}
+        </Alert>
+      )}
 
-      <div aria-live="polite" data-testid="online-status">
+      <div aria-live="polite" data-testid="online-status" class="stack">
         {online.state === 'connecting' && <p>{t('online.connecting')}</p>}
         {online.state === 'checking' && <p>{t('online.checking')}</p>}
-        {online.state === 'up_to_date' && <p>{t('online.up_to_date')}</p>}
+        {online.state === 'up_to_date' && <Alert kind="ok">{t('online.up_to_date')}</Alert>}
         {online.state === 'error' && online.error && (
-          <p role="alert">{t(`online.error.${online.error}`)}</p>
+          <Alert kind="bad" role="alert">
+            {t(`online.error.${online.error}`)}
+          </Alert>
         )}
         {online.state === 'confirm' && (
-          <p class="notice">{t('online.confirm', { s: online.confirm_remaining_s ?? 0 })}</p>
+          <Alert kind="warn">{t('online.confirm', { s: online.confirm_remaining_s ?? 0 })}</Alert>
         )}
         {online.state === 'downloading' && (
-          <p>
-            <progress aria-label={t('update.progress_label')} max={100} value={pct} />{' '}
-            {t('update.uploading', { pct })}
-          </p>
+          <>
+            <progress aria-label={t('update.progress_label')} max={100} value={pct} />
+            <p>{t('update.uploading', { pct })}</p>
+          </>
         )}
-        {online.state === 'installed' && <p>{t('online.installed')}</p>}
+        {online.state === 'installed' && <Alert kind="ok">{t('online.installed')}</Alert>}
       </div>
 
       {rel && (online.state === 'available' || online.state === 'error') && (
-        <div class="card" data-testid="release">
-          <h4>{t('online.found', { version: rel.version })}</h4>
-          <p class="muted">
+        <div class="stack" data-testid="release">
+          <hr class="divider" />
+          <h4 class="card-title">{t('online.found', { version: rel.version })}</h4>
+          <p class="hint">
             {(rel.size / (1024 * 1024)).toFixed(2)} MiB ·{' '}
             {rel.signed ? t('online.signed') : t('online.unsigned')}
             {rel.notes_url && (
@@ -145,7 +155,7 @@ export function OnlineUpdateSection({
             )}
           </p>
           {rel.downgrade && online.state === 'available' && (
-            <p class="warn">
+            <Alert kind="warn">
               <label>
                 <input
                   type="checkbox"
@@ -156,18 +166,19 @@ export function OnlineUpdateSection({
                 />{' '}
                 {t('online.downgrade', { version: rel.version })}
               </label>
-            </p>
+            </Alert>
           )}
           {online.state === 'available' && (
             <>
               <button
                 type="button"
+                class="btn primary"
                 disabled={rel.downgrade && !downgradeOk}
                 onClick={() => void run(() => installUpdate(downgradeOk))}
               >
                 {t('online.install', { version: rel.version })}
               </button>
-              <p class="muted">{t('online.confirm_hint')}</p>
+              <p class="hint">{t('online.confirm_hint')}</p>
             </>
           )}
         </div>

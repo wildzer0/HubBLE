@@ -52,6 +52,9 @@ target_include_directories(test_log_buffer PRIVATE ${COMP}/log_buffer/include)
 hubble_add_test(test_ap_policy unit/test_ap_policy.c ${COMP}/wifi_ap/ap_policy.c)
 target_include_directories(test_ap_policy PRIVATE ${COMP}/wifi_ap/include)
 
+hubble_add_test(test_wifi_scan_list unit/test_wifi_scan_list.c ${COMP}/wifi_ap/wifi_scan_list.c)
+target_include_directories(test_wifi_scan_list PRIVATE ${COMP}/wifi_ap/include)
+
 hubble_add_test(test_dns_reply unit/test_dns_reply.c ${COMP}/captive_portal/dns_reply.c)
 target_include_directories(test_dns_reply PRIVATE ${COMP}/captive_portal/include)
 

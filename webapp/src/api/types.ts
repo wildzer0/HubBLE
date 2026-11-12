@@ -341,3 +341,13 @@ export interface Backup {
   /** The exported settings (the Wi-Fi credentials are not part of it). */
   settings: Settings;
 }
+
+/** A Wi-Fi network found by `GET /api/v1/wifi/scan`. */
+export interface WifiNetwork {
+  /** Network name (hidden networks are not listed). */
+  ssid: string;
+  /** Signal strength, dBm. */
+  rssi: number;
+  /** True if the network needs a password. */
+  secure: boolean;
+}

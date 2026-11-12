@@ -5,6 +5,7 @@
  */
 import { useRef, useState } from 'preact/hooks';
 import { ApiError, getOtaStatus, getStatus, uploadFirmware } from '../api/client';
+import { Alert } from '../components/ui';
 import { useT } from '../i18n/context';
 import { OnlineUpdateSection } from '../components/OnlineUpdate';
 import { useApi } from '../lib/useApi';
@@ -70,44 +71,50 @@ export function Update() {
   const busy = phase.kind === 'uploading' || phase.kind === 'rebooting';
 
   return (
-    <section aria-labelledby="update-h">
+    <>
       <h2 id="update-h">{t('update.heading')}</h2>
       {ota && (
-        <>
-          <dl>
-            <dt>{t('update.running')}</dt>
-            <dd data-testid="running-version">
-              {ota.running.version} <small>({ota.running.slot})</small>
-            </dd>
-            <dt>{t('update.other')}</dt>
-            <dd>
-              {ota.other.version || t('update.slot_empty')} <small>({ota.other.slot})</small>
-            </dd>
+        <section class="card" aria-label={t('update.running')}>
+          <dl class="rows">
+            <div class="row">
+              <dt>{t('update.running')}</dt>
+              <dd data-testid="running-version">
+                {ota.running.version} <small>({ota.running.slot})</small>
+              </dd>
+            </div>
+            <div class="row">
+              <dt>{t('update.other')}</dt>
+              <dd>
+                {ota.other.version || t('update.slot_empty')} <small>({ota.other.slot})</small>
+              </dd>
+            </div>
             {ota.last_result && (
-              <>
+              <div class="row">
                 <dt>{t('update.last_result')}</dt>
                 <dd>{ota.last_result}</dd>
-              </>
+              </div>
             )}
           </dl>
-          {ota.pending_verify && <p class="notice">{t('update.pending')}</p>}
-          {ota.rollback_happened && <p class="notice">{t('update.rollback')}</p>}
-        </>
+          {ota.pending_verify && <Alert kind="warn">{t('update.pending')}</Alert>}
+          {ota.rollback_happened && <Alert kind="warn">{t('update.rollback')}</Alert>}
+        </section>
       )}
 
       {ota && <OnlineUpdateSection online={ota.online} refresh={reload} />}
 
-      <h3>{t('update.manual')}</h3>
       <form
+        class="card"
         onSubmit={(e) => {
           e.preventDefault();
           void start();
         }}
       >
-        <label>
-          {t('update.choose')}{' '}
+        <h3 class="card-title">{t('update.manual')}</h3>
+        <label class="field">
+          <span>{t('update.choose')}</span>
           <input
             ref={input}
+            class="input"
             type="file"
             accept=".bin"
             disabled={busy}
@@ -116,31 +123,32 @@ export function Update() {
             }}
           />
         </label>
-        <p>
-          <button type="submit" disabled={!file || busy}>
-            {t('update.upload')}
-          </button>
-        </p>
-        <p class="muted">{t('update.hint')}</p>
+        <button type="submit" class="btn primary" disabled={!file || busy}>
+          {t('update.upload')}
+        </button>
+        <p class="hint">{t('update.hint')}</p>
+        <div aria-live="polite" class="stack">
+          {phase.kind === 'uploading' && (
+            <>
+              <progress aria-label={t('update.progress_label')} max={100} value={phase.pct} />
+              <p>{t('update.uploading', { pct: phase.pct })}</p>
+            </>
+          )}
+          {phase.kind === 'rebooting' && (
+            <Alert>
+              {t('update.installed', { version: phase.version })} {t('update.waiting')}
+            </Alert>
+          )}
+          {phase.kind === 'done' && (
+            <Alert kind="ok">{t('update.back_online', { version: phase.version })}</Alert>
+          )}
+          {phase.kind === 'error' && (
+            <Alert kind="bad" role="alert">
+              {t('update.failed', { message: phase.message })}
+            </Alert>
+          )}
+        </div>
       </form>
-
-      <div aria-live="polite">
-        {phase.kind === 'uploading' && (
-          <p>
-            <progress aria-label={t('update.progress_label')} max={100} value={phase.pct} />{' '}
-            {t('update.uploading', { pct: phase.pct })}
-          </p>
-        )}
-        {phase.kind === 'rebooting' && (
-          <p>
-            {t('update.installed', { version: phase.version })} {t('update.waiting')}
-          </p>
-        )}
-        {phase.kind === 'done' && <p>{t('update.back_online', { version: phase.version })}</p>}
-        {phase.kind === 'error' && (
-          <p role="alert">{t('update.failed', { message: phase.message })}</p>
-        )}
-      </div>
-    </section>
+    </>
   );
 }

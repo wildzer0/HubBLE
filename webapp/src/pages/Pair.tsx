@@ -7,6 +7,8 @@ import { useState } from 'preact/hooks';
 import { ApiError, cancelPairing, startPairing, startScan } from '../api/client';
 import type { Pairing, PairFailure } from '../api/types';
 import { SecurityBadge } from '../components/SecurityBadge';
+import { Alert, Icon, SwitchRow } from '../components/ui';
+import type { IconName } from '../components/ui';
 import { useT } from '../i18n/context';
 import type { TFunction } from '../i18n/context';
 import { usePairing } from '../lib/usePairing';
@@ -20,12 +22,12 @@ const APPEARANCE_MOUSE = 962;
  * Icon for an advertised appearance.
  *
  * @param appearance GAP appearance value.
- * @returns An emoji (decorative).
+ * @returns The icon name.
  */
-function iconFor(appearance: number): string {
-  if (appearance === APPEARANCE_KEYBOARD) return '⌨️';
-  if (appearance === APPEARANCE_MOUSE) return '🖱️';
-  return '🔘';
+function iconFor(appearance: number): IconName {
+  if (appearance === APPEARANCE_KEYBOARD) return 'keyboard';
+  if (appearance === APPEARANCE_MOUSE) return 'mouse';
+  return 'devices';
 }
 
 /**
@@ -74,7 +76,9 @@ function Challenge({ p }: { p: Pairing }) {
           </li>
         ))}
       </ol>
-      <p role="status">{t('pair.progress', { n: ch.progress, total: ch.length })}</p>
+      <p class="muted" role="status">
+        {t('pair.progress', { n: ch.progress, total: ch.length })}
+      </p>
     </>
   );
 }
@@ -109,56 +113,70 @@ export function Pair() {
   const state = p?.state ?? 'idle';
   const locked = (p?.lock_remaining_s ?? 0) > 0;
 
+  const busyStates = ['connecting', 'pairing', 'quarantine', 'confirm'];
+
   return (
-    <section aria-labelledby="pair-h">
+    <>
+      <div class="page-head">
+        <a class="back" href="#/dashboard">
+          <Icon name="back" />
+          {t('common.back')}
+        </a>
+      </div>
       <h2 id="pair-h">{t('pair.heading')}</h2>
-      {failed && !p && <p role="alert">{t('common.error')}</p>}
-      {error && <p role="alert">{error}</p>}
+      {failed && !p && (
+        <Alert kind="bad" role="alert">
+          {t('common.error')}
+        </Alert>
+      )}
+      {error && (
+        <Alert kind="bad" role="alert">
+          {error}
+        </Alert>
+      )}
       {locked && (
-        <p role="alert" data-testid="locked">
+        <Alert kind="warn" role="alert" testId="locked">
           {t('pair.locked', { s: p?.lock_remaining_s ?? 0 })}
-        </p>
+        </Alert>
       )}
 
       {(state === 'idle' || state === 'bonded' || state === 'failed') && (
         <>
           {state === 'bonded' && p && (
-            <div role="status" class="notice" data-testid="result-ok">
-              <p>{t('pair.bonded', { name: p.device })}</p>
-              <SecurityBadge level={p.level} />
-              <p>
-                <a href="#/dashboard">{t('pair.done')}</a>
-              </p>
+            <div class="card" role="status" data-testid="result-ok">
+              <p class="card-title">{t('pair.bonded', { name: p.device })}</p>
+              <div>
+                <SecurityBadge level={p.level} />
+              </div>
+              <a class="btn primary" href="#/dashboard">
+                {t('pair.done')}
+              </a>
             </div>
           )}
           {state === 'failed' && (
-            <p role="alert" data-testid="result-fail">
+            <Alert kind="bad" role="alert" testId="result-fail">
               {failureText(t, p?.reason)}
-            </p>
+            </Alert>
           )}
-          <p class="muted">{t('pair.intro')}</p>
-          <label>
-            <input
-              type="checkbox"
+          <p class="hint">{t('pair.intro')}</p>
+          <div class="card">
+            <SwitchRow
+              label={t('pair.allow_legacy')}
               checked={allowLegacy}
-              onChange={(e) => {
-                setAllowLegacy(e.currentTarget.checked);
-              }}
-            />{' '}
-            {t('pair.allow_legacy')}
-          </label>
-          {allowLegacy && <p class="warn">{t('pair.legacy_warning')}</p>}
-          <p>
-            <button
-              type="button"
-              disabled={locked}
-              onClick={() => {
-                void act(startScan);
-              }}
-            >
-              {t('pair.scan')}
-            </button>
-          </p>
+              onChange={setAllowLegacy}
+            />
+            {allowLegacy && <Alert kind="warn">{t('pair.legacy_warning')}</Alert>}
+          </div>
+          <button
+            type="button"
+            class="btn primary block"
+            disabled={locked}
+            onClick={() => {
+              void act(startScan);
+            }}
+          >
+            {t('pair.scan')}
+          </button>
         </>
       )}
 
@@ -166,22 +184,20 @@ export function Pair() {
         <>
           <p role="status">{t('pair.scanning')}</p>
           {results.length === 0 && <p class="muted">{t('pair.no_results')}</p>}
-          <ul class="cards">
+          <ul class="found">
             {results.map((r) => (
-              <li key={r.address} class="card" data-testid="scan-result">
-                <span aria-hidden="true">{iconFor(r.appearance)}</span>{' '}
-                <strong>{r.name || r.address}</strong>
-                <span class="muted"> {r.rssi} dBm</span>
-                <p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      void act(() => startPairing(r.address, r.address_type, allowLegacy));
-                    }}
-                  >
-                    {t('pair.pair_with', { name: r.name || r.address })}
-                  </button>
-                </p>
+              <li key={r.address} data-testid="scan-result">
+                <button
+                  type="button"
+                  aria-label={t('pair.pair_with', { name: r.name || r.address })}
+                  onClick={() => {
+                    void act(() => startPairing(r.address, r.address_type, allowLegacy));
+                  }}
+                >
+                  <Icon name={iconFor(r.appearance)} />
+                  <span class="grow">{r.name || r.address}</span>
+                  <span class="muted">{r.rssi} dBm</span>
+                </button>
               </li>
             ))}
           </ul>
@@ -193,7 +209,7 @@ export function Pair() {
       )}
 
       {state === 'pairing' && p && (
-        <>
+        <div class="card">
           <p>{t('pair.type_passkey', { name: p.device })}</p>
           {p.passkey ? (
             <p class="big" data-testid="passkey" aria-label={p.passkey.split('').join(' ')}>
@@ -202,41 +218,35 @@ export function Pair() {
           ) : (
             <p role="status">{t('pair.waiting_device')}</p>
           )}
-        </>
+        </div>
       )}
 
       {state === 'quarantine' && p && (
-        <>
-          <p class="notice">{t('pair.quarantine', { name: p.device })}</p>
+        <div class="card">
+          <Alert>{t('pair.quarantine', { name: p.device })}</Alert>
           <Challenge p={p} />
-        </>
+        </div>
       )}
 
-      {state === 'confirm' && p && (
-        <p class="notice" data-testid="confirm">
-          {t('pair.confirm')}
-        </p>
-      )}
+      {state === 'confirm' && p && <Alert testId="confirm">{t('pair.confirm')}</Alert>}
 
-      {p && ['connecting', 'pairing', 'quarantine', 'confirm'].includes(state) && (
+      {p && busyStates.includes(state) && (
         <p class="muted" role="timer">
           {t('pair.remaining', { s: p.remaining_s })}
         </p>
       )}
 
-      {(state === 'scanning' ||
-        ['connecting', 'pairing', 'quarantine', 'confirm'].includes(state)) && (
-        <p>
-          <button
-            type="button"
-            onClick={() => {
-              void act(cancelPairing);
-            }}
-          >
-            {t('common.cancel')}
-          </button>
-        </p>
+      {(state === 'scanning' || busyStates.includes(state)) && (
+        <button
+          type="button"
+          class="btn block"
+          onClick={() => {
+            void act(cancelPairing);
+          }}
+        >
+          {t('common.cancel')}
+        </button>
       )}
-    </section>
+    </>
   );
 }

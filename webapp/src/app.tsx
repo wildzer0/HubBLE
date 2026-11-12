@@ -9,6 +9,7 @@ import { subscribeState } from './api/live';
 import { LocaleContext, useT } from './i18n/context';
 import { pickLocale } from './i18n';
 import type { Locale } from './i18n';
+import { Icon } from './components/ui';
 import { Dashboard } from './pages/Dashboard';
 import { DeviceDetail } from './pages/DeviceDetail';
 import { Pair } from './pages/Pair';
@@ -31,7 +32,14 @@ const ROUTES = [
 ] as const;
 type Route = (typeof ROUTES)[number];
 /** Routes shown in the navigation bar. */
-const NAV_ROUTES = ['dashboard', 'tester', 'settings', 'update', 'system'] as const;
+const NAV_ROUTES = ['dashboard', 'update', 'settings', 'system'] as const;
+/** Icon of each tab. */
+const NAV_ICON = {
+  dashboard: 'devices',
+  update: 'update',
+  settings: 'settings',
+  system: 'system',
+} as const;
 
 /**
  * Parse the location hash into a route.
@@ -77,26 +85,47 @@ function SkipLink() {
 }
 
 /**
- * Navigation bar and connection indicator.
+ * Top bar with the logo and the live-connection indicator.
  *
- * @param props.route Current route.
  * @returns The header element.
  */
-function Nav({ route }: { route: Route }) {
+function TopBar() {
   const t = useT();
   const [live, setLive] = useState(false);
   useEffect(() => subscribeState(setLive), []);
-
   return (
-    <nav aria-label={t('nav.label')}>
-      {NAV_ROUTES.map((r) => (
-        <a key={r} href={`#/${r}`} aria-current={r === route ? 'page' : undefined}>
-          {t(`nav.${r}`)}
-        </a>
-      ))}
-      <span class="live" role="status">
-        {live ? t('live.connected') : t('live.disconnected')}
-      </span>
+    <header class="topbar">
+      <div class="topbar-in">
+        <h1 class="logo">{'HubBLE'}</h1>
+        <span class="live" role="status">
+          <span class={`dot ${live ? 'on' : ''}`} aria-hidden="true" />
+          {live ? t('live.connected') : t('live.disconnected')}
+        </span>
+      </div>
+    </header>
+  );
+}
+
+/**
+ * Bottom tab bar (thumb-friendly on phones).
+ *
+ * @param props.route Current route.
+ * @returns The navigation element.
+ */
+function TabBar({ route }: { route: Route }) {
+  const t = useT();
+  // Sub-pages keep their parent tab highlighted.
+  const active = route === 'pair' || route === 'device' || route === 'tester' ? 'dashboard' : route;
+  return (
+    <nav class="tabbar" aria-label={t('nav.label')}>
+      <div class="tabbar-in">
+        {NAV_ROUTES.map((r) => (
+          <a key={r} class="tab" href={`#/${r}`} aria-current={r === active ? 'page' : undefined}>
+            <Icon name={NAV_ICON[r]} />
+            {t(`nav.${r}`)}
+          </a>
+        ))}
+      </div>
     </nav>
   );
 }
@@ -139,11 +168,8 @@ export function App() {
   return (
     <LocaleContext.Provider value={locale}>
       <SkipLink />
+      <TopBar />
       <main id="main" tabIndex={-1}>
-        <header>
-          <h1>{'HubBLE'}</h1>
-        </header>
-        <Nav route={route} />
         {route === 'setup' && <Setup />}
         {route === 'dashboard' && <Dashboard />}
         {route === 'pair' && <Pair />}
@@ -153,6 +179,7 @@ export function App() {
         {route === 'update' && <Update />}
         {route === 'system' && <System />}
       </main>
+      {route !== 'setup' && <TabBar route={route} />}
     </LocaleContext.Provider>
   );
 }

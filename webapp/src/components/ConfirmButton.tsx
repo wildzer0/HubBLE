@@ -1,6 +1,6 @@
 /**
  * @file ConfirmButton.tsx
- * @description A button that needs a second click to confirm a disruptive action.
+ * @description A button that needs a second tap to confirm a disruptive action.
  */
 import { useState } from 'preact/hooks';
 import { useT } from '../i18n/context';
@@ -10,15 +10,25 @@ import { useT } from '../i18n/context';
  *
  * @param props.label Button text.
  * @param props.onConfirm Called after the user confirms.
+ * @param props.danger Draw the button in the "danger" colour (default true).
  * @returns The control element.
  */
-export function ConfirmButton({ label, onConfirm }: { label: string; onConfirm: () => void }) {
+export function ConfirmButton({
+  label,
+  onConfirm,
+  danger = true,
+}: {
+  label: string;
+  onConfirm: () => void;
+  danger?: boolean;
+}) {
   const t = useT();
   const [asking, setAsking] = useState(false);
   if (!asking) {
     return (
       <button
         type="button"
+        class={`btn ${danger ? 'danger' : ''}`}
         onClick={() => {
           setAsking(true);
         }}
@@ -28,25 +38,26 @@ export function ConfirmButton({ label, onConfirm }: { label: string; onConfirm: 
     );
   }
   return (
-    <span role="group" aria-label={label}>
+    <div class="actions" role="group" aria-label={label}>
       <button
         type="button"
-        class="danger"
+        class="btn danger solid"
         onClick={() => {
           setAsking(false);
           onConfirm();
         }}
       >
         {t('common.confirm')}: {label}
-      </button>{' '}
+      </button>
       <button
         type="button"
+        class="btn"
         onClick={() => {
           setAsking(false);
         }}
       >
         {t('common.cancel')}
       </button>
-    </span>
+    </div>
   );
 }

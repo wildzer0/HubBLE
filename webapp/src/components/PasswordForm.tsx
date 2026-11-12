@@ -5,6 +5,7 @@
  */
 import { useState } from 'preact/hooks';
 import { setWifiPassword } from '../api/client';
+import { Alert } from './ui';
 import { useT } from '../i18n/context';
 import { passwordProblem } from '../lib/password';
 
@@ -33,16 +34,20 @@ export function PasswordForm({ onSaved }: { onSaved?: (password: string) => void
 
   return (
     <form
+      class="card"
       aria-labelledby="pw-h"
       onSubmit={(e) => {
         e.preventDefault();
         void save();
       }}
     >
-      <h3 id="pw-h">{t('system.password')}</h3>
-      <label>
-        {t('system.password_new')}{' '}
+      <h3 class="card-title" id="pw-h">
+        {t('system.password')}
+      </h3>
+      <label class="field">
+        <span>{t('system.password_new')}</span>
         <input
+          class="input"
           type="password"
           autocomplete="new-password"
           value={pw}
@@ -53,14 +58,18 @@ export function PasswordForm({ onSaved }: { onSaved?: (password: string) => void
             setMsg(null);
           }}
         />
+        <span id="pw-hint" class="hint">
+          {problem ? t(`password.${problem}`) : t('system.password_hint')}
+        </span>
       </label>
-      <p id="pw-hint" class="muted">
-        {problem ? t(`password.${problem}`) : t('system.password_hint')}
-      </p>
-      <button type="submit" disabled={pw === '' || problem !== null}>
+      <button type="submit" class="btn primary" disabled={pw === '' || problem !== null}>
         {t('system.password_save')}
       </button>
-      {msg && <p role={msg.ok ? 'status' : 'alert'}>{msg.text}</p>}
+      {msg && (
+        <Alert kind={msg.ok ? 'ok' : 'bad'} role={msg.ok ? 'status' : 'alert'}>
+          {msg.text}
+        </Alert>
+      )}
     </form>
   );
 }

@@ -23,7 +23,7 @@ test('first run: forced redirect to the wizard, password, QR sticker', async ({
 
   await page.getByRole('link', { name: 'Skip for now' }).click();
   await expect(page).toHaveURL(/#\/dashboard$/);
-  await expect(page.getByRole('heading', { name: 'Dongle status' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Devices', level: 2 })).toBeVisible();
 });
 
 test('after setup the dashboard is no longer redirected', async ({ page, request }) => {

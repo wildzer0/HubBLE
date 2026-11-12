@@ -38,7 +38,7 @@
 
 - **Update refused:** the message tells why: wrong board, not signed, older version, or the running firmware has not
   passed its self-test yet (wait a minute).
-- **Check for updates cannot join the Wi-Fi:** re-enter the network name and password in Settings. The phone may drop for a
+- **Check for updates cannot join the Wi-Fi:** choose the network again in Settings (**Search networks**) and re-enter the password. The phone may drop for a
   few seconds while the dongle joins your router.
 - **The dongle went back to the old version:** the new one failed its self-test and was rolled back automatically; the
   Update page shows the reason.

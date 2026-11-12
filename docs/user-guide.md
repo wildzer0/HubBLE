@@ -16,12 +16,14 @@ it on the dongle (the password is only in the code, not written anywhere else).
 
 ![QR sticker](img/setup-sticker.png)
 
-## 2. Dashboard
+## 2. Devices
 
-One card per paired device: type, connection state, battery, signal, the **security badge** (see below) and the measured
+The app has four tabs along the bottom: **Devices**, **Update**, **Settings** and **System**. The Devices tab shows one card per paired device (tap it for the details): type, connection state, battery, signal, the **security badge** (see below) and the measured
 latency the dongle adds. The top shows the firmware version, the USB state seen by the computer and when the Wi-Fi switches off.
 
-![Dashboard](img/dashboard.png)
+The **Test input** button opens the input tester and **Add device** starts a pairing.
+
+![Devices](img/dashboard.png)
 
 | Badge | Meaning |
 |---|---|
@@ -60,7 +62,7 @@ the device's HID report map as hex (useful for bug reports; the device must be c
 
 ## 5. Input tester
 
-Press **Start** to see, live, what each device sends: keys with modifiers, mouse movement, wheel and buttons. It only runs
+Open it from **Test input** on the Devices tab. Press **Start** to see, live, what each device sends: keys with modifiers, mouse movement, wheel and buttons. It only runs
 while the page is open and enabled; nothing is stored. Quarantined devices are not shown.
 
 ![Input tester](img/tester.png)
@@ -72,6 +74,12 @@ brightness and indication, the Shift gesture time, the update channel, and the W
 password is write-only: the dongle never shows it again. Language (English or Italian) is here too.
 
 ![Settings](img/settings.png)
+
+To choose the **Wi-Fi network for updates**, tap **Search networks**: the dongle lists the networks around it (strongest
+first, with a padlock for protected ones), you tap yours and type the password. Use **Other network…** only for a hidden
+network. While it searches, this connection may stall for a second or two.
+
+![Choosing a Wi-Fi network](img/settings-wifi.png)
 
 ## 7. Updates
 

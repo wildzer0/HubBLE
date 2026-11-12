@@ -14,8 +14,8 @@ test('switches language to Italian', async ({ page }) => {
   await page.goto('/#/settings');
   await page.getByRole('combobox', { name: 'Language' }).selectOption('it');
   await expect(page.getByRole('heading', { name: 'Impostazioni' })).toBeVisible();
-  await page.getByRole('link', { name: 'Pannello' }).click();
-  await expect(page.getByRole('heading', { name: 'Stato del dongle' })).toBeVisible();
+  await page.getByRole('link', { name: 'Dispositivi' }).click();
+  await expect(page.getByRole('heading', { name: 'Dispositivi', level: 2 })).toBeVisible();
 });
 
 test('navigation and live connection', async ({ page }) => {

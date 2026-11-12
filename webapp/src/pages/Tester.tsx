@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { sendLive, subscribe, subscribeState } from '../api/live';
 import type { InputEvent } from '../api/types';
+import { Icon } from '../components/ui';
 import { useT } from '../i18n/context';
 import { describeInput } from '../lib/inputFormat';
 
@@ -61,11 +62,18 @@ export function Tester() {
   }, [on]);
 
   return (
-    <section aria-labelledby="tester-h">
-      <h2 id="tester-h">{t('tester.heading')}</h2>
-      <p class="muted">{t('tester.privacy')}</p>
+    <>
+      <div class="page-head">
+        <a class="back" href="#/dashboard">
+          <Icon name="back" />
+          {t('common.back')}
+        </a>
+      </div>
+      <h2>{t('tester.heading')}</h2>
+      <p class="hint">{t('tester.privacy')}</p>
       <button
         type="button"
+        class={`btn block ${on ? '' : 'primary'}`}
         aria-pressed={on}
         onClick={() => {
           setOn(!on);
@@ -74,7 +82,11 @@ export function Tester() {
       >
         {on ? t('tester.stop') : t('tester.start')}
       </button>
-      {on && lines.length === 0 && <p role="status">{t('tester.waiting')}</p>}
+      {on && lines.length === 0 && (
+        <p class="muted" role="status">
+          {t('tester.waiting')}
+        </p>
+      )}
       <ul class="events" data-testid="events" aria-live="off">
         {lines.map((l) => (
           <li key={l.n}>
@@ -82,6 +94,6 @@ export function Tester() {
           </li>
         ))}
       </ul>
-    </section>
+    </>
   );
 }

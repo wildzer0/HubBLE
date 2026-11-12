@@ -6,6 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- `GET /api/v1/wifi/scan`: nearby Wi-Fi networks (name, signal, secured or open), so the network used for updates can be
+  picked from a list instead of typed by hand.
+
+### Changed
+
+- Web app redesigned: a small design system, a bottom tab bar with four tabs (Devices, Update, Settings, System),
+  switches and fields with units instead of bare inputs, a save bar that appears only when settings changed, and layouts
+  that no longer break on small screens. The input tester is opened from the Devices tab.
+
 ### Fixed
 
 - Pairing: a trackball or mouse that also declares a keyboard collection in its report map (for shortcut keys) was
