@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Web app: the device list while pairing showed a giant icon that squeezed the name; icons are now sized.
+- Pairing diagnostics: the log now says which attribute a quarantined device notifies on (handle and length only, never
+  the content), to find why a trackball's clicks were not seen.
+
 ## [1.1.0] - 2026-11-12
 
 ### Added

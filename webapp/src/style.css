@@ -610,6 +610,7 @@ progress {
   display: grid;
   gap: 0.5rem;
 }
+.found svg,
 .nets svg {
   width: 1.25rem;
   height: 1.25rem;

@@ -292,6 +292,11 @@ static void pair_tick_cb(void *arg) {
 
 /* ---- HOGP callbacks ----------------------------------------------------------------------------- */
 
+/** How many notifications of a device being paired are described in the log (attribute handle and length only). */
+#define PAIR_DIAG_NOTIFICATIONS 12
+/** Remaining diagnostic log lines; refilled when a pairing candidate becomes ready. Touched under the lock. */
+static int s_pair_diag_left;
+
 /** @brief HOGP ready: the device now delivers reports (a pairing candidate goes on to quarantine/confirm). */
 static void hogp_ready(hogp_t *h, void *ctx) {
     (void)h;
@@ -299,6 +304,9 @@ static void hogp_ready(hogp_t *h, void *ctx) {
     LOCK();
     s_dev[slot].ready = true;
     bool was_pending = s_dev[slot].pending;
+    if (was_pending) {
+        s_pair_diag_left = PAIR_DIAG_NOTIFICATIONS;
+    }
     refresh_link(slot);
     if (was_pending) {
         /* A device with pointer axes gets the click challenge even if it also declares a keyboard collection
@@ -496,6 +504,16 @@ static void on_notify(struct ble_gap_event *ev) {
         return;
     }
     dev_t *dv = &s_dev[slot];
+    const bool diag = dv->pending && s_pair_diag_left > 0;
+    if (diag) {
+        /* Never the payload (CLAUDE.md §3.12): only which attribute spoke and how long the report was. */
+        uint8_t probe = 0;
+        s_pair_diag_left--;
+        ESP_LOGI(TAG, "pairing candidate notification: handle 0x%04x, %u bytes, %s",
+                 (unsigned)ev->notify_rx.attr_handle, (unsigned)OS_MBUF_PKTLEN(ev->notify_rx.om),
+                 hogp_find_report(&dv->hogp, ev->notify_rx.attr_handle, &probe) ? "subscribed input report"
+                                                                                : "NOT a subscribed input report");
+    }
     uint8_t id = 0;
     uint8_t buf[MAX_REPORT_COPY];
     uint16_t len = OS_MBUF_PKTLEN(ev->notify_rx.om);

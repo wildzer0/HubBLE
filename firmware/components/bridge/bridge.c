@@ -25,6 +25,9 @@
 
 static const char *TAG = "bridge";
 
+/** How many undecodable reports of a quarantined device are logged. */
+#define QUARANTINE_DIAG_LOGS 5
+
 /** Period of the combo poll in ms: finer than needed for 3 s holds, coarse enough to be free. */
 #define COMBO_POLL_MS 100
 /** Combo task stack size. */
@@ -77,6 +80,12 @@ static void on_report(unsigned slot, const hid_layout_t *layout, uint8_t report_
                       int64_t rx_us) {
     hid_norm_event_t ev;
     if (!hid_norm_decode(layout, report_id, data, len, &ev)) {
+        static unsigned warned; /* Only the first few: a mouse sends hundreds of reports per second. */
+        if (warned < QUARANTINE_DIAG_LOGS && ble_central_quarantined(slot)) {
+            warned++;
+            ESP_LOGW(TAG, "quarantine: a %u byte report with ID %u matches no field of the report map", (unsigned)len,
+                     (unsigned)report_id);
+        }
         return;
     }
     if (ble_central_quarantined(slot)) {
