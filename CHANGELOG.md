@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-11-12
+
 ### Fixed
 
 - Web app: the device list while pairing showed a giant icon that squeezed the name; icons are now sized.
