@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.6] - 2026-11-12
+
 ### Fixed
 
 - A trackball whose report map also contains a keyboard collection with modifier keys was still counted as "an already
