@@ -49,6 +49,17 @@ static const char *TAG = "web";
 /** Cache lifetime for hashed assets under /assets/ (Vite emits content-hashed file names). */
 #define CACHE_IMMUTABLE "public, max-age=31536000, immutable"
 
+/** Subscriptions to `input.event` expire this long after the last `input.subscribe`, microseconds. */
+#define INPUT_SUB_TTL_US (15 * 1000000LL)
+
+/** Socket fds subscribed to the input tester, and when each subscription expires (esp_timer us; 0 = free). */
+static int s_input_fd[MAX_WS_FDS];
+static int64_t s_input_until[MAX_WS_FDS];
+/** Latest expiry over all subscriptions: lets the hot path ask "is anybody listening?" with one compare. */
+static volatile int64_t s_input_any_until;
+/** Protects the three variables above (tiny critical sections, no blocking calls inside). */
+static portMUX_TYPE s_input_lock = portMUX_INITIALIZER_UNLOCKED;
+
 /** Server handle; NULL until started. */
 static httpd_handle_t s_server;
 /** Next log sequence to push over the WebSocket. */
@@ -156,6 +167,71 @@ static esp_err_t static_get(httpd_req_t *req) {
 }
 
 /**
+ * @brief Register, renew or remove the input-tester subscription of a socket.
+ *
+ * @param fd        Socket descriptor of the WebSocket client.
+ * @param subscribe true to subscribe/renew, false to unsubscribe.
+ */
+static void input_subscription(int fd, bool subscribe) {
+    const int64_t now = esp_timer_get_time();
+    portENTER_CRITICAL(&s_input_lock);
+    int free_i = -1;
+    int mine = -1;
+    for (int i = 0; i < MAX_WS_FDS; i++) {
+        if (s_input_until[i] <= now) {
+            s_input_until[i] = 0;
+        }
+        if (s_input_until[i] != 0 && s_input_fd[i] == fd) {
+            mine = i;
+        }
+        if (s_input_until[i] == 0 && free_i < 0) {
+            free_i = i;
+        }
+    }
+    if (subscribe) {
+        const int slot = mine >= 0 ? mine : free_i;
+        if (slot >= 0) {
+            s_input_fd[slot] = fd;
+            s_input_until[slot] = now + INPUT_SUB_TTL_US;
+        }
+    } else if (mine >= 0) {
+        s_input_until[mine] = 0;
+    }
+    int64_t latest = 0;
+    for (int i = 0; i < MAX_WS_FDS; i++) {
+        if (s_input_until[i] > latest) {
+            latest = s_input_until[i];
+        }
+    }
+    s_input_any_until = latest;
+    portEXIT_CRITICAL(&s_input_lock);
+}
+
+/** @copydoc web_server_input_active */
+bool web_server_input_active(void) {
+    return esp_timer_get_time() < s_input_any_until;
+}
+
+/**
+ * @brief Whether a socket currently holds a valid input-tester subscription.
+ *
+ * @param fd Socket descriptor.
+ * @return true if subscribed and not expired.
+ */
+static bool input_subscribed(int fd) {
+    const int64_t now = esp_timer_get_time();
+    bool yes = false;
+    portENTER_CRITICAL(&s_input_lock);
+    for (int i = 0; i < MAX_WS_FDS; i++) {
+        if (s_input_until[i] > now && s_input_fd[i] == fd) {
+            yes = true;
+        }
+    }
+    portEXIT_CRITICAL(&s_input_lock);
+    return yes;
+}
+
+/**
  * @brief WebSocket handler: handshake and the client `hello` heartbeat.
  *
  * @param req Request.
@@ -186,14 +262,24 @@ static esp_err_t ws_handler(httpd_req_t *req) {
         const cJSON *ev = j ? cJSON_GetObjectItemCaseSensitive(j, "event") : NULL;
         if (cJSON_IsString(ev) && strcmp(ev->valuestring, "hello") == 0) {
             wifi_ap_note_heartbeat(); /* Keeps the AP alive while the web app is open (CLAUDE.md §3.5). */
+        } else if (cJSON_IsString(ev) && strcmp(ev->valuestring, "input.subscribe") == 0) {
+            input_subscription(httpd_req_to_sockfd(req), true);
+        } else if (cJSON_IsString(ev) && strcmp(ev->valuestring, "input.unsubscribe") == 0) {
+            input_subscription(httpd_req_to_sockfd(req), false);
         }
         cJSON_Delete(j);
     }
     return ESP_OK;
 }
 
-/** @copydoc web_server_broadcast */
-void web_server_broadcast(const char *event, const char *data_json) {
+/**
+ * @brief Send one event to the WebSocket clients.
+ *
+ * @param event      Event name.
+ * @param data_json  JSON for the `data` field.
+ * @param input_only true to reach only the clients subscribed to the input tester.
+ */
+static void send_event(const char *event, const char *data_json, bool input_only) {
     if (s_server == NULL) {
         return;
     }
@@ -209,12 +295,23 @@ void web_server_broadcast(const char *event, const char *data_json) {
     }
     const int n = snprintf(msg, cap, "{\"event\":\"%s\",\"data\":%s}", event, data_json);
     for (size_t i = 0; i < nfds && n > 0; i++) {
-        if (httpd_ws_get_fd_info(s_server, fds[i]) == HTTPD_WS_CLIENT_WEBSOCKET) {
+        if (httpd_ws_get_fd_info(s_server, fds[i]) == HTTPD_WS_CLIENT_WEBSOCKET &&
+            (!input_only || input_subscribed(fds[i]))) {
             httpd_ws_frame_t f = {.type = HTTPD_WS_TYPE_TEXT, .payload = (uint8_t *)msg, .len = (size_t)n};
             httpd_ws_send_frame_async(s_server, fds[i], &f);
         }
     }
     free(msg);
+}
+
+/** @copydoc web_server_broadcast */
+void web_server_broadcast(const char *event, const char *data_json) {
+    send_event(event, data_json, false);
+}
+
+/** @copydoc web_server_broadcast_input */
+void web_server_broadcast_input(const char *data_json) {
+    send_event("input.event", data_json, true);
 }
 
 /** @brief Whether at least one WebSocket client is connected. */

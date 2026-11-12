@@ -25,6 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - REST: `/devices`, `/devices/{id}` (+ `/report-map`), `/pairing/scan|start|cancel`; WebSocket `device.updated|removed`.
   M3 pairing is Just Works; the secure pairing flows come in M4.
 
+- Complete web app (M5): setup wizard with forced password change and printable QR sticker (Wi-Fi + `hubble.local`),
+  dashboard with device cards, pairing flow (scan, passkey, quarantine challenge, physical confirmation, legacy
+  override, lock), device detail (rename, forget, stats, session battery history, report-map export), input tester,
+  settings, backup/restore, factory reset, i18n EN/IT, skip link, mock API for every endpoint, Playwright coverage.
+- REST: `GET/PUT /settings` now includes `ap_boot_window_s` and `ap_idle_timeout_s`; `GET /backup`, `POST /restore`
+  (settings only, never bonds), `POST /system/factory-reset`; WebSocket `input.subscribe|unsubscribe` and `input.event`.
 - Secure pairing (M4): Passkey Entry (DisplayOnly) for keyboards, quarantine + click/code challenges for Just Works
   devices, legacy pairing refused unless overridden, optional physical confirmation (both Shifts 3 s on a paired
   keyboard), 60 s lock after 3 failures, security badges (green/yellow/red). Pure `pairing` state machine with host tests.

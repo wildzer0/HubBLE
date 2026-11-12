@@ -16,6 +16,8 @@
  */
 #pragma once
 
+#include <stdbool.h>
+
 #include "esp_err.h"
 
 #ifdef __cplusplus
@@ -30,6 +32,18 @@ extern "C" {
  * @return ESP_OK or the error from ble_central_init().
  */
 esp_err_t bridge_init(void (*on_changed)(int slot));
+
+/**
+ * @brief Install the input-tester tap (CLAUDE.md §3.7 page 5).
+ *
+ * While @p active returns true, every decoded, non-quarantined report is also copied to a small queue and sent as an
+ * `input.event` through @p emit from a low-priority task (the forwarding path never waits for it; events are
+ * dropped when the queue is full). Nothing is stored or logged. Call before bridge_init().
+ *
+ * @param active Returns true while a web client wants the stream (called on the BLE host task: must be cheap).
+ * @param emit   Receives the `data` JSON object of each event (called on the tap task).
+ */
+void bridge_set_input_tap(bool (*active)(void), void (*emit)(const char *json));
 
 #ifdef __cplusplus
 }

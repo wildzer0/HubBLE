@@ -73,3 +73,60 @@ describe('mock API', () => {
     expect(handleMock(post('/api/v1/ota/upload', undefined, { bodyBytes: 5000 })).status).toBe(415);
   });
 });
+
+describe('mock API: devices, pairing, settings', () => {
+  beforeEach(() => {
+    resetMock({ setupDone: true });
+  });
+  const send = (method: string, path: string, json?: unknown): ReturnType<typeof handleMock> =>
+    handleMock({
+      method,
+      path,
+      headers: { 'x-hubble': '1', 'content-type': 'application/json' },
+      json,
+      bodyBytes: 0,
+    });
+
+  it('lists, renames and forgets devices', () => {
+    expect(handleMock(get('/api/v1/devices')).json).toMatchObject({ max: 4 });
+    expect(send('PATCH', '/api/v1/devices/c0ffee000001', { name: 'X' }).status).toBe(200);
+    expect(send('PATCH', '/api/v1/devices/c0ffee000001', { name: '' }).status).toBe(400);
+    expect(handleMock(get('/api/v1/devices/c0ffee000001/report-map')).status).toBe(200);
+    expect(send('DELETE', '/api/v1/devices/c0ffee000001').status).toBe(200);
+    expect(handleMock(get('/api/v1/devices/c0ffee000001')).status).toBe(404);
+  });
+
+  it('runs the keyboard pairing path with confirmation', () => {
+    send('POST', '/api/v1/pairing/scan');
+    send('POST', '/api/v1/pairing/start', { address: 'aabbccddee01' });
+    expect(handleMock(get('/api/v1/pairing/scan')).json).toMatchObject({ state: 'pairing' });
+    send('POST', '/api/v1/mock/pairing', { action: 'advance' });
+    expect(handleMock(get('/api/v1/pairing/scan')).json).toMatchObject({ state: 'confirm' });
+    send('POST', '/api/v1/mock/pairing', { action: 'advance' });
+    expect(handleMock(get('/api/v1/pairing/scan')).json).toMatchObject({ state: 'bonded' });
+  });
+
+  it('locks pairing after three failures with 429', () => {
+    for (let i = 0; i < 3; i++) {
+      send('POST', '/api/v1/pairing/scan');
+      send('POST', '/api/v1/pairing/start', { address: 'aabbccddee02' });
+      send('POST', '/api/v1/mock/pairing', { action: 'fail' });
+    }
+    expect(send('POST', '/api/v1/pairing/scan').status).toBe(429);
+  });
+
+  it('rejects out-of-range settings and bad backups', () => {
+    expect(send('PUT', '/api/v1/settings', { ap_boot_window_s: 5 }).status).toBe(400);
+    expect(send('PUT', '/api/v1/settings', { ap_boot_window_s: 60 }).status).toBe(200);
+    expect(send('POST', '/api/v1/restore', { format: 'x' }).status).toBe(400);
+    const b = handleMock(get('/api/v1/backup')).json;
+    expect(send('POST', '/api/v1/restore', b).status).toBe(200);
+  });
+
+  it('factory reset restores the fresh state', () => {
+    send('DELETE', '/api/v1/devices/c0ffee000001');
+    send('POST', '/api/v1/system/factory-reset', {});
+    expect(handleMock(get('/api/v1/status')).json).toMatchObject({ setup_required: true });
+    expect(handleMock(get('/api/v1/devices')).json).toMatchObject({ devices: [{}, {}] });
+  });
+});

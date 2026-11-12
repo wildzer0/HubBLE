@@ -11,7 +11,10 @@
 #include "combo.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include <stdio.h>
+
 #include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
 #include "freertos/task.h"
 #include "hid_normalizer.h"
 #include "settings.h"
@@ -27,7 +30,26 @@ static const char *TAG = "bridge";
 /** Combo task priority (low: it is not on the forwarding path). */
 #define COMBO_TASK_PRIO 3
 
+/** Depth of the input-tester queue (events beyond it are dropped: the tester is best effort). */
+#define TAP_QUEUE_LEN 16
+/** Tap task stack and priority (low: never competes with forwarding). */
+#define TAP_TASK_STACK 3072
+#define TAP_TASK_PRIO  2
+/** Pause after each emitted event, ms: caps the stream at ~50 events/s so a 125 Hz mouse cannot flood the Wi-Fi. */
+#define TAP_PACE_MS 20
+/** Largest `input.event` JSON object. */
+#define TAP_JSON_MAX 160
+
+/** One queued input-tester event. */
+typedef struct {
+    uint8_t slot;        /**< Source device slot. */
+    hid_norm_event_t ev; /**< The decoded event. */
+} tap_item_t;
+
 static void (*s_on_changed)(int slot);
+static bool (*s_tap_active)(void);
+static void (*s_tap_emit)(const char *json);
+static QueueHandle_t s_tap_queue;
 
 /**
  * @brief Forward one decoded report to USB as source @p slot.
@@ -57,6 +79,10 @@ static void on_report(unsigned slot, const hid_layout_t *layout, uint8_t report_
             ble_central_challenge_keys(ev.keys);
         }
         return;
+    }
+    if (s_tap_active != NULL && s_tap_queue != NULL && s_tap_active()) {
+        const tap_item_t item = {.slot = (uint8_t)slot, .ev = ev};
+        xQueueSend(s_tap_queue, &item, 0); /* Never blocks: drop when full. */
     }
     if (ev.has_keyboard) {
         usb_hid_keyboard(slot, ev.modifiers, ev.keys, HID_KBD_MAX_KEYS);
@@ -143,11 +169,76 @@ static void combo_task(void *arg) {
     }
 }
 
+/**
+ * @brief Format and emit one queued event as the `data` JSON of `input.event`.
+ *
+ * Key usages are sent as numbers; the web app turns them into names. A report can carry several kinds at once, so up
+ * to three messages are produced.
+ *
+ * @param it The event.
+ */
+static void tap_emit_item(const tap_item_t *it) {
+    char buf[TAP_JSON_MAX];
+    const hid_norm_event_t *e = &it->ev;
+    if (e->has_keyboard) {
+        int n = snprintf(buf, sizeof(buf), "{\"slot\":%u,\"kind\":\"key\",\"modifiers\":%u,\"keys\":[", it->slot,
+                         e->modifiers);
+        bool first = true;
+        for (int i = 0; i < HID_KBD_MAX_KEYS && n > 0 && n < (int)sizeof(buf) - 8; i++) {
+            if (e->keys[i] != 0) {
+                n += snprintf(buf + n, sizeof(buf) - (size_t)n, "%s%u", first ? "" : ",", e->keys[i]);
+                first = false;
+            }
+        }
+        snprintf(buf + n, sizeof(buf) - (size_t)n, "]}");
+        s_tap_emit(buf);
+    }
+    if (e->has_consumer) {
+        snprintf(buf, sizeof(buf), "{\"slot\":%u,\"kind\":\"consumer\",\"usage\":%u}", it->slot, e->consumer);
+        s_tap_emit(buf);
+    }
+    if (e->has_mouse) {
+        snprintf(buf, sizeof(buf),
+                 "{\"slot\":%u,\"kind\":\"mouse\",\"buttons\":%u,\"dx\":%d,\"dy\":%d,\"wheel\":%d,\"pan\":%d}",
+                 it->slot, e->buttons, (int)e->dx, (int)e->dy, (int)e->wheel, (int)e->pan);
+        s_tap_emit(buf);
+    }
+}
+
+/**
+ * @brief Input-tester task: drains the queue and emits events, paced.
+ *
+ * @param arg Unused.
+ */
+static void tap_task(void *arg) {
+    (void)arg;
+    tap_item_t it;
+    for (;;) {
+        if (xQueueReceive(s_tap_queue, &it, portMAX_DELAY) == pdTRUE) {
+            tap_emit_item(&it);
+            vTaskDelay(pdMS_TO_TICKS(TAP_PACE_MS));
+        }
+    }
+}
+
+/** @copydoc bridge_set_input_tap */
+void bridge_set_input_tap(bool (*active)(void), void (*emit)(const char *json)) {
+    s_tap_active = active;
+    s_tap_emit = emit;
+}
+
 /** @copydoc bridge_init */
 esp_err_t bridge_init(void (*on_changed_cb)(int slot)) {
     s_on_changed = on_changed_cb;
     const ble_central_cbs_t cbs = {.on_report = on_report, .on_link = on_link, .on_changed = on_changed};
     usb_hid_set_leds_callback(on_host_leds);
+    if (s_tap_emit != NULL) {
+        s_tap_queue = xQueueCreate(TAP_QUEUE_LEN, sizeof(tap_item_t));
+        if (s_tap_queue == NULL ||
+            xTaskCreate(tap_task, "input_tap", TAP_TASK_STACK, NULL, TAP_TASK_PRIO, NULL) != pdPASS) {
+            return ESP_ERR_NO_MEM;
+        }
+    }
     if (xTaskCreate(combo_task, "combo", COMBO_TASK_STACK, NULL, COMBO_TASK_PRIO, NULL) != pdPASS) {
         return ESP_ERR_NO_MEM;
     }

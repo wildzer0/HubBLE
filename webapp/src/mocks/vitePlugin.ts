@@ -4,7 +4,7 @@
  * Only active for `vite` / `vite preview`; never part of the production bundle.
  */
 import type { Plugin } from 'vite';
-import { handleMock } from './handlers.ts';
+import { handleMock, resetMock } from './handlers.ts';
 
 /** Largest body kept in memory for JSON parsing; larger bodies (uploads) are only counted. */
 const MAX_JSON_BYTES = 4096;
@@ -18,6 +18,7 @@ export function mockApiPlugin(): Plugin {
   return {
     name: 'hubble-mock-api',
     configureServer(server) {
+      resetMock({ setupDone: true }); // the dev server behaves like an already set-up dongle
       server.middlewares.use((req, res, next) => {
         const url = req.url ?? '';
         if (!url.startsWith('/api/')) {

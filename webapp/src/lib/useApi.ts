@@ -19,8 +19,12 @@ export interface ApiState<T> {
  * @param intervalMs Refresh period in milliseconds, or 0 to load once.
  * @returns The current {@link ApiState}.
  */
-export function useApi<T>(load: () => Promise<T>, intervalMs = 0): ApiState<T> {
+export function useApi<T>(
+  load: () => Promise<T>,
+  intervalMs = 0,
+): ApiState<T> & { reload: () => void } {
   const [state, setState] = useState<ApiState<T>>({ data: null, failed: false });
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
     let alive = true;
@@ -41,7 +45,12 @@ export function useApi<T>(load: () => Promise<T>, intervalMs = 0): ApiState<T> {
       if (timer) clearInterval(timer);
     };
     // `load` is a stable module-level API function at every call site.
-  }, [intervalMs]);
+  }, [intervalMs, tick]);
 
-  return state;
+  return {
+    ...state,
+    reload: () => {
+      setTick((n) => n + 1);
+    },
+  };
 }

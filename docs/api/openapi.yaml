@@ -168,13 +168,32 @@ paths:
         '200': { $ref: '#/components/responses/Ok' }
   /api/v1/settings:
     get:
-      summary: Settings (`require_confirmation`; the rest arrives with M5)
+      summary: Settings (`require_confirmation`, `ap_boot_window_s`, `ap_idle_timeout_s`; never secrets)
+      description: The AP times (30..86400 s) apply from the next restart.
       responses:
         '200': { description: Settings }
     put:
-      summary: Update settings
+      summary: Update the given settings fields (all-or-nothing validation)
       responses:
-        '200': { description: Settings }
+        '200': { description: Settings after the update }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/backup:
+    get:
+      summary: Settings backup `{ format: "hubble-backup", version: 1, settings }`; never contains bonds or secrets
+      responses:
+        '200': { description: Backup document }
+  /api/v1/restore:
+    post:
+      summary: Restore a backup document (400 `bad_backup` if it is not one)
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/system/factory-reset:
+    post:
+      summary: Erase settings, Wi-Fi password, device registry and bonds, then restart (first-run state)
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '403': { $ref: '#/components/responses/Error' }
   /api/v1/debug/input:
     post:
       summary: Inject test input (only in builds with the debug_usb overlay)

@@ -165,6 +165,7 @@ void app_main(void) {
         ESP_LOGE(TAG, "web server start failed: %s", esp_err_to_name(err));
     }
 
+    bridge_set_input_tap(web_server_input_active, web_server_broadcast_input); /* Input tester (M5). */
     err = bridge_init(on_ble_changed);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "BLE bridge init failed: %s", esp_err_to_name(err));

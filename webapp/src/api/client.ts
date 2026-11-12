@@ -4,7 +4,18 @@
  * State-changing calls must send `X-HubBLE: 1` and a JSON (or octet-stream for uploads) content type
  * (CLAUDE.md §3.12, simple CSRF protection); {@link request} does this.
  */
-import type { ApiErrorBody, Diagnostics, OtaStatus, Status } from './types';
+import type {
+  ApiErrorBody,
+  Backup,
+  Device,
+  DeviceList,
+  Diagnostics,
+  OtaStatus,
+  ReportMap,
+  ScanResponse,
+  Settings,
+  Status,
+} from './types';
 
 /** Error thrown for non-2xx API responses. */
 export class ApiError extends Error {
@@ -103,6 +114,135 @@ export async function reboot(): Promise<void> {
 /** Reboot the dongle into the ROM USB download mode (for a USB re-flash without the BOOT button). */
 export async function rebootDownload(): Promise<void> {
   await request<{ ok: boolean }>('POST', '/api/v1/system/reboot-download', {});
+}
+
+/** Reset the dongle to factory state: settings, Wi-Fi password and all bonds are erased, then it reboots. */
+export async function factoryReset(): Promise<void> {
+  await request<{ ok: boolean }>('POST', '/api/v1/system/factory-reset', {});
+}
+
+/**
+ * List the bonded devices.
+ *
+ * @returns The device list.
+ */
+export function getDevices(): Promise<DeviceList> {
+  return request<DeviceList>('GET', '/api/v1/devices');
+}
+
+/**
+ * Fetch one device.
+ *
+ * @param id Device id (12 hex digits).
+ * @returns The device.
+ */
+export function getDevice(id: string): Promise<Device> {
+  return request<Device>('GET', `/api/v1/devices/${id}`);
+}
+
+/**
+ * Rename a device.
+ *
+ * @param id Device id.
+ * @param name New name (1..31 characters; validated by the firmware).
+ * @returns The updated device.
+ */
+export function renameDevice(id: string, name: string): Promise<Device> {
+  return request<Device>('PATCH', `/api/v1/devices/${id}`, { name });
+}
+
+/**
+ * Forget a device and delete its bond.
+ *
+ * @param id Device id.
+ */
+export async function forgetDevice(id: string): Promise<void> {
+  await request<{ ok: boolean }>('DELETE', `/api/v1/devices/${id}`);
+}
+
+/**
+ * Read the raw report map of a connected device.
+ *
+ * @param id Device id.
+ * @returns The hex report map (409 `not_connected` if the device is offline).
+ */
+export function getReportMap(id: string): Promise<ReportMap> {
+  return request<ReportMap>('GET', `/api/v1/devices/${id}/report-map`);
+}
+
+/** Start a 30 s scan for HID devices. */
+export async function startScan(): Promise<void> {
+  await request<{ ok: boolean }>('POST', '/api/v1/pairing/scan', {});
+}
+
+/**
+ * Read the pairing state and the scan results.
+ *
+ * @returns Pairing status and found devices.
+ */
+export function getScan(): Promise<ScanResponse> {
+  return request<ScanResponse>('GET', '/api/v1/pairing/scan');
+}
+
+/**
+ * Start pairing with a scanned device.
+ *
+ * @param address 12 hex digits.
+ * @param addressType BLE address type from the scan result.
+ * @param allowLegacy Per-pairing override accepting legacy pairing (security level red).
+ */
+export async function startPairing(
+  address: string,
+  addressType: number,
+  allowLegacy: boolean,
+): Promise<void> {
+  await request<{ ok: boolean }>('POST', '/api/v1/pairing/start', {
+    address,
+    address_type: addressType,
+    allow_legacy: allowLegacy,
+  });
+}
+
+/** Cancel scanning or pairing. */
+export async function cancelPairing(): Promise<void> {
+  await request<{ ok: boolean }>('POST', '/api/v1/pairing/cancel', {});
+}
+
+/**
+ * Read the settings.
+ *
+ * @returns Current settings (never secrets).
+ */
+export function getSettings(): Promise<Settings> {
+  return request<Settings>('GET', '/api/v1/settings');
+}
+
+/**
+ * Update settings; only the given fields change.
+ *
+ * @param patch Fields to change.
+ * @returns The settings after the update.
+ */
+export function putSettings(patch: Partial<Settings>): Promise<Settings> {
+  return request<Settings>('PUT', '/api/v1/settings', patch);
+}
+
+/**
+ * Download the settings backup (no secrets, no bonds).
+ *
+ * @returns The backup document.
+ */
+export function getBackup(): Promise<Backup> {
+  return request<Backup>('GET', '/api/v1/backup');
+}
+
+/**
+ * Restore a settings backup.
+ *
+ * @param backup Parsed backup document.
+ */
+export async function restoreBackup(backup: Backup): Promise<void> {
+  await request<{ ok: boolean }>('POST', '/api/v1/restore', backup);
 }
 
 /** Successful upload response. */

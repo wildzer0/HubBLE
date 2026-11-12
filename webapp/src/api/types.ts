@@ -72,8 +72,10 @@ export interface Diagnostics {
   boot_failures: number;
   /** USB state (M2). */
   usb_state: UsbState;
-  /** BLE statistics, null until BLE exists (M3). */
-  ble: null;
+  /** BLE stack facts. */
+  ble: { ready: boolean; connected: number; bonded: number };
+  /** Keyboard LED bits last sent by the host (Num/Caps/Scroll Lock). */
+  keyboard_leds?: number;
   /** Wi-Fi AP facts. */
   wifi: { ssid: string; clients: number };
 }
@@ -90,4 +92,172 @@ export interface WsMessage {
   event: string;
   /** Event payload (shape depends on the event). */
   data: unknown;
+}
+
+/** Security badge of a bonded device (green = passkey + LE SC, yellow = verified Just Works, red = legacy). */
+export type SecurityLevel = 'green' | 'yellow' | 'red' | 'unknown';
+
+/** Round-trip statistics of one device, microseconds (BLE notify entry to USB report queued). */
+export interface LatencyStats {
+  /** Number of samples. */
+  count: number;
+  /** Minimum. */
+  min: number;
+  /** Average. */
+  avg: number;
+  /** 95th percentile. */
+  p95: number;
+  /** Maximum. */
+  max: number;
+}
+
+/** A bonded device from `GET /api/v1/devices`. */
+export interface Device {
+  /** 12 hex digits (the address). */
+  id: string;
+  /** Registry slot 0..3. */
+  slot: number;
+  /** User-visible name. */
+  name: string;
+  /** Kind of device, known once its report map has been parsed. */
+  type: 'keyboard' | 'pointer' | 'unknown';
+  /** True while the BLE link is up. */
+  connected: boolean;
+  /** True once HID discovery finished and input is forwarded. */
+  ready: boolean;
+  /** True if the boot-protocol fallback is used instead of a parsed report map. */
+  boot_fallback: boolean;
+  /** Battery percentage, or null if unknown. */
+  battery: number | null;
+  /** Last RSSI in dBm, or null if not connected. */
+  rssi: number | null;
+  /** Negotiated connection parameters. */
+  connection: { interval_ms: number; latency: number; timeout_ms: number };
+  /** Number of reconnections since boot. */
+  reconnects: number;
+  /** Seconds since the device was last seen. */
+  last_seen_s: number;
+  /** Forwarding latency statistics. */
+  latency_us: LatencyStats;
+  /** Security badge. */
+  security: SecurityLevel;
+}
+
+/** Response of `GET /api/v1/devices`. */
+export interface DeviceList {
+  /** Registered devices. */
+  devices: Device[];
+  /** Maximum number of devices (4). */
+  max: number;
+}
+
+/** States of the pairing state machine. */
+export type PairState =
+  'idle' | 'scanning' | 'connecting' | 'pairing' | 'quarantine' | 'confirm' | 'bonded' | 'failed';
+
+/** Why a pairing failed. */
+export type PairFailure =
+  | 'timeout'
+  | 'cancelled'
+  | 'legacy_rejected'
+  | 'security_failed'
+  | 'no_hid_service'
+  | 'challenge_failed';
+
+/** Pairing status object (REST and `pairing.*` WebSocket events). */
+export interface Pairing {
+  /** Current state. */
+  state: PairState;
+  /** Failure reason, present only when `state` is `failed`. */
+  reason?: PairFailure;
+  /** Security level reached or planned. */
+  level: SecurityLevel;
+  /** Name of the device being paired. */
+  device: string;
+  /** Seconds left in the current step. */
+  remaining_s: number;
+  /** Seconds left of the 60 s lock after 3 failures; 0 if not locked. */
+  lock_remaining_s: number;
+  /** True while a physical confirmation (both Shifts, 3 s) is awaited. */
+  needs_confirmation: boolean;
+  /** 6-digit passkey to type on the keyboard, when present. */
+  passkey?: string;
+  /** Quarantine challenge, when present. */
+  challenge?: { kind: 'clicks' | 'code'; value: string; progress: number; length: number };
+}
+
+/** One advertising HID device found by the scan. */
+export interface ScanResult {
+  /** 12 hex digits. */
+  address: string;
+  /** BLE address type (0 public, 1 random). */
+  address_type: number;
+  /** Advertised name. */
+  name: string;
+  /** RSSI in dBm. */
+  rssi: number;
+  /** GAP appearance value (961 keyboard, 962 mouse). */
+  appearance: number;
+}
+
+/** Response of `GET /api/v1/pairing/scan`. */
+export interface ScanResponse {
+  /** Pairing state name. */
+  state: PairState;
+  /** Full pairing status. */
+  pairing: Pairing;
+  /** Devices found so far. */
+  results: ScanResult[];
+}
+
+/** Non-secret settings (`GET/PUT /api/v1/settings`). */
+export interface Settings {
+  /** Require both-Shift physical confirmation for new pairings. */
+  require_confirmation: boolean;
+  /** Seconds the AP stays on after power-up. */
+  ap_boot_window_s: number;
+  /** Seconds the AP stays on after the last client left. */
+  ap_idle_timeout_s: number;
+}
+
+/** Response of `GET /api/v1/devices/{id}/report-map`. */
+export interface ReportMap {
+  /** Raw report map, hex encoded. */
+  hex: string;
+  /** Length in bytes. */
+  length: number;
+}
+
+/** Event `input.event` (input tester only): what one device sent. */
+export interface InputEvent {
+  /** Slot of the source device. */
+  slot: number;
+  /** Kind of input. */
+  kind: 'key' | 'mouse' | 'consumer';
+  /** Pressed key usages (keyboard, HID usage page 0x07). */
+  keys?: number[];
+  /** Modifier bitmask (keyboard). */
+  modifiers?: number;
+  /** Mouse button bitmask. */
+  buttons?: number;
+  /** Mouse delta X. */
+  dx?: number;
+  /** Mouse delta Y. */
+  dy?: number;
+  /** Wheel delta. */
+  wheel?: number;
+  /** Horizontal pan delta. */
+  pan?: number;
+  /** Consumer usage code. */
+  usage?: number;
+}
+
+/** Settings backup file (`GET /api/v1/backup`). Bonds are never included: they contain keys. */
+export interface Backup {
+  /** Constant marker so a wrong file is rejected. */
+  format: 'hubble-backup';
+  /** Backup schema version. */
+  version: 1;
+  /** The exported settings. */
+  settings: Settings;
 }

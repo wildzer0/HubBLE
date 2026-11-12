@@ -136,6 +136,33 @@ uint32_t settings_get_idle_timeout_s(void) {
     return get_u32(KEY_IDLE_TMO, SETTINGS_DEFAULT_IDLE_TIMEOUT_S);
 }
 
+/** @copydoc settings_window_valid */
+bool settings_window_valid(uint32_t seconds) {
+    return seconds >= SETTINGS_WINDOW_MIN_S && seconds <= SETTINGS_WINDOW_MAX_S;
+}
+
+/** @brief Validate and store a u32 setting (helper). */
+static esp_err_t set_window(const char *key, uint32_t seconds) {
+    if (!settings_window_valid(seconds)) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!s_ready) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    esp_err_t err = nvs_set_u32(s_nvs, key, seconds);
+    return err == ESP_OK ? nvs_commit(s_nvs) : err;
+}
+
+/** @copydoc settings_set_boot_window_s */
+esp_err_t settings_set_boot_window_s(uint32_t seconds) {
+    return set_window(KEY_BOOT_WIN, seconds);
+}
+
+/** @copydoc settings_set_idle_timeout_s */
+esp_err_t settings_set_idle_timeout_s(uint32_t seconds) {
+    return set_window(KEY_IDLE_TMO, seconds);
+}
+
 /** @copydoc settings_boot_failures */
 uint32_t settings_boot_failures(void) {
     return get_u32(KEY_BOOT_FAIL, 0);

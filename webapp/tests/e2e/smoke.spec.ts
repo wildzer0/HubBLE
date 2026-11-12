@@ -1,4 +1,7 @@
 import { expect, test } from '@playwright/test';
+import { resetMock } from './helpers';
+
+test.beforeEach(({ request }) => resetMock(request));
 
 test('shows the dongle status from the mock API', async ({ page }) => {
   await page.goto('/');
@@ -8,8 +11,10 @@ test('shows the dongle status from the mock API', async ({ page }) => {
 });
 
 test('switches language to Italian', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#/settings');
   await page.getByRole('combobox', { name: 'Language' }).selectOption('it');
+  await expect(page.getByRole('heading', { name: 'Impostazioni' })).toBeVisible();
+  await page.getByRole('link', { name: 'Pannello' }).click();
   await expect(page.getByRole('heading', { name: 'Stato del dongle' })).toBeVisible();
 });
 

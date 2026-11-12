@@ -1,4 +1,7 @@
 import { expect, test } from '@playwright/test';
+import { resetMock } from './helpers';
+
+test.beforeEach(({ request }) => resetMock(request));
 
 test('update page shows both slots', async ({ page }) => {
   await page.goto('/#/update');

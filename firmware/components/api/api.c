@@ -22,6 +22,7 @@
 #include "http_guard.h"
 #include "log_hook.h"
 #include "ota.h"
+#include "nvs_flash.h"
 #include "settings.h"
 #include "usb_hid.h"
 #include "wifi_ap.h"
@@ -54,6 +55,7 @@ typedef enum {
     DEFER_REBOOT,
     DEFER_REBOOT_DOWNLOAD,
     DEFER_APPLY_PASSWORD,
+    DEFER_FACTORY_RESET,
 } defer_kind_t;
 
 /** Receive buffer for uploads (static: handler stacks are small; only one upload at a time). */
@@ -75,6 +77,13 @@ static void defer_cb(void *arg) {
         break;
     case DEFER_APPLY_PASSWORD:
         wifi_ap_apply_password();
+        break;
+    case DEFER_FACTORY_RESET:
+        /* Erases settings, the Wi-Fi password, the device registry and the NimBLE bonds (all live in NVS), then
+         * restarts into the first-run state. Nothing else touches NVS after this point. */
+        nvs_flash_deinit();
+        nvs_flash_erase();
+        esp_restart();
         break;
     }
 }
@@ -823,14 +832,71 @@ static esp_err_t pairing_cancel_post(httpd_req_t *req) {
     return send_json(req, r);
 }
 
-/** GET /api/v1/settings: non-secret settings (more arrive with M5). */
-static esp_err_t settings_get(httpd_req_t *req) {
+/**
+ * @brief Build the settings object (shared by GET /settings and GET /backup).
+ *
+ * @return New cJSON object (caller owns it).
+ */
+static cJSON *settings_json(void) {
     cJSON *r = cJSON_CreateObject();
     cJSON_AddBoolToObject(r, "require_confirmation", settings_get_require_confirm());
-    return send_json(req, r);
+    cJSON_AddNumberToObject(r, "ap_boot_window_s", settings_get_boot_window_s());
+    cJSON_AddNumberToObject(r, "ap_idle_timeout_s", settings_get_idle_timeout_s());
+    return r;
 }
 
-/** PUT /api/v1/settings: update settings (currently `require_confirmation`). */
+/**
+ * @brief Whether every present field of a settings object is valid. Nothing is stored here.
+ *
+ * @param s Settings object (may lack fields).
+ * @return true if all present fields have the right type and range.
+ */
+static bool settings_object_valid(const cJSON *s) {
+    const cJSON *rc = cJSON_GetObjectItemCaseSensitive(s, "require_confirmation");
+    const cJSON *bw = cJSON_GetObjectItemCaseSensitive(s, "ap_boot_window_s");
+    const cJSON *it = cJSON_GetObjectItemCaseSensitive(s, "ap_idle_timeout_s");
+    if (rc != NULL && !cJSON_IsBool(rc)) {
+        return false;
+    }
+    if (bw != NULL && !(cJSON_IsNumber(bw) && bw->valuedouble == (double)bw->valueint && bw->valueint > 0 &&
+                        settings_window_valid((uint32_t)bw->valueint))) {
+        return false;
+    }
+    if (it != NULL && !(cJSON_IsNumber(it) && it->valuedouble == (double)it->valueint && it->valueint > 0 &&
+                        settings_window_valid((uint32_t)it->valueint))) {
+        return false;
+    }
+    return true;
+}
+
+/**
+ * @brief Apply the present fields of an already validated settings object.
+ *
+ * @param s Settings object.
+ */
+static void settings_object_apply(const cJSON *s) {
+    const cJSON *rc = cJSON_GetObjectItemCaseSensitive(s, "require_confirmation");
+    const cJSON *bw = cJSON_GetObjectItemCaseSensitive(s, "ap_boot_window_s");
+    const cJSON *it = cJSON_GetObjectItemCaseSensitive(s, "ap_idle_timeout_s");
+    if (cJSON_IsBool(rc)) {
+        bool on = cJSON_IsTrue(rc);
+        settings_set_require_confirm(on);
+        ble_central_set_require_confirm(on);
+    }
+    if (cJSON_IsNumber(bw)) {
+        settings_set_boot_window_s((uint32_t)bw->valueint);
+    }
+    if (cJSON_IsNumber(it)) {
+        settings_set_idle_timeout_s((uint32_t)it->valueint);
+    }
+}
+
+/** GET /api/v1/settings: non-secret settings (the AP windows apply from the next boot). */
+static esp_err_t settings_get(httpd_req_t *req) {
+    return send_json(req, settings_json());
+}
+
+/** PUT /api/v1/settings: update the given fields; all-or-nothing validation. */
 static esp_err_t settings_put(httpd_req_t *req) {
     if (!guard(req, CT_JSON)) {
         return ESP_OK;
@@ -839,14 +905,64 @@ static esp_err_t settings_put(httpd_req_t *req) {
     if (j == NULL) {
         return ESP_OK;
     }
-    const cJSON *rc = cJSON_GetObjectItemCaseSensitive(j, "require_confirmation");
-    if (cJSON_IsBool(rc)) {
-        bool on = cJSON_IsTrue(rc);
-        settings_set_require_confirm(on);
-        ble_central_set_require_confirm(on);
+    if (!settings_object_valid(j)) {
+        cJSON_Delete(j);
+        return send_error(req, "400 Bad Request", "invalid_setting", "A setting is missing, mistyped or out of range");
     }
+    settings_object_apply(j);
     cJSON_Delete(j);
     return settings_get(req);
+}
+
+/**
+ * GET /api/v1/backup: settings as a downloadable document. Bonds and the Wi-Fi password are deliberately NOT included:
+ * they are secrets (CLAUDE.md §3.7 page 8, §3.12).
+ */
+static esp_err_t backup_get(httpd_req_t *req) {
+    cJSON *r = cJSON_CreateObject();
+    cJSON_AddStringToObject(r, "format", "hubble-backup");
+    cJSON_AddNumberToObject(r, "version", 1);
+    cJSON_AddItemToObject(r, "settings", settings_json());
+    return send_json(req, r);
+}
+
+/** POST /api/v1/restore: apply a backup document produced by backup_get(). */
+static esp_err_t restore_post(httpd_req_t *req) {
+    if (!guard(req, CT_JSON)) {
+        return ESP_OK;
+    }
+    cJSON *j = read_json_body(req);
+    if (j == NULL) {
+        return ESP_OK;
+    }
+    const cJSON *fmt = cJSON_GetObjectItemCaseSensitive(j, "format");
+    const cJSON *ver = cJSON_GetObjectItemCaseSensitive(j, "version");
+    const cJSON *st = cJSON_GetObjectItemCaseSensitive(j, "settings");
+    const bool ok = cJSON_IsString(fmt) && strcmp(fmt->valuestring, "hubble-backup") == 0 && cJSON_IsNumber(ver) &&
+                    ver->valueint == 1 && cJSON_IsObject(st) && settings_object_valid(st) &&
+                    cJSON_GetObjectItemCaseSensitive(st, "require_confirmation") != NULL &&
+                    cJSON_GetObjectItemCaseSensitive(st, "ap_boot_window_s") != NULL &&
+                    cJSON_GetObjectItemCaseSensitive(st, "ap_idle_timeout_s") != NULL;
+    if (!ok) {
+        cJSON_Delete(j);
+        return send_error(req, "400 Bad Request", "bad_backup", "Not a valid HubBLE backup");
+    }
+    settings_object_apply(st);
+    cJSON_Delete(j);
+    cJSON *r = cJSON_CreateObject();
+    cJSON_AddBoolToObject(r, "ok", true);
+    return send_json(req, r);
+}
+
+/** POST /api/v1/system/factory-reset: erase everything and restart (the response is sent first). */
+static esp_err_t factory_reset_post(httpd_req_t *req) {
+    if (!guard(req, CT_JSON)) {
+        return ESP_OK;
+    }
+    defer(DEFER_FACTORY_RESET);
+    cJSON *r = cJSON_CreateObject();
+    cJSON_AddBoolToObject(r, "ok", true);
+    return send_json(req, r);
 }
 
 #if CONFIG_HUBBLE_USB_DEBUG_INJECT
@@ -950,6 +1066,9 @@ esp_err_t api_register(httpd_handle_t server) {
         {.uri = "/api/v1/pairing/cancel", .method = HTTP_POST, .handler = pairing_cancel_post},
         {.uri = "/api/v1/settings", .method = HTTP_GET, .handler = settings_get},
         {.uri = "/api/v1/settings", .method = HTTP_PUT, .handler = settings_put},
+        {.uri = "/api/v1/backup", .method = HTTP_GET, .handler = backup_get},
+        {.uri = "/api/v1/restore", .method = HTTP_POST, .handler = restore_post},
+        {.uri = "/api/v1/system/factory-reset", .method = HTTP_POST, .handler = factory_reset_post},
 #if CONFIG_HUBBLE_USB_DEBUG_INJECT
         {.uri = "/api/v1/debug/input", .method = HTTP_POST, .handler = debug_input_post},
 #endif

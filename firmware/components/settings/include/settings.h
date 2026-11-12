@@ -93,6 +93,35 @@ uint32_t settings_get_boot_window_s(void);
 /** @brief AP idle timeout in seconds (stored value or the default). */
 uint32_t settings_get_idle_timeout_s(void);
 
+/** Shortest accepted AP window (boot window / idle timeout), seconds. */
+#define SETTINGS_WINDOW_MIN_S 30
+/** Longest accepted AP window, seconds (one day). */
+#define SETTINGS_WINDOW_MAX_S 86400
+
+/**
+ * @brief Whether a value is an acceptable AP window.
+ *
+ * @param seconds Candidate boot window or idle timeout.
+ * @return true if within SETTINGS_WINDOW_MIN_S..SETTINGS_WINDOW_MAX_S.
+ */
+bool settings_window_valid(uint32_t seconds);
+
+/**
+ * @brief Store the AP boot window. Applied at the next boot (the AP manager reads it at start).
+ *
+ * @param seconds New value.
+ * @return ESP_OK, ESP_ERR_INVALID_ARG if out of range, or an NVS error.
+ */
+esp_err_t settings_set_boot_window_s(uint32_t seconds);
+
+/**
+ * @brief Store the AP idle timeout. Applied at the next boot.
+ *
+ * @param seconds New value.
+ * @return ESP_OK, ESP_ERR_INVALID_ARG if out of range, or an NVS error.
+ */
+esp_err_t settings_set_idle_timeout_s(uint32_t seconds);
+
 /**
  * @brief Increment the consecutive-boot-failure counter and return the new value.
  *

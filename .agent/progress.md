@@ -66,3 +66,10 @@ Design notes: board check = marker `HUBBLE_BOARD_ID=<id>;` scanned while streami
 
 ### Open issues
 - none
+
+## M5 — Complete web app (same local branch)
+
+Done: all §3.7 pages except the Update-from-GitHub and the STA/LED/wakeup/combo-time settings (they depend on M6/M7 firmware
+support and are added with those milestones); mock API for every endpoint; firmware: extended settings, backup/restore,
+factory reset, input tester tap (`bridge_set_input_tap`, WS subscription with 15 s expiry). Web bundle ~29 KB gzipped.
+Next: M6 (OTA from GitHub + signing; ask before generating the key). Tag only at the end.

@@ -1,4 +1,7 @@
 import { expect, test } from '@playwright/test';
+import { resetMock } from './helpers';
+
+test.beforeEach(({ request }) => resetMock(request));
 
 test('system page shows diagnostics and live log lines', async ({ page }) => {
   await page.goto('/#/system');

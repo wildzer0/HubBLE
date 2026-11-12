@@ -22,8 +22,7 @@ Every message is `{ "event": "<name>", "data": <payload> }`.
 | `log.line` | every 1 s when new log text exists | `{ "text": "I (1234) web: ...\n" }` (complete lines, may contain several) |
 | `ota.progress` | during an upload, about every 2 % | `{ "received": 100000, "total": 870000 }` |
 
-Planned for later milestones: `device.updated`, `device.removed`, `pairing.*`, `input.event`, `ota.result`, `ap.timeout`
-(see `CLAUDE.md` §4.2).
+Planned for later milestones: `ota.result`, `ap.timeout` (see `CLAUDE.md` §4.2).
 
 ## Limits
 
@@ -43,3 +42,20 @@ Planned for later milestones: `device.updated`, `device.removed`, `pairing.*`, `
 - `pairing.challenge`: same object, sent in quarantine and on every progress step (`challenge.kind` is `clicks` or `code`,
   `challenge.value` the sequence (`L`/`R`/`M`) or the code, `challenge.progress`/`length`).
 - `pairing.result`: same object when the pairing ended (`state` `bonded` with `level`, or `failed` with `reason`).
+
+## Input tester (M5)
+
+Client → server: `{ "event": "input.subscribe" }` starts the stream, `{ "event": "input.unsubscribe" }` stops it. A
+subscription **expires 15 s** after the last `input.subscribe`, so the web app renews it every 5 s and a closed page
+stops the stream by itself. Only subscribed sockets receive `input.event`; nothing is stored or logged.
+
+Server → client `input.event`, `data` is one of:
+
+| `kind` | Fields |
+|---|---|
+| `key` | `slot`, `modifiers` (bit mask, bit n = usage 0xE0+n), `keys` (array of HID usage ids, page 0x07; empty = released) |
+| `consumer` | `slot`, `usage` (0 = released) |
+| `mouse` | `slot`, `buttons` (bit mask), `dx`, `dy`, `wheel`, `pan` |
+
+Mouse events are paced to about 50 per second and dropped when the queue is full: the tester is best effort and never
+slows down the USB forwarding path. Quarantined (unpaired) devices are not shown.

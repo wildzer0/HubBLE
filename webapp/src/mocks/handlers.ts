@@ -4,7 +4,16 @@
  * (dev + Playwright) and by unit tests, so the web app can be developed and tested without hardware
  * (CLAUDE.md §3.7). It reproduces the firmware's CSRF guard and validation rules.
  */
-import type { Diagnostics, OtaStatus, Status } from '../api/types';
+import type {
+  Backup,
+  Device,
+  Diagnostics,
+  OtaStatus,
+  Pairing,
+  ScanResult,
+  Settings,
+  Status,
+} from '../api/types';
 import { passwordProblem } from '../lib/password.ts';
 
 /** A request as seen by the mock. */
@@ -40,15 +49,323 @@ export const MOCK_SLOT_BYTES = 0x1e0000;
 /** Uploads smaller than this cannot be a real image. */
 export const MOCK_MIN_IMAGE_BYTES = 1024;
 
+/** Devices the mock dongle starts with. */
+function initialDevices(): Device[] {
+  const base = {
+    boot_fallback: false,
+    reconnects: 0,
+    last_seen_s: 0,
+    connection: { interval_ms: 7.5, latency: 0, timeout_ms: 2000 },
+  };
+  return [
+    {
+      ...base,
+      id: 'c0ffee000001',
+      slot: 0,
+      name: 'YUNZII B68',
+      type: 'keyboard',
+      connected: true,
+      ready: true,
+      battery: 87,
+      rssi: -52,
+      latency_us: { count: 4210, min: 310, avg: 780, p95: 1500, max: 4000 },
+      security: 'green',
+    },
+    {
+      ...base,
+      id: 'c0ffee000002',
+      slot: 1,
+      name: 'ProtoArc EM06',
+      type: 'pointer',
+      connected: true,
+      ready: true,
+      battery: 64,
+      rssi: -61,
+      latency_us: { count: 9800, min: 290, avg: 640, p95: 1250, max: 3500 },
+      security: 'yellow',
+    },
+  ];
+}
+
+/** Devices the mock scan "finds": a keyboard, a mouse and a legacy-only keyboard. */
+export const MOCK_SCAN: ScanResult[] = [
+  { address: 'aabbccddee01', address_type: 0, name: 'Mock Keyboard', rssi: -48, appearance: 961 },
+  { address: 'aabbccddee02', address_type: 0, name: 'Mock Mouse', rssi: -55, appearance: 962 },
+  { address: 'aabbccddee03', address_type: 0, name: 'Old Keyboard', rssi: -70, appearance: 961 },
+];
+/** Click sequence of the mock quarantine challenge. */
+export const MOCK_CLICKS = 'LRRLMR';
+/** Passkey shown by the mock. */
+export const MOCK_PASSKEY = '123456';
+/** Consecutive failures that lock pairing (CLAUDE.md §3.12). */
+const LOCK_AFTER = 3;
+/** Seconds of the pairing lock. */
+const LOCK_S = 60;
+/** Maximum devices. */
+const MAX_DEVICES = 4;
+
+/** Options for {@link resetMock}. */
+export interface MockOptions {
+  /** Start with the setup already done (dev server); unit tests use false like a fresh dongle. */
+  setupDone?: boolean;
+}
+
 /** Initial mock state; also what {@link resetMock} restores. */
-function initialState() {
-  return { setupDone: false, version: MOCK_VERSION };
+function initialState(opts: MockOptions = {}) {
+  return {
+    setupDone: opts.setupDone ?? false,
+    version: MOCK_VERSION,
+    devices: initialDevices(),
+    settings: {
+      require_confirmation: true,
+      ap_boot_window_s: 300,
+      ap_idle_timeout_s: 180,
+    } as Settings,
+    pairing: idlePairing(),
+    pairingTarget: null as ScanResult | null,
+    pairingLegacy: false,
+    failures: 0,
+  };
 }
 let state = initialState();
 
-/** Reset the mutable mock state (tests). */
-export function resetMock(): void {
-  state = initialState();
+/** A pairing object in the idle state. */
+function idlePairing(): Pairing {
+  return {
+    state: 'idle',
+    level: 'unknown',
+    device: '',
+    remaining_s: 0,
+    lock_remaining_s: 0,
+    needs_confirmation: false,
+  };
+}
+
+/**
+ * Reset the mutable mock state (tests and the e2e reset endpoint).
+ *
+ * @param opts Initial options.
+ */
+export function resetMock(opts: MockOptions = {}): void {
+  state = initialState(opts);
+}
+
+/** Record a failed pairing and apply the lock after {@link LOCK_AFTER} consecutive failures. */
+function failPairing(reason: NonNullable<Pairing['reason']>): void {
+  state.failures += 1;
+  state.pairing = {
+    ...idlePairing(),
+    state: 'failed',
+    reason,
+    device: state.pairingTarget?.name ?? '',
+    lock_remaining_s: state.failures >= LOCK_AFTER ? LOCK_S : 0,
+  };
+}
+
+/** Finish a successful pairing: add the device and report the level. */
+function bond(): void {
+  const t = state.pairingTarget;
+  if (!t) return;
+  const level = state.pairing.level;
+  state.devices.push({
+    id: t.address,
+    slot: state.devices.length,
+    name: t.name,
+    type: t.appearance === 962 ? 'pointer' : 'keyboard',
+    connected: true,
+    ready: true,
+    boot_fallback: false,
+    battery: 100,
+    rssi: t.rssi,
+    connection: { interval_ms: 7.5, latency: 0, timeout_ms: 2000 },
+    reconnects: 0,
+    last_seen_s: 0,
+    latency_us: { count: 0, min: 0, avg: 0, p95: 0, max: 0 },
+    security: level,
+  });
+  state.failures = 0;
+  state.pairing = { ...idlePairing(), state: 'bonded', level, device: t.name };
+}
+
+/** Move to the physical-confirmation step, or bond if none is needed. */
+function confirmOrBond(): void {
+  const hasKeyboard = state.devices.some((d) => d.type === 'keyboard');
+  if (state.settings.require_confirmation && hasKeyboard) {
+    state.pairing = {
+      ...state.pairing,
+      state: 'confirm',
+      needs_confirmation: true,
+      remaining_s: 30,
+    };
+  } else {
+    bond();
+  }
+}
+
+/**
+ * Test hook (`POST /api/v1/mock/pairing`): what the user would do on the device.
+ *
+ * @param action `advance` (type the passkey / click / hold Shift), `fail` or `timeout`.
+ */
+function mockPairingAction(action: string): void {
+  const p = state.pairing;
+  if (action === 'fail') failPairing('challenge_failed');
+  else if (action === 'timeout') failPairing('timeout');
+  else if (p.state === 'pairing') confirmOrBond();
+  else if (p.state === 'quarantine' && p.challenge) {
+    const progress = p.challenge.progress + 1;
+    if (progress >= p.challenge.length) confirmOrBond();
+    else state.pairing = { ...p, challenge: { ...p.challenge, progress } };
+  } else if (p.state === 'confirm') bond();
+}
+
+/** Handle `/api/v1/pairing/*` requests; null if the route is not a pairing route. */
+function handlePairing(req: MockRequest): MockResponse | null {
+  const { method, path } = req;
+  if (method === 'GET' && path === '/api/v1/pairing/scan') {
+    return {
+      status: 200,
+      json: {
+        state: state.pairing.state,
+        pairing: state.pairing,
+        results: state.pairing.state === 'scanning' ? MOCK_SCAN : [],
+      },
+    };
+  }
+  if (method !== 'POST') return null;
+  const locked = state.pairing.lock_remaining_s > 0;
+  const lockedErr = err(
+    429,
+    'pairing_locked',
+    'Pairing is locked for 60 s after 3 failed attempts',
+  );
+  if (path === '/api/v1/pairing/scan') {
+    const bad = guard(req, 'application/json');
+    if (bad) return bad;
+    if (locked) return lockedErr;
+    if (state.devices.length >= MAX_DEVICES) {
+      return err(409, 'no_free_slot', 'Four devices are already paired; forget one first');
+    }
+    state.pairing = { ...idlePairing(), state: 'scanning', remaining_s: 30 };
+    return { status: 200, json: { ok: true } };
+  }
+  if (path === '/api/v1/pairing/start') {
+    const bad = guard(req, 'application/json');
+    if (bad) return bad;
+    if (locked) return lockedErr;
+    const body = req.json as { address?: string; allow_legacy?: boolean } | undefined;
+    const target = MOCK_SCAN.find((r) => r.address === body?.address);
+    if (!target || state.pairing.state !== 'scanning') {
+      return err(409, 'busy', 'Pairing already running, or the device is already paired');
+    }
+    state.pairingTarget = target;
+    const base = { ...idlePairing(), device: target.name, remaining_s: 60 };
+    if (target.address === 'aabbccddee03') {
+      // This keyboard only supports legacy pairing.
+      if (body?.allow_legacy === true)
+        state.pairing = { ...base, state: 'pairing', level: 'red', passkey: MOCK_PASSKEY };
+      else failPairing('legacy_rejected');
+    } else if (target.appearance === 961) {
+      state.pairing = { ...base, state: 'pairing', level: 'green', passkey: MOCK_PASSKEY };
+    } else {
+      state.pairing = {
+        ...base,
+        state: 'quarantine',
+        level: 'yellow',
+        challenge: { kind: 'clicks', value: MOCK_CLICKS, progress: 0, length: MOCK_CLICKS.length },
+      };
+    }
+    return { status: 200, json: { ok: true } };
+  }
+  if (path === '/api/v1/pairing/cancel') {
+    const bad = guard(req, 'application/json');
+    if (bad) return bad;
+    state.pairing = idlePairing();
+    return { status: 200, json: { ok: true } };
+  }
+  if (path === '/api/v1/mock/pairing') {
+    mockPairingAction((req.json as { action?: string } | undefined)?.action ?? '');
+    return { status: 200, json: state.pairing };
+  }
+  return null;
+}
+
+/** Handle `/api/v1/devices*` requests; null if the route is not a device route. */
+function handleDevices(req: MockRequest): MockResponse | null {
+  const { method, path } = req;
+  if (method === 'GET' && path === '/api/v1/devices') {
+    return { status: 200, json: { devices: state.devices, max: MAX_DEVICES } };
+  }
+  const m = /^\/api\/v1\/devices\/([0-9a-f]{12})(\/report-map)?$/.exec(path);
+  if (!m) return null;
+  const dev = state.devices.find((d) => d.id === m[1]);
+  if (!dev) return err(404, 'not_found', 'No such device');
+  if (m[2]) {
+    if (method !== 'GET') return null;
+    if (!dev.connected) return err(409, 'not_connected', 'The device is not connected');
+    return { status: 200, json: { hex: MOCK_REPORT_MAP, length: MOCK_REPORT_MAP.length / 2 } };
+  }
+  if (method === 'GET') return { status: 200, json: dev };
+  const bad = guard(req, 'application/json');
+  if (bad) return bad;
+  if (method === 'PATCH') {
+    const name = (req.json as { name?: unknown } | undefined)?.name;
+    if (typeof name !== 'string' || name.trim() === '' || name.length > 31) {
+      return err(400, 'bad_name', 'Name must be 1-31 characters');
+    }
+    dev.name = name;
+    return { status: 200, json: dev };
+  }
+  if (method === 'DELETE') {
+    state.devices = state.devices.filter((d) => d !== dev);
+    state.devices.forEach((d, i) => (d.slot = i));
+    return { status: 200, json: { ok: true } };
+  }
+  return null;
+}
+
+/** A short boot-keyboard report map (hex), enough to exercise the export. */
+export const MOCK_REPORT_MAP =
+  '05010906a101050719e029e715002501750195088102950175088101950575010508190129059102950175039101' +
+  '95067508150025650507190029658100c0';
+
+/** Handle `/api/v1/settings`, backup and restore; null otherwise. */
+function handleSettings(req: MockRequest): MockResponse | null {
+  const { method, path } = req;
+  if (path === '/api/v1/settings' && method === 'GET') return { status: 200, json: state.settings };
+  if (path === '/api/v1/settings' && method === 'PUT') {
+    const bad = guard(req, 'application/json');
+    if (bad) return bad;
+    const next = { ...state.settings, ...(req.json as Partial<Settings>) };
+    if (!validSettings(next)) return err(400, 'invalid_setting', 'A setting is out of range');
+    state.settings = next;
+    return { status: 200, json: state.settings };
+  }
+  if (path === '/api/v1/backup' && method === 'GET') {
+    const b: Backup = { format: 'hubble-backup', version: 1, settings: state.settings };
+    return { status: 200, json: b };
+  }
+  if (path === '/api/v1/restore' && method === 'POST') {
+    const bad = guard(req, 'application/json');
+    if (bad) return bad;
+    const b = req.json as Partial<Backup> | undefined;
+    if (b?.format !== 'hubble-backup' || b.version !== 1 || !validSettings(b.settings)) {
+      return err(400, 'bad_backup', 'Not a valid HubBLE backup');
+    }
+    state.settings = b.settings;
+    return { status: 200, json: { ok: true } };
+  }
+  return null;
+}
+
+/** Range check shared by PUT /settings and restore (mirrors the firmware). */
+function validSettings(s: Partial<Settings> | undefined): s is Settings {
+  const win = (v: unknown) => typeof v === 'number' && Number.isInteger(v) && v >= 30 && v <= 86400;
+  return (
+    typeof s?.require_confirmation === 'boolean' &&
+    win(s.ap_boot_window_s) &&
+    win(s.ap_idle_timeout_s)
+  );
 }
 
 /** Fixed fake status; realistic values, deterministic for tests. */
@@ -88,7 +405,11 @@ function mockDiagnostics(): Diagnostics {
     },
     boot_failures: 0,
     usb_state: 'detached',
-    ble: null,
+    ble: {
+      ready: true,
+      connected: state.devices.filter((d) => d.connected).length,
+      bonded: state.devices.length,
+    },
     wifi: { ssid: 'HubBLE-A1B2', clients: 1 },
   };
 }
@@ -123,6 +444,8 @@ function guard(req: MockRequest, expectedCt: string): MockResponse | null {
  */
 export function handleMock(req: MockRequest): MockResponse {
   const { method, path } = req;
+  const routed = handlePairing(req) ?? handleDevices(req) ?? handleSettings(req);
+  if (routed) return routed;
   if (method === 'GET') {
     switch (path) {
       case '/api/v1/status':
@@ -152,6 +475,19 @@ export function handleMock(req: MockRequest): MockResponse {
           );
         }
         state.setupDone = true;
+        return { status: 200, json: { ok: true } };
+      }
+      case '/api/v1/system/factory-reset': {
+        const bad = guard(req, 'application/json');
+        if (bad) return bad;
+        resetMock();
+        return { status: 200, json: { ok: true } };
+      }
+      case '/api/v1/mock/reset': {
+        // Test hook, not part of the firmware API.
+        resetMock({
+          setupDone: (req.json as { setupDone?: boolean } | undefined)?.setupDone ?? true,
+        });
         return { status: 200, json: { ok: true } };
       }
       case '/api/v1/system/reboot':

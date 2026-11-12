@@ -23,9 +23,9 @@ extern "C" {
 
 /** Number of URI handlers api_register() adds (so the server can size max_uri_handlers). */
 #if CONFIG_HUBBLE_USB_DEBUG_INJECT
-#define API_URI_HANDLER_COUNT 19
+#define API_URI_HANDLER_COUNT 22
 #else
-#define API_URI_HANDLER_COUNT 18
+#define API_URI_HANDLER_COUNT 21
 #endif
 
 /**

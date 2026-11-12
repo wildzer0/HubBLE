@@ -7,21 +7,43 @@ import type { SocketFactory, SocketLike } from '../api/ws';
 
 /** Push period of the fake events. */
 const PUSH_MS = 1000;
+/** Period of the fake `input.event` stream. */
+const INPUT_MS = 500;
 /** Delay before the fake connection "opens". */
 const OPEN_DELAY_MS = 30;
 
 /** Mock socket factory (see {@link SocketFactory}). */
 export const mockSocketFactory: SocketFactory = () => {
   let timer: ReturnType<typeof setInterval> | null = null;
+  let inputTimer: ReturnType<typeof setInterval> | null = null;
   let uptime = 1234;
   const sock: SocketLike = {
     onopen: null,
     onmessage: null,
     onclose: null,
-    send: () => undefined, // heartbeats need no reply
+    send: (data) => {
+      // Heartbeats need no reply; the input tester subscription starts/stops a fake event stream.
+      if (data.includes('input.subscribe')) {
+        if (!inputTimer) {
+          inputTimer = setInterval(() => {
+            sock.onmessage?.(
+              JSON.stringify({
+                event: 'input.event',
+                data: { slot: 0, kind: 'key', modifiers: 2, keys: [4] },
+              }),
+            );
+          }, INPUT_MS);
+        }
+      } else if (data.includes('input.unsubscribe') && inputTimer) {
+        clearInterval(inputTimer);
+        inputTimer = null;
+      }
+    },
     close: () => {
       if (timer) clearInterval(timer);
+      if (inputTimer) clearInterval(inputTimer);
       timer = null;
+      inputTimer = null;
       setTimeout(() => sock.onclose?.(), 0);
     },
   };

@@ -1,14 +1,24 @@
 /**
  * @file System.tsx
  * @description System page: diagnostics, live log, reboot actions and Wi-Fi password change
- * (CLAUDE.md §3.7 page 8; backup/restore and factory reset arrive in M5).
+ * backup/restore and factory reset (CLAUDE.md §3.7 page 8).
  */
 import { useEffect, useState } from 'preact/hooks';
-import { getDiagnostics, rebootDownload, reboot, setWifiPassword } from '../api/client';
+import {
+  factoryReset,
+  getBackup,
+  getDiagnostics,
+  reboot,
+  rebootDownload,
+  restoreBackup,
+} from '../api/client';
+import { ConfirmButton } from '../components/ConfirmButton';
+import { PasswordForm } from '../components/PasswordForm';
 import { subscribe } from '../api/live';
 import { useT } from '../i18n/context';
 import { formatBytes, formatDuration } from '../lib/format';
-import { passwordProblem } from '../lib/password';
+import { parseBackup } from '../lib/backup';
+import { downloadText } from '../lib/download';
 import { useApi } from '../lib/useApi';
 
 /** Diagnostics refresh period. */
@@ -53,103 +63,65 @@ function LiveLog() {
 }
 
 /**
- * A button that needs a second click to confirm a disruptive action.
+ * Backup and restore of the settings. Bonds are not part of the backup because they contain keys.
  *
- * @param props.label Button text.
- * @param props.onConfirm Called after the user confirms.
- * @returns The control element.
+ * @returns The section element.
  */
-function ConfirmButton({ label, onConfirm }: { label: string; onConfirm: () => void }) {
+function BackupSection() {
   const t = useT();
-  const [asking, setAsking] = useState(false);
-  if (!asking) {
-    return (
-      <button
-        type="button"
-        onClick={() => {
-          setAsking(true);
-        }}
-      >
-        {label}
-      </button>
-    );
-  }
-  return (
-    <span role="group" aria-label={label}>
-      <button
-        type="button"
-        class="danger"
-        onClick={() => {
-          setAsking(false);
-          onConfirm();
-        }}
-      >
-        {t('common.confirm')}: {label}
-      </button>{' '}
-      <button
-        type="button"
-        onClick={() => {
-          setAsking(false);
-        }}
-      >
-        {t('common.cancel')}
-      </button>
-    </span>
-  );
-}
-
-/**
- * Wi-Fi password form with client-side validation matching the firmware rules.
- *
- * @returns The form element.
- */
-function PasswordForm() {
-  const t = useT();
-  const [pw, setPw] = useState('');
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const problem = pw === '' ? null : passwordProblem(pw);
 
-  const save = async () => {
+  const download = async () => {
     try {
-      await setWifiPassword(pw);
-      setMsg({ ok: true, text: t('system.password_saved') });
-      setPw('');
+      downloadText(
+        'hubble-backup.json',
+        JSON.stringify(await getBackup(), null, 2),
+        'application/json',
+      );
+      setMsg({ ok: true, text: t('system.backup_done') });
+    } catch (e) {
+      setMsg({ ok: false, text: e instanceof Error ? e.message : String(e) });
+    }
+  };
+  const restore = async (file: File) => {
+    const backup = parseBackup(await file.text());
+    if (!backup) {
+      setMsg({ ok: false, text: t('system.restore_invalid') });
+      return;
+    }
+    try {
+      await restoreBackup(backup);
+      setMsg({ ok: true, text: t('system.restore_done') });
     } catch (e) {
       setMsg({ ok: false, text: e instanceof Error ? e.message : String(e) });
     }
   };
 
   return (
-    <form
-      aria-labelledby="pw-h"
-      onSubmit={(e) => {
-        e.preventDefault();
-        void save();
-      }}
-    >
-      <h3 id="pw-h">{t('system.password')}</h3>
-      <label>
-        {t('system.password_new')}{' '}
-        <input
-          type="password"
-          autocomplete="new-password"
-          value={pw}
-          aria-invalid={problem !== null}
-          aria-describedby="pw-hint"
-          onInput={(e) => {
-            setPw(e.currentTarget.value);
-            setMsg(null);
-          }}
-        />
-      </label>
-      <p id="pw-hint" class="muted">
-        {problem ? t(`password.${problem}`) : t('system.password_hint')}
+    <section aria-labelledby="bk-h">
+      <h3 id="bk-h">{t('system.backup')}</h3>
+      <p class="muted">{t('system.backup_hint')}</p>
+      <p>
+        <button type="button" onClick={() => void download()}>
+          {t('system.backup_download')}
+        </button>
       </p>
-      <button type="submit" disabled={pw === '' || problem !== null}>
-        {t('system.password_save')}
-      </button>
+      <p>
+        <label>
+          {t('system.restore_choose')}{' '}
+          <input
+            type="file"
+            accept="application/json,.json"
+            onChange={(e) => {
+              const f = e.currentTarget.files?.[0];
+              if (f) void restore(f);
+              e.currentTarget.value = '';
+            }}
+          />
+        </label>
+      </p>
       {msg && <p role={msg.ok ? 'status' : 'alert'}>{msg.text}</p>}
-    </form>
+    </section>
   );
 }
 
@@ -191,6 +163,14 @@ export function System() {
           <dd>{formatBytes(d.psram.free)}</dd>
           <dt>{t('system.partition')}</dt>
           <dd>{d.partitions.running.label}</dd>
+          <dt>{t('system.usb')}</dt>
+          <dd>{d.usb_state}</dd>
+          <dt>{t('system.ble')}</dt>
+          <dd data-testid="ble">
+            {t('system.ble_value', { c: d.ble.connected, b: d.ble.bonded })}
+          </dd>
+          <dt>{t('system.wifi_clients')}</dt>
+          <dd>{d.wifi.clients}</dd>
           <dt>{t('system.boot_failures')}</dt>
           <dd>{d.boot_failures}</dd>
         </dl>
@@ -219,6 +199,16 @@ export function System() {
       {sent && <p role="status">{t('system.action_done')}</p>}
 
       <PasswordForm />
+      <BackupSection />
+
+      <h3>{t('system.factory')}</h3>
+      <p class="muted">{t('system.factory_hint')}</p>
+      <ConfirmButton
+        label={t('system.factory_reset')}
+        onConfirm={() => {
+          send(factoryReset);
+        }}
+      />
     </section>
   );
 }

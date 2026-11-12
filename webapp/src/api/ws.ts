@@ -131,6 +131,18 @@ export class HubbleSocket {
     };
   }
 
+  /**
+   * Send a client event (e.g. `input.subscribe`) if the socket is open.
+   *
+   * @param event Event name.
+   * @returns True if the frame was handed to the socket.
+   */
+  sendEvent(event: string): boolean {
+    if (!this.sock) return false;
+    this.sock.send(JSON.stringify({ event }));
+    return true;
+  }
+
   private sendHello(): void {
     this.sock?.send(JSON.stringify({ event: 'hello' }));
   }
