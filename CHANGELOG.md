@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-11-12
+
 ### Fixed
 
 - **No HID input at all**: descriptor discovery was started one handle too late, so NimBLE dropped the first descriptor
