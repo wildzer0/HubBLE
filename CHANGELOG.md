@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-13
+
 ### Added
 
 - Compatibility reports: **Prepare a report** on a device's page shows exactly what would be shared (report map, identifiers
