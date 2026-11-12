@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.4] - 2026-11-12
+
 ### Changed
 
 - The keyboard gesture is now **Ctrl + Alt** (either side) held for 3 s instead of the two Shift keys, and
