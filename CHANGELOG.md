@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.7] - 2026-11-12
+
 ### Fixed
 
 - Pairing a second device could drop the first one: the discovery scan ran at 60 % duty and starved the connected
