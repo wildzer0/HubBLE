@@ -64,6 +64,10 @@ static const char *TAG = "ble";
 #define SCAN_WINDOW 0x30
 /** Background reconnect scan interval while another device is connected: 30 ms in 200 ms (15 % duty). */
 #define SCAN_ITVL_BUSY 0x140
+/** Scan window while another device is connected: 10 ms in 50 ms (20 % duty) so its 7.5 ms events are not starved. */
+#define SCAN_WINDOW_BUSY 0x10
+/** How often the battery level is read again, in stats periods (2 s each): 30 s. */
+#define BATTERY_POLL_PERIODS 15
 /** Retries and spacing when starting a scan right after cancelling the background connect. */
 #define SCAN_RETRIES  10
 #define SCAN_RETRY_MS 20
@@ -369,8 +373,12 @@ static void hogp_battery(hogp_t *h, uint8_t percent, void *ctx) {
     (void)h;
     int slot = (int)(intptr_t)ctx;
     LOCK();
+    const bool differs = s_dev[slot].battery != percent;
     s_dev[slot].battery = percent;
     UNLOCK();
+    if (differs) {
+        ESP_LOGI(TAG, "slot %d battery level %u%%", slot, (unsigned)percent);
+    }
     changed(slot);
 }
 
@@ -430,7 +438,7 @@ static void on_connected(uint16_t conn_handle, void *arg) {
  *
  * @param conn_handle Connection handle.
  */
-static void on_disconnected(uint16_t conn_handle) {
+static void on_disconnected(uint16_t conn_handle, int reason) {
     LOCK();
     int slot = slot_by_conn(conn_handle);
     bool pending = false;
@@ -445,7 +453,8 @@ static void on_disconnected(uint16_t conn_handle) {
     if (slot < 0) {
         return;
     }
-    ESP_LOGI(TAG, "slot %d disconnected", slot);
+    /* Reasons worth knowing: 0x08 supervision timeout (radio trouble), 0x13 the peer hung up, 0x16 we hung up. */
+    ESP_LOGI(TAG, "slot %d disconnected, reason 0x%02x", slot, (unsigned)(reason & 0xff));
     if (s_cbs.on_link != NULL) {
         s_cbs.on_link((unsigned)slot, false); /* Releases any key the device was holding. */
     }
@@ -603,7 +612,7 @@ static int gap_event(struct ble_gap_event *event, void *arg) {
         }
         return 0;
     case BLE_GAP_EVENT_DISCONNECT:
-        on_disconnected(event->disconnect.conn.conn_handle);
+        on_disconnected(event->disconnect.conn.conn_handle, event->disconnect.reason);
         return 0;
     case BLE_GAP_EVENT_ENC_CHANGE:
         on_encrypted(event->enc_change.conn_handle, event->enc_change.status);
@@ -809,12 +818,22 @@ static void reconnect_timer_cb(void *arg) {
 /** @brief esp_timer callback: refresh RSSI and link parameters of the connected devices. */
 static void stats_timer_cb(void *arg) {
     (void)arg;
+    static unsigned periods;
+    const bool poll_battery = ++periods % BATTERY_POLL_PERIODS == 0;
     for (int i = 0; i < BLE_CENTRAL_MAX_DEVICES; i++) {
         LOCK();
         uint16_t conn = s_dev[i].conn;
         UNLOCK();
         if (conn == NO_CONN) {
             continue;
+        }
+        if (poll_battery) {
+            LOCK();
+            const bool ready = s_dev[i].ready;
+            UNLOCK();
+            if (ready) {
+                hogp_read_battery(&s_dev[i].hogp);
+            }
         }
         int8_t rssi;
         if (ble_gap_conn_rssi(conn, &rssi) == 0) {
@@ -977,7 +996,14 @@ esp_err_t ble_central_scan_start(uint32_t duration_ms) {
     if (was_bg) {
         ble_gap_conn_cancel(); /* A connect attempt and a scan cannot run together. */
     }
-    struct ble_gap_disc_params dp = {.itvl = SCAN_ITVL, .window = SCAN_WINDOW, .filter_duplicates = 1};
+    bool others_connected = false;
+    for (int i = 0; i < BLE_CENTRAL_MAX_DEVICES; i++) {
+        others_connected = others_connected || (s_dev[i].ready && !s_dev[i].pending);
+    }
+    /* A full-duty scan would starve the connection events of a device that is already connected (it dropped when
+     * another device was being paired). */
+    struct ble_gap_disc_params dp = {
+        .itvl = SCAN_ITVL, .window = others_connected ? SCAN_WINDOW_BUSY : SCAN_WINDOW, .filter_duplicates = 1};
     int rc = ble_gap_disc(s_own_addr_type, (int32_t)duration_ms, &dp, scan_event, NULL);
     /* A just-cancelled background connect may still hold the controller for a few ms: retry briefly. */
     for (int tries = 0; was_bg && (rc == BLE_HS_EBUSY || rc == BLE_HS_EALREADY) && tries < SCAN_RETRIES; tries++) {

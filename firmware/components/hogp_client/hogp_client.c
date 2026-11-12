@@ -334,6 +334,25 @@ static int on_bas_read(uint16_t conn, const struct ble_gatt_error *err, struct b
     return 0;
 }
 
+/** @brief GATT callback: periodic Battery Level re-read (see hogp_read_battery). */
+static int on_bas_poll(uint16_t conn, const struct ble_gatt_error *err, struct ble_gatt_attr *attr, void *arg) {
+    (void)conn;
+    hogp_t *h = arg;
+    uint8_t level;
+    if (err->status == 0 && attr != NULL && attr->om != NULL && OS_MBUF_PKTLEN(attr->om) >= 1 &&
+        os_mbuf_copydata(attr->om, 0, 1, &level) == 0 && level <= 100 && h->cbs.on_battery != NULL) {
+        h->cbs.on_battery(h, level, h->ctx);
+    }
+    return 0;
+}
+
+/** @copydoc hogp_read_battery */
+void hogp_read_battery(hogp_t *h) {
+    if (h->state == HOGP_READY && h->bas_level_handle != 0) {
+        ble_gattc_read(h->conn, h->bas_level_handle, on_bas_poll, h); /* Busy or failed: the next period retries. */
+    }
+}
+
 /** @brief GATT callback: Battery CCC write; the result does not matter. */
 static int on_bas_sub(uint16_t conn, const struct ble_gatt_error *err, struct ble_gatt_attr *attr, void *arg) {
     (void)conn;

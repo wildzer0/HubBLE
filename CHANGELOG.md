@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Pairing a second device could drop the first one: the discovery scan ran at 60 % duty and starved the connected
+  device's 7.5 ms connection events. While another device is connected the scan now uses 20 % duty.
+- The battery level was read once at connection and then only on notification, which many peripherals send rarely or
+  never; it is now read again every 30 s and the log shows each change.
+- The log now says why a device disconnected (HCI reason code).
+
 ## [1.1.6] - 2026-11-12
 
 ### Fixed

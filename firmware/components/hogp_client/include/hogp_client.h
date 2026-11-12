@@ -121,6 +121,16 @@ bool hogp_find_report(const hogp_t *h, uint16_t attr_handle, uint8_t *id);
 bool hogp_is_battery(const hogp_t *h, uint16_t attr_handle);
 
 /**
+ * @brief Read the Battery Level again (many peripherals only notify on large changes, or never).
+ *
+ * The result arrives through the `on_battery` callback. Does nothing if the client is not ready or the device has no
+ * Battery Service; ignores a busy link (the caller simply tries again later).
+ *
+ * @param h Client.
+ */
+void hogp_read_battery(hogp_t *h);
+
+/**
  * @brief Write the keyboard LED state to the device (no-op if the device has no LED output).
  *
  * @param h    Client (state HOGP_READY).
