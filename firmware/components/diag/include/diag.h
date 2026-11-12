@@ -45,7 +45,7 @@ void diag_collect(diag_info_t *out);
  * @brief Reboot into the ROM USB download mode so a USB re-flash needs no BOOT button.
  *
  * Sets the RTC "force download boot" flag and restarts; does not return.
- * Works over the native USB Serial/JTAG port. Once TinyUSB owns the USB PHY (M2) this must be re-verified.
+ * Callers should call usb_hid_shutdown() first so TinyUSB releases the PHY (M2: TinyUSB owns it at runtime).
  */
 void diag_reboot_to_download(void) __attribute__((noreturn));
 

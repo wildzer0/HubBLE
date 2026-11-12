@@ -1,0 +1,3 @@
+# Test overlay (-DHUBBLE_OVERLAY=debug_usb): enables POST /api/v1/debug/input to inject keyboard / mouse /
+# consumer / system input without any BLE device (M2 hardware test). NEVER ship this build.
+CONFIG_HUBBLE_USB_DEBUG_INJECT=y

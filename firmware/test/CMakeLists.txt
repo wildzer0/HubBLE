@@ -49,3 +49,7 @@ target_include_directories(test_http_guard PRIVATE ${COMP}/api/include)
 
 hubble_add_test(test_ota_logic unit/test_ota_logic.c ${COMP}/ota/board_marker.c ${COMP}/ota/boot_guard.c)
 target_include_directories(test_ota_logic PRIVATE ${COMP}/ota/include)
+
+# --- M2 pure-logic components ---------------------------------------------------
+hubble_add_test(test_hid_report unit/test_hid_report.c ${COMP}/hid_report/hid_report.c)
+target_include_directories(test_hid_report PRIVATE ${COMP}/hid_report/include)

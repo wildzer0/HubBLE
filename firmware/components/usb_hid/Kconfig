@@ -1,0 +1,21 @@
+menu "HubBLE USB"
+    config HUBBLE_USB_VID
+        hex "USB vendor ID"
+        default 0x303A
+        help
+            Defaults to Espressif's VID. Never use another vendor's VID (see docs/usb-ids.md).
+
+    config HUBBLE_USB_PID
+        hex "USB product ID"
+        default 0x4001
+        help
+            Development PID. Request a dedicated one from Espressif before any public distribution
+            (docs/usb-ids.md).
+
+    config HUBBLE_USB_DEBUG_INJECT
+        bool "Enable the debug 'inject test input' API (POST /api/v1/debug/input)"
+        default n
+        help
+            Lets the web API press keys / move the mouse on the host without any BLE device, to verify the
+            USB side in isolation (M2 hardware test). NEVER enable in release builds.
+endmenu

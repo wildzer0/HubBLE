@@ -11,6 +11,7 @@
 #pragma once
 
 #include "esp_err.h"
+#include "sdkconfig.h"
 #include "esp_http_server.h"
 
 #ifdef __cplusplus
@@ -18,7 +19,11 @@ extern "C" {
 #endif
 
 /** Number of URI handlers api_register() adds (so the server can size max_uri_handlers). */
+#if CONFIG_HUBBLE_USB_DEBUG_INJECT
+#define API_URI_HANDLER_COUNT 9
+#else
 #define API_URI_HANDLER_COUNT 8
+#endif
 
 /**
  * @brief Register all REST handlers.

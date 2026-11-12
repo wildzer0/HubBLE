@@ -31,7 +31,9 @@ HUBBLE_VERSION=0.2.1-rc.2 HUBBLE_OVERLAY=rollback_test tools/build-firmware.sh s
 HUBBLE_OVERLAY=ap_timeout_test tools/build-firmware.sh s3_zero                           # pretend a device is bonded
 ```
 
-The serial console is the native USB Serial/JTAG port (`/dev/ttyACM0`); the S3-Zero has no UART bridge.
+From M2 there is no serial console: TinyUSB owns the native USB port (ADR 10). Read logs in the web app (System -> Live log).
+For USB input tests without BLE build with `HUBBLE_OVERLAY=debug_usb` and use `POST /api/v1/debug/input`.
+Run `tools/check.sh quick|full` before every commit (local mirror of CI).
 
 ## Host unit tests
 

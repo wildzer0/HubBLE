@@ -1,6 +1,6 @@
 # ADR 9: Console on USB Serial/JTAG
 
-Status: accepted
+Status: superseded by ADR 10 (from M2)
 
 ## Context
 

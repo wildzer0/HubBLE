@@ -5,7 +5,7 @@
 #
 # Environment:
 #   HUBBLE_VERSION  version embedded in the image (default: derived from git)
-#   HUBBLE_OVERLAY  optional test overlay: rollback_test | ap_timeout_test
+#   HUBBLE_OVERLAY  optional test overlay: rollback_test | ap_timeout_test | debug_usb
 #                   (builds into build-<board>-<overlay>/ so release builds are never mixed up)
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"

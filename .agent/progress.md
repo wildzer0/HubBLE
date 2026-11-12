@@ -7,6 +7,13 @@ No push/PR/tag until the last milestone (see CLAUDE.md §0.2). Verify with `tool
 M1 hardware gate is DEFERRED (hardware arrives 2026-11-12): user chose to continue development; run docs/testing/m1.md when the board arrives.
 Active branch: `milestone/m2-usb-hid` (local only).
 
+## M2 — USB composite HID (branch milestone/m2-usb-hid, local only)
+DONE (committed locally, `tools/check.sh full` green): `hid_report` (descriptors + merge, 13 host tests), `usb_hid` (esp_tinyusb 3.0.0,
+2 HID itfs, suspend/resume, LED output, remote wakeup), self-test check, usb_state in API, `debug_usb` overlay + /api/v1/debug/input,
+ADR 10, docs/testing/m2.md, CHANGELOG [Unreleased]. Console removed (CONFIG_ESP_CONSOLE_NONE).
+UNVERIFIED on hardware: enumeration, BIOS, wakeup, and above all "reboot to download mode" with TinyUSB (docs/testing/m2.md E).
+Next: M3 (BLE central) — ask the user about the B68 custom firmware first. Tag v0.3.0 only at the end (policy).
+
 ## Current milestone: M0 — Project bootstrap (target `v0.1.0`)
 
 ### Decisions (confirmed by the user)

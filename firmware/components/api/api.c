@@ -22,7 +22,11 @@
 #include "log_hook.h"
 #include "ota.h"
 #include "settings.h"
+#include "usb_hid.h"
 #include "wifi_ap.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "sdkconfig.h"
 
 static const char *TAG = "api";
 
@@ -61,6 +65,7 @@ static void defer_cb(void *arg) {
         esp_restart();
         break;
     case DEFER_REBOOT_DOWNLOAD:
+        usb_hid_shutdown(); /* Release the USB PHY so the ROM downloader can use it after the reset. */
         diag_reboot_to_download();
         break;
     case DEFER_APPLY_PASSWORD:
@@ -163,7 +168,7 @@ static esp_err_t status_get(httpd_req_t *req) {
     cJSON_AddStringToObject(r, "version", esp_app_get_description()->version);
     cJSON_AddStringToObject(r, "board", board_get_info()->id);
     cJSON_AddNumberToObject(r, "uptime_s", (double)(esp_timer_get_time() / 1000000LL));
-    cJSON_AddStringToObject(r, "usb_state", "detached"); /* USB device arrives in M2. */
+    cJSON_AddStringToObject(r, "usb_state", usb_hid_state_name(usb_hid_get_state()));
     if (ap.timeout_s >= 0) {
         cJSON_AddNumberToObject(r, "ap_timeout_s", ap.timeout_s);
     } else {
@@ -219,7 +224,8 @@ static esp_err_t diagnostics_get(httpd_req_t *req) {
     add_partition(parts, "running", &d.running);
     add_partition(parts, "next_update", &d.next_update);
     cJSON_AddNumberToObject(r, "boot_failures", settings_boot_failures());
-    cJSON_AddStringToObject(r, "usb_state", "detached");
+    cJSON_AddStringToObject(r, "usb_state", usb_hid_state_name(usb_hid_get_state()));
+    cJSON_AddNumberToObject(r, "keyboard_leds", usb_hid_get_leds());
     cJSON_AddNullToObject(r, "ble"); /* BLE arrives in M3. */
     cJSON *wifi = cJSON_AddObjectToObject(r, "wifi");
     cJSON_AddStringToObject(wifi, "ssid", ap.ssid);
@@ -402,6 +408,86 @@ static esp_err_t reboot_download_post(httpd_req_t *req) {
     return send_json(req, r);
 }
 
+#if CONFIG_HUBBLE_USB_DEBUG_INJECT
+/** Longest time a debug-injected key/button is held, ms (it blocks the HTTP task while held). */
+#define DEBUG_HOLD_MAX_MS 1000
+/** Default hold time of a debug-injected key/button, ms. */
+#define DEBUG_HOLD_DEFAULT_MS 50
+
+/**
+ * @brief Read an optional integer field from a JSON object.
+ *
+ * @param o   Object.
+ * @param key Field name.
+ * @param def Value returned when the field is missing or not a number.
+ * @return The value, truncated to int.
+ */
+static int json_int(const cJSON *o, const char *key, int def) {
+    const cJSON *v = cJSON_GetObjectItemCaseSensitive(o, key);
+    return cJSON_IsNumber(v) ? (int)v->valuedouble : def;
+}
+
+/**
+ * POST /api/v1/debug/input (debug builds only): inject keyboard / mouse / consumer / system input as the
+ * debug source, so the USB side can be verified without any BLE device. Bodies:
+ *  - {"kind":"key","modifiers":0,"keys":[4,5],"hold_ms":50}
+ *  - {"kind":"mouse","buttons":1,"dx":10,"dy":0,"wheel":0,"pan":0,"hold_ms":50}
+ *  - {"kind":"consumer","usage":233,"hold_ms":50}
+ *  - {"kind":"system","bits":1,"hold_ms":50}
+ * The state is applied, held for hold_ms and then released.
+ */
+static esp_err_t debug_input_post(httpd_req_t *req) {
+    if (!guard(req, CT_JSON)) {
+        return ESP_OK;
+    }
+    cJSON *j = read_json_body(req);
+    if (j == NULL) {
+        return ESP_OK;
+    }
+    const cJSON *kind = cJSON_GetObjectItemCaseSensitive(j, "kind");
+    int hold = json_int(j, "hold_ms", DEBUG_HOLD_DEFAULT_MS);
+    hold = hold < 0 ? 0 : (hold > DEBUG_HOLD_MAX_MS ? DEBUG_HOLD_MAX_MS : hold);
+    bool ok = true;
+    if (cJSON_IsString(kind) && strcmp(kind->valuestring, "key") == 0) {
+        uint8_t keys[HID_KBD_MAX_KEYS];
+        size_t n = 0;
+        const cJSON *arr = cJSON_GetObjectItemCaseSensitive(j, "keys");
+        const cJSON *it;
+        cJSON_ArrayForEach(it, arr) {
+            if (cJSON_IsNumber(it) && n < HID_KBD_MAX_KEYS) {
+                keys[n++] = (uint8_t)it->valueint;
+            }
+        }
+        usb_hid_keyboard(HID_SRC_DEBUG, (uint8_t)json_int(j, "modifiers", 0), keys, n);
+        vTaskDelay(pdMS_TO_TICKS(hold));
+        usb_hid_keyboard(HID_SRC_DEBUG, 0, NULL, 0);
+    } else if (cJSON_IsString(kind) && strcmp(kind->valuestring, "mouse") == 0) {
+        const uint8_t buttons = (uint8_t)json_int(j, "buttons", 0);
+        usb_hid_mouse(HID_SRC_DEBUG, buttons, json_int(j, "dx", 0), json_int(j, "dy", 0), json_int(j, "wheel", 0),
+                      json_int(j, "pan", 0));
+        vTaskDelay(pdMS_TO_TICKS(hold));
+        usb_hid_mouse(HID_SRC_DEBUG, 0, 0, 0, 0, 0);
+    } else if (cJSON_IsString(kind) && strcmp(kind->valuestring, "consumer") == 0) {
+        usb_hid_consumer(HID_SRC_DEBUG, (uint16_t)json_int(j, "usage", 0));
+        vTaskDelay(pdMS_TO_TICKS(hold));
+        usb_hid_consumer(HID_SRC_DEBUG, 0);
+    } else if (cJSON_IsString(kind) && strcmp(kind->valuestring, "system") == 0) {
+        usb_hid_system(HID_SRC_DEBUG, (uint8_t)json_int(j, "bits", 0));
+        vTaskDelay(pdMS_TO_TICKS(hold));
+        usb_hid_system(HID_SRC_DEBUG, 0);
+    } else {
+        ok = false;
+    }
+    cJSON_Delete(j);
+    if (!ok) {
+        return send_error(req, "400 Bad Request", "bad_kind", "kind must be key, mouse, consumer or system");
+    }
+    cJSON *r = cJSON_CreateObject();
+    cJSON_AddBoolToObject(r, "ok", true);
+    return send_json(req, r);
+}
+#endif /* CONFIG_HUBBLE_USB_DEBUG_INJECT */
+
 /** @copydoc api_register */
 esp_err_t api_register(httpd_handle_t server) {
     static const httpd_uri_t routes[API_URI_HANDLER_COUNT] = {
@@ -413,6 +499,9 @@ esp_err_t api_register(httpd_handle_t server) {
         {.uri = "/api/v1/ota/upload", .method = HTTP_POST, .handler = ota_upload_post},
         {.uri = "/api/v1/system/reboot", .method = HTTP_POST, .handler = reboot_post},
         {.uri = "/api/v1/system/reboot-download", .method = HTTP_POST, .handler = reboot_download_post},
+#if CONFIG_HUBBLE_USB_DEBUG_INJECT
+        {.uri = "/api/v1/debug/input", .method = HTTP_POST, .handler = debug_input_post},
+#endif
     };
     for (size_t i = 0; i < API_URI_HANDLER_COUNT; i++) {
         const esp_err_t err = httpd_register_uri_handler(server, &routes[i]);

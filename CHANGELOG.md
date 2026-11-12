@@ -6,6 +6,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- USB composite HID device (TinyUSB): boot-protocol keyboard (interface 0) and mouse with AC Pan, consumer control
+  and system control (interface 1); keyboard LED output report, suspend/resume detection, remote-wakeup plumbing.
+- `hid_report` pure component: report descriptors and multi-source merge logic (union of keys/buttons, summed
+  deltas with remainder handling), with host unit tests.
+- Self-test now also checks the USB HID driver; `usb_state` in `/api/v1/status` and `/api/v1/diagnostics`.
+- `debug_usb` build overlay: `POST /api/v1/debug/input` injects test input without BLE.
+- `tools/check.sh`: local mirror of the CI pipeline.
+
+### Changed
+
+- The USB Serial/JTAG console is removed (TinyUSB owns the USB PHY); see ADR 10. Logs stay in the web app.
+- "Reboot to USB download mode" releases the USB PHY before resetting.
+
 ## [0.2.0] - 2026-11-11
 
 Milestone M1: Wi-Fi access point, web server and OTA foundations (hardware gate: ESP32-S3-Zero).

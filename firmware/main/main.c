@@ -1,10 +1,10 @@
 /**
  * @file main.c
- * @brief HubBLE application entry point (M1: Wi-Fi AP, web server, OTA foundations).
+ * @brief HubBLE application entry point (M2: + USB composite HID).
  *
  * Responsibilities: bring the subsystems up in dependency order, wire the OTA progress to the WebSocket,
  * and register the OTA self-test checks.
- * Dependencies: board, led, settings, log_buffer, ota, wifi_ap, captive_portal, web_server, web_assets.
+ * Dependencies: board, led, usb_hid, settings, log_buffer, ota, wifi_ap, captive_portal, web_server, web_assets.
  * Threading: runs once in the main task, then returns; every subsystem owns its own task(s).
  */
 #include <stdio.h>
@@ -20,6 +20,7 @@
 #include "log_hook.h"
 #include "ota.h"
 #include "settings.h"
+#include "usb_hid.h"
 #include "web_assets.h"
 #include "web_server.h"
 #include "wifi_ap.h"
@@ -87,7 +88,7 @@ static void on_ota_progress(uint32_t received, uint32_t total) {
     web_server_broadcast("ota.progress", json);
 }
 
-/* Self-test checks (CLAUDE.md §3.8). USB HID and BLE checks are added in M2/M3. */
+/* Self-test checks (CLAUDE.md §3.8). The BLE check is added in M3. */
 static bool check_settings(void) {
     return settings_is_ready();
 }
@@ -96,6 +97,10 @@ static bool check_wifi(void) {
 }
 static bool check_web(void) {
     return web_server_is_running();
+}
+static bool check_usb(void) {
+    /* Driver installed and report task running; whether a host is attached is not a firmware fault. */
+    return usb_hid_is_initialized();
 }
 
 /** @brief Entry point called by ESP-IDF after the system is up. */
@@ -119,6 +124,10 @@ void app_main(void) {
     const uint8_t *web = web_assets_get(&web_len);
     ESP_LOGI(TAG, "Embedded web bundle: %u bytes, %d files", (unsigned)web_len, web_bundle_count(web, web_len));
 
+    err = usb_hid_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "USB HID init failed: %s", esp_err_to_name(err));
+    }
     err = wifi_ap_init();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Wi-Fi AP init failed: %s", esp_err_to_name(err));
@@ -136,5 +145,6 @@ void app_main(void) {
     ota_selftest_register("settings", check_settings);
     ota_selftest_register("wifi_ap", check_wifi);
     ota_selftest_register("web_server", check_web);
+    ota_selftest_register("usb_hid", check_usb);
     ota_selftest_start();
 }
