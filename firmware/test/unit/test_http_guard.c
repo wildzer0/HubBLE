@@ -36,10 +36,35 @@ static void test_octet_stream(void) {
     TEST_ASSERT_EQUAL(GUARD_ERR_CONTENT_TYPE, http_guard_check("1", JSON, "application/octet-stream", NULL, "h"));
 }
 
+/** Only the SoftAP address and hubble.local (optionally with a port) are "our" host names. */
+static void test_host_ours(void) {
+    TEST_ASSERT_TRUE(http_guard_host_ours("192.168.4.1"));
+    TEST_ASSERT_TRUE(http_guard_host_ours("192.168.4.1:80"));
+    TEST_ASSERT_TRUE(http_guard_host_ours("HubBLE.local"));
+    TEST_ASSERT_FALSE(http_guard_host_ours("192.168.4.10"));
+    TEST_ASSERT_FALSE(http_guard_host_ours("192.168.4.1.evil.example"));
+    TEST_ASSERT_FALSE(http_guard_host_ours("hubble.local.evil.example"));
+    TEST_ASSERT_FALSE(http_guard_host_ours("192.168.4.1:"));
+    TEST_ASSERT_FALSE(http_guard_host_ours("192.168.4.1:8a"));
+    TEST_ASSERT_FALSE(http_guard_host_ours("evil.example"));
+    TEST_ASSERT_FALSE(http_guard_host_ours(NULL));
+}
+
+/** The WebSocket handshake needs our host and a same-host (or absent) origin. */
+static void test_ws_ok(void) {
+    TEST_ASSERT_TRUE(http_guard_ws_ok("http://hubble.local", "hubble.local"));
+    TEST_ASSERT_TRUE(http_guard_ws_ok(NULL, "192.168.4.1"));
+    TEST_ASSERT_FALSE(http_guard_ws_ok("http://evil.example", "hubble.local"));
+    TEST_ASSERT_FALSE(http_guard_ws_ok("http://evil.example", "evil.example"));
+    TEST_ASSERT_FALSE(http_guard_ws_ok(NULL, NULL));
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_ok);
     RUN_TEST(test_rejects);
     RUN_TEST(test_octet_stream);
+    RUN_TEST(test_host_ours);
+    RUN_TEST(test_ws_ok);
     return UNITY_END();
 }

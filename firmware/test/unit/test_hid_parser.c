@@ -294,6 +294,28 @@ void test_garbage_never_crashes(void) {
     }
 }
 
+/** Regression (found by the fuzzer): several 32-bit X fields summed with signed overflow. Now saturates. */
+void test_axis_sum_saturates(void) {
+    static const uint8_t desc[] = {
+        0x05, 0x01, 0x09, 0x02, 0xA1, 0x01,             /* Generic Desktop, Mouse, Collection (Application) */
+        0x17, 0x00, 0x00, 0x00, 0x80,                   /* Logical Minimum -2^31 */
+        0x27, 0xFF, 0xFF, 0xFF, 0x7F,                   /* Logical Maximum 2^31-1 */
+        0x75, 0x20, 0x95, 0x01,                         /* Report Size 32, Count 1 */
+        0x09, 0x30, 0x81, 0x06,                         /* Usage X, Input (Data, Variable, Relative) */
+        0x09, 0x30, 0x81, 0x06,                         /* a second X field */
+        0x09, 0x31, 0x81, 0x06, 0x09, 0x31, 0x81, 0x06, /* two Y fields */
+        0xC0,
+    };
+    hid_layout_t l;
+    TEST_ASSERT_EQUAL(HID_PARSE_OK, hid_parser_parse(desc, sizeof(desc), &l));
+    const uint8_t big[16] = {0xFF, 0xFF, 0xFF, 0x7F, 0xFF, 0xFF, 0xFF, 0x7F,
+                             0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0x80};
+    hid_norm_event_t ev;
+    TEST_ASSERT_TRUE(hid_norm_decode(&l, 0, big, sizeof(big), &ev));
+    TEST_ASSERT_EQUAL_INT32(INT32_MAX, ev.dx);
+    TEST_ASSERT_EQUAL_INT32(INT32_MIN, ev.dy);
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_parse_boot_keyboard);
@@ -312,5 +334,6 @@ int main(void) {
     RUN_TEST(test_zero_and_huge_sizes_ignored);
     RUN_TEST(test_push_pop);
     RUN_TEST(test_garbage_never_crashes);
+    RUN_TEST(test_axis_sum_saturates);
     return UNITY_END();
 }

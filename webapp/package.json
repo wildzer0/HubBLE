@@ -16,7 +16,8 @@
     "test:coverage": "vitest run --coverage",
     "e2e": "playwright test",
     "size": "node ../tools/check-webapp-size.mjs dist 150",
-    "docs": "typedoc"
+    "docs": "typedoc",
+    "screenshots": "playwright test --config playwright.screens.config.ts"
   },
   "dependencies": {
     "preact": "^11.2.0",

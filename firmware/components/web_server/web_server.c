@@ -17,6 +17,7 @@
 #include "board.h"
 #include "cJSON.h"
 #include "diag.h"
+#include "http_guard.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -75,7 +76,7 @@ static bool host_is_ours(const char *host) {
     if (host == NULL) {
         return true; /* HTTP/1.0 clients without Host: serve normally. */
     }
-    return strncmp(host, "192.168.4.1", 11) == 0 || strncasecmp(host, "hubble.local", 12) == 0;
+    return http_guard_host_ours(host); /* Strict match: "192.168.4.1.evil.example" is not ours. */
 }
 
 /**
@@ -239,6 +240,15 @@ static bool input_subscribed(int fd) {
  */
 static esp_err_t ws_handler(httpd_req_t *req) {
     if (req->method == HTTP_GET) {
+        /* Cross-site WebSocket hijacking guard: browsers send Origin on WebSocket handshakes. */
+        char origin[96] = {0};
+        char host[64] = {0};
+        const bool has_origin = httpd_req_get_hdr_value_str(req, "Origin", origin, sizeof(origin)) == ESP_OK;
+        const bool has_host = httpd_req_get_hdr_value_str(req, "Host", host, sizeof(host)) == ESP_OK;
+        if (!http_guard_ws_ok(has_origin ? origin : NULL, has_host ? host : NULL)) {
+            ESP_LOGW(TAG, "WebSocket handshake refused (origin/host)");
+            return ESP_FAIL;
+        }
         ESP_LOGI(TAG, "WebSocket client connected");
         return ESP_OK; /* Handshake is completed by the server. */
     }

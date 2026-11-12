@@ -6,6 +6,8 @@
  */
 #include "hid_normalizer.h"
 
+#include <stdint.h>
+
 #include <string.h>
 
 /** Generic Desktop usages the mouse decoder needs. */
@@ -130,6 +132,21 @@ static void decode_consumer(const hid_field_t *f, const uint8_t *data, size_t le
 }
 
 /**
+ * @brief Saturating 32-bit addition.
+ *
+ * A hostile report map can declare many axis fields of the same usage with 32-bit values, so summing them must not
+ * overflow (signed overflow is undefined behaviour). Found by the fuzzer.
+ *
+ * @param a First addend.
+ * @param b Second addend.
+ * @return a + b clamped to the int32_t range.
+ */
+static int32_t sat_add(int32_t a, int32_t b) {
+    const int64_t r = (int64_t)a + b;
+    return r > INT32_MAX ? INT32_MAX : (r < INT32_MIN ? INT32_MIN : (int32_t)r);
+}
+
+/**
  * @brief Decode Generic Desktop fields: pointer axes, wheel and system control.
  *
  * @param f    Field.
@@ -147,15 +164,15 @@ static void decode_desktop(const hid_field_t *f, const uint8_t *data, size_t len
         switch (usage) {
         case USAGE_X:
             ev->has_mouse = true;
-            ev->dx += v;
+            ev->dx = sat_add(ev->dx, v);
             break;
         case USAGE_Y:
             ev->has_mouse = true;
-            ev->dy += v;
+            ev->dy = sat_add(ev->dy, v);
             break;
         case USAGE_WHEEL:
             ev->has_mouse = true;
-            ev->wheel += v;
+            ev->wheel = sat_add(ev->wheel, v);
             break;
         case USAGE_SYSTEM_SLEEP:
             ev->has_system = true;
@@ -200,7 +217,7 @@ bool hid_norm_decode(const hid_layout_t *layout, uint8_t report_id, const uint8_
                     int32_t v;
                     if (hid_field_usage(f, i) == USAGE_AC_PAN && hid_field_value(f, i, data, len, &v)) {
                         ev->has_mouse = true;
-                        ev->pan += v;
+                        ev->pan = sat_add(ev->pan, v);
                         any = true;
                     }
                 }

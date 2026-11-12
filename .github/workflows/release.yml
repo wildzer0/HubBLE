@@ -97,6 +97,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
@@ -134,3 +135,7 @@ jobs:
           case "$VERSION" in 0.*|*-rc.*) PRE="--prerelease" ;; esac
           # shellcheck disable=SC2086
           gh release create "$GITHUB_REF_NAME" release/* --title "$GITHUB_REF_NAME" --notes-file art-notes/release-notes.md $PRE --verify-tag
+      - name: Redeploy the docs site (web installer picks up the new images)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run docs.yml --ref main

@@ -162,6 +162,11 @@ static bool guard(httpd_req_t *req, const char *expected_ct) {
     const guard_result_t g = http_guard_check(
         get_hdr(req, HDR_CSRF, x, sizeof(x)), get_hdr(req, "Content-Type", ct, sizeof(ct)), expected_ct,
         get_hdr(req, "Origin", origin, sizeof(origin)), get_hdr(req, "Host", host, sizeof(host)));
+    /* The Host must name the dongle too (blocks DNS rebinding); a missing Host is a non-browser HTTP/1.0 client. */
+    if (g == GUARD_OK && host[0] != '\0' && !http_guard_host_ours(host)) {
+        send_error(req, "403 Forbidden", "forbidden", "Missing X-HubBLE header or cross-origin request");
+        return false;
+    }
     switch (g) {
     case GUARD_OK:
         return true;

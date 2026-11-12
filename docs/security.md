@@ -1,6 +1,6 @@
 # Security and threat model
 
-Initial outline; extended per milestone and reviewed in M8.
+Threat model, extended per milestone. The M8 review is in [Security review](security-review.md).
 
 | Threat | Planned mitigation |
 |---|---|
@@ -52,3 +52,9 @@ Report vulnerabilities as described in `SECURITY.md`.
 - **Residual risks:** no hardware secure boot or flash encryption, so physical access (USB re-flash) is not defended
   against; a leaked release key allows malicious updates until the key is rotated and devices are re-flashed; the API
   call that starts an update needs the Wi-Fi password but not the physical confirmation when no keyboard is paired.
+
+## State in M8 (hardening)
+
+Reviewed against this threat model, see [Security review](security-review.md). Added: cross-site WebSocket hijacking guard,
+strict `Host` check on state-changing calls, fuzzing of the HID parser, the manifest parser and the DNS responder, and
+sanitizer runs of all host tests.

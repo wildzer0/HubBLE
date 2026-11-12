@@ -21,6 +21,13 @@ set(ENABLE_CJSON_UNINSTALL OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(unity cjson)
 
+# Sanitizers for every host test: -DHUBBLE_SANITIZE=ON (AddressSanitizer incl. leak check, and UBSan).
+option(HUBBLE_SANITIZE "Build all host tests with ASan/LSan/UBSan" OFF)
+if(HUBBLE_SANITIZE)
+    add_compile_options(-fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer -g)
+    add_link_options(-fsanitize=address,undefined)
+endif()
+
 enable_testing()
 
 # hubble_add_test(<name> <test source> <component sources...>)
@@ -89,3 +96,34 @@ target_include_directories(test_power_policy PRIVATE ${COMP}/power/include)
 
 hubble_add_test(test_led_pattern unit/test_led_pattern.c ${COMP}/led/led_pattern.c)
 target_include_directories(test_led_pattern PRIVATE ${COMP}/led/include)
+
+# --- Fuzz targets (CLAUDE.md §5.3) -----------------------------------------------
+# -DHUBBLE_FUZZ=ON builds one executable per target. With Clang they are real libFuzzer binaries (coverage guided);
+# with other compilers they link a small mutation driver (tools/fuzz.sh runs either kind).
+option(HUBBLE_FUZZ "Build the fuzz targets" OFF)
+if(HUBBLE_FUZZ)
+    function(hubble_add_fuzzer name src)
+        add_executable(${name} ${src} ${ARGN})
+        if(CMAKE_C_COMPILER_ID MATCHES "Clang")
+            target_compile_options(${name} PRIVATE -fsanitize=fuzzer-no-link,address,undefined -fno-sanitize-recover=all -g)
+            target_link_options(${name} PRIVATE -fsanitize=fuzzer,address,undefined)
+        else()
+            target_sources(${name} PRIVATE fuzz/fuzz_driver.c)
+            target_compile_options(${name} PRIVATE -fsanitize=address,undefined -fno-sanitize-recover=all -g)
+            target_link_options(${name} PRIVATE -fsanitize=address,undefined)
+        endif()
+    endfunction()
+
+    hubble_add_fuzzer(fuzz_hid_parser fuzz/fuzz_hid_parser.c ${COMP}/hid_parser/hid_parser.c
+                      ${COMP}/hid_normalizer/hid_normalizer.c ${COMP}/hid_report/hid_report.c)
+    target_include_directories(fuzz_hid_parser PRIVATE ${COMP}/hid_parser/include ${COMP}/hid_normalizer/include
+                               ${COMP}/hid_report/include)
+
+    hubble_add_fuzzer(fuzz_dns_reply fuzz/fuzz_dns_reply.c ${COMP}/captive_portal/dns_reply.c)
+    target_include_directories(fuzz_dns_reply PRIVATE ${COMP}/captive_portal/include)
+
+    hubble_add_fuzzer(fuzz_ota_manifest fuzz/fuzz_ota_manifest.c ${COMP}/ota_manifest/ota_manifest.c
+                      ${COMP}/semver/semver.c ${cjson_SOURCE_DIR}/cJSON.c)
+    target_include_directories(fuzz_ota_manifest PRIVATE ${COMP}/ota_manifest/include ${COMP}/semver/include
+                               ${cjson_SOURCE_DIR})
+endif()

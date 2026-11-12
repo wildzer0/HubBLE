@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- WebSocket handshake now rejects cross-site pages (cross-site WebSocket hijacking) and the API requires the `Host` to be the
+  dongle's own name (DNS rebinding); the captive-portal redirect matches host names exactly.
+- HID normaliser: signed overflow when summing many 32-bit axis fields of one usage (found by fuzzing).
+
 ### Added
 
 - USB composite HID device (TinyUSB): boot-protocol keyboard (interface 0) and mouse with AC Pan, consumer control
@@ -43,6 +49,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   event is not forwarded). Status LED patterns (booting, AP, pairing, quarantine, update, no device) with brightness and
   optional "device connected" indication; configurable Shift-combo hold time. Pure `power` and `led_pattern` logic with
   host tests; `ap_policy` honours the host suspend; `docs/power.md`.
+- Hardening (M8): fuzz targets (HID parser, manifest parser, DNS responder; libFuzzer in CI, `tools/fuzz.sh` locally), all
+  host tests under ASan/LSan/UBSan, security review (`docs/security-review.md`), user guide with screenshots generated from the
+  mock (`npm run screenshots`), web installer page (ESP Web Tools, images served from the docs site), stability test plan,
+  latency method, key management and release checklist.
 - Secure pairing (M4): Passkey Entry (DisplayOnly) for keyboards, quarantine + click/code challenges for Just Works
   devices, legacy pairing refused unless overridden, optional physical confirmation (both Shifts 3 s on a paired
   keyboard), 60 s lock after 3 failures, security badges (green/yellow/red). Pure `pairing` state machine with host tests.

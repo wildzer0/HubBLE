@@ -56,3 +56,22 @@ doxygen Doxyfile                 # firmware API docs -> docs/api/generated/firmw
 Firmware builds are signed (RSA-3072, ADR 6). `tools/build-firmware.sh` creates a git-ignored development key in
 `firmware/keys/` on first use; set `HUBBLE_SIGNING_KEY=<pem>` to sign with another key. Releases use the key from the
 `HUBBLE_SIGNING_KEY` Actions secret. See `key-management.md`. Images signed with different keys do not accept each other.
+
+## Sanitizers and fuzzing
+
+```bash
+# All host tests under AddressSanitizer + LeakSanitizer + UBSan
+cmake -S firmware/test -B firmware/test/build-asan -G Ninja -DHUBBLE_SANITIZE=ON
+cmake --build firmware/test/build-asan && ctest --test-dir firmware/test/build-asan --output-on-failure
+
+# Fuzz targets (hid_parser, dns_reply, ota_manifest) for 60 s each; CC=clang gives real libFuzzer
+tools/fuzz.sh 60
+```
+
+Targets live in `firmware/test/fuzz/` with seed corpora in `firmware/test/fuzz/corpus/<target>/`. A finding leaves a
+`crash-*` file in `firmware/test/build-fuzz/` (a `crash-last-input.bin` with the fallback driver): add it as a regression test.
+`tools/check.sh full` runs the sanitized tests and a 10 s fuzz run per target.
+
+## Screenshots for the user guide
+
+`cd webapp && npm run screenshots` regenerates `docs/img/*.png` from the mock API (mobile viewport).

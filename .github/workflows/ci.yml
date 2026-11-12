@@ -81,6 +81,26 @@ jobs:
           cmake -S firmware/test -B firmware/test/build -G Ninja
           cmake --build firmware/test/build
           ctest --test-dir firmware/test/build --output-on-failure
+      - name: Host tests under ASan/LSan/UBSan
+        run: |
+          cmake -S firmware/test -B firmware/test/build-asan -G Ninja -DHUBBLE_SANITIZE=ON
+          cmake --build firmware/test/build-asan
+          ctest --test-dir firmware/test/build-asan --output-on-failure
+      - name: Fuzzing (libFuzzer, bounded)
+        env:
+          CC: clang
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq clang
+          tools/fuzz.sh "${FUZZ_SECONDS:-60}"
+      - name: Upload fuzz findings
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fuzz-findings
+          path: |
+            firmware/test/build-fuzz/crash-*
+            firmware/test/build-fuzz/work-*
+          if-no-files-found: ignore
 
   firmware:
     needs: webapp
