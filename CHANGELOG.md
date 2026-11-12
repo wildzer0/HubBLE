@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-12
+
 ### Added
 
 - `GET /api/v1/wifi/scan`: nearby Wi-Fi networks (name, signal, secured or open), so the network used for updates can be
