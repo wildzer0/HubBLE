@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-11-12
+
 ### Fixed
 
 - Pairing: the challenge was chosen wrongly for devices that expose both a keyboard and a pointer (a keyboard with a
