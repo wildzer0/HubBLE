@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-12
+
 ### Fixed
 
 - WebSocket handshake now rejects cross-site pages (cross-site WebSocket hijacking) and the API requires the `Host` to be the
