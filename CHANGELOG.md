@@ -31,6 +31,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   settings, backup/restore, factory reset, i18n EN/IT, skip link, mock API for every endpoint, Playwright coverage.
 - REST: `GET/PUT /settings` now includes `ap_boot_window_s` and `ap_idle_timeout_s`; `GET /backup`, `POST /restore`
   (settings only, never bonds), `POST /system/factory-reset`; WebSocket `input.subscribe|unsubscribe` and `input.event`.
+- Signed OTA images (M6): RSA-3072 (the only scheme the ESP32-S3 supports for apps) without hardware secure boot; the
+  firmware verifies the signature of every installed image, release builds need the `HUBBLE_SIGNING_KEY` secret.
+  `tools/gen_dev_key.sh`, `docs/key-management.md`, ADR 6 revised.
+- "Check for updates" (M6): saved Wi-Fi network (write-only, APSTA on demand), stable/pre-release channel, GitHub
+  Releases API + `manifest.json`, HTTPS download with SHA-256 check, board check, minimum version, anti-downgrade
+  confirmation, physical confirmation, `ota.state` event, `POST /ota/check|install`, `PUT /settings/sta`.
+  Pure `ota_manifest` component with host tests.
 - Secure pairing (M4): Passkey Entry (DisplayOnly) for keyboards, quarantine + click/code challenges for Just Works
   devices, legacy pairing refused unless overridden, optional physical confirmation (both Shifts 3 s on a paired
   keyboard), 60 s lock after 3 failures, security badges (green/yellow/red). Pure `pairing` state machine with host tests.

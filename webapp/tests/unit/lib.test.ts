@@ -25,7 +25,14 @@ describe('backup parsing', () => {
     settings: { require_confirmation: true, ap_boot_window_s: 300, ap_idle_timeout_s: 180 },
   };
   it('accepts a valid backup', () => {
-    expect(parseBackup(JSON.stringify(good))).toEqual(good);
+    // An old backup without the update channel gets the defaults.
+    expect(parseBackup(JSON.stringify(good))?.settings).toEqual({
+      ...good.settings,
+      update_channel: 'stable',
+      sta_configured: false,
+    });
+    const pre = { ...good, settings: { ...good.settings, update_channel: 'prerelease' } };
+    expect(parseBackup(JSON.stringify(pre))?.settings.update_channel).toBe('prerelease');
   });
   it('rejects garbage, wrong markers and missing fields', () => {
     expect(parseBackup('not json')).toBeNull();

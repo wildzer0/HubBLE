@@ -60,6 +60,24 @@ void wifi_ap_apply_password(void);
 /** @brief Whether wifi_ap_init() completed (used by the OTA self-test). */
 bool wifi_ap_is_initialized(void);
 
+/**
+ * @brief Join a Wi-Fi network as a station (APSTA mode) for "check for updates" (CLAUDE.md §3.5).
+ *
+ * The AP must be running; the caller keeps it on with wifi_ap_set_ota_active(true). Joining makes the radio follow the
+ * router's channel, so the AP may move to that channel and phones can briefly disconnect: this is a known APSTA
+ * limitation, documented in docs/ota-and-recovery.md.
+ *
+ * @param ssid       Network name.
+ * @param password   Passphrase, "" for an open network.
+ * @param timeout_ms How long to wait for an IP address.
+ * @return ESP_OK once an IP address was obtained; ESP_ERR_TIMEOUT if the network cannot be joined;
+ *         ESP_ERR_INVALID_STATE if the AP is not running.
+ */
+esp_err_t wifi_ap_sta_connect(const char *ssid, const char *password, uint32_t timeout_ms);
+
+/** @brief Leave the station network and return to AP-only mode. Safe to call when not connected. */
+void wifi_ap_sta_disconnect(void);
+
 #ifdef __cplusplus
 }
 #endif

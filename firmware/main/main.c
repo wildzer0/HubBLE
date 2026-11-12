@@ -23,6 +23,7 @@
 #include "led.h"
 #include "log_hook.h"
 #include "ota.h"
+#include "ota_online.h"
 #include "settings.h"
 #include "usb_hid.h"
 #include "web_assets.h"
@@ -93,6 +94,11 @@ static void on_ota_progress(uint32_t received, uint32_t total) {
     char json[64];
     snprintf(json, sizeof(json), "{\"received\":%u,\"total\":%u}", (unsigned)received, (unsigned)total);
     web_server_broadcast("ota.progress", json);
+}
+
+/** @brief Online update state or progress changed -> WebSocket `ota.state` event. */
+static void on_ota_online_changed(void) {
+    api_ota_events(web_server_broadcast);
 }
 
 /* Self-test checks (CLAUDE.md §3.8). The BLE check is added in M3. */
@@ -172,6 +178,7 @@ void app_main(void) {
     }
 
     ota_set_progress_cb(on_ota_progress);
+    ota_online_set_changed_cb(on_ota_online_changed);
     ota_selftest_register("settings", check_settings);
     ota_selftest_register("wifi_ap", check_wifi);
     ota_selftest_register("web_server", check_web);

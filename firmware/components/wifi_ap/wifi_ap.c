@@ -21,6 +21,7 @@
 #include "esp_timer.h"
 #include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/event_groups.h"
 #include "freertos/task.h"
 #include "sdkconfig.h"
 #include "settings.h"
@@ -60,6 +61,20 @@ static volatile bool s_reconfigure;
 static wifi_ap_status_t s_status;
 /** Guards s_status. */
 static portMUX_TYPE s_lock = portMUX_INITIALIZER_UNLOCKED;
+/** Station netif, created on first use by wifi_ap_sta_connect(). */
+static esp_netif_t *s_sta_netif;
+/** Event group signalling the station result. */
+static EventGroupHandle_t s_sta_events;
+/** Bit: the station got an IP address. */
+#define STA_GOT_IP BIT0
+/** Bit: the station gave up (wrong password, network not found). */
+#define STA_FAILED BIT1
+/** Connection attempts before giving up. */
+#define STA_MAX_RETRIES 3
+/** Attempts made so far for the current wifi_ap_sta_connect(). */
+static int s_sta_retries;
+/** true while a wifi_ap_sta_connect() is waiting (retries only then). */
+static volatile bool s_sta_wanted;
 /** Current SSID, built once from the MAC. */
 static char s_ssid[33];
 
@@ -165,6 +180,76 @@ static void manager_task(void *arg) {
         portEXIT_CRITICAL(&s_lock);
 
         vTaskDelay(pdMS_TO_TICKS(MANAGER_PERIOD_MS));
+    }
+}
+
+/**
+ * @brief Station events: IP obtained, or disconnected (retry a few times, then report failure).
+ *
+ * @param arg  Unused.
+ * @param base Event base.
+ * @param id   Event id.
+ * @param data Event data.
+ */
+static void sta_event_handler(void *arg, esp_event_base_t base, int32_t id, void *data) {
+    (void)arg;
+    (void)data;
+    if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
+        xEventGroupSetBits(s_sta_events, STA_GOT_IP);
+    } else if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED && s_sta_wanted) {
+        if (++s_sta_retries < STA_MAX_RETRIES) {
+            esp_wifi_connect();
+        } else {
+            xEventGroupSetBits(s_sta_events, STA_FAILED);
+        }
+    }
+}
+
+/** @copydoc wifi_ap_sta_connect */
+esp_err_t wifi_ap_sta_connect(const char *ssid, const char *password, uint32_t timeout_ms) {
+    if (!s_initialized || !s_ap_running) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (s_sta_netif == NULL) {
+        s_sta_netif = esp_netif_create_default_wifi_sta();
+        s_sta_events = xEventGroupCreate();
+        if (s_sta_netif == NULL || s_sta_events == NULL) {
+            return ESP_ERR_NO_MEM;
+        }
+        ESP_RETURN_ON_ERROR(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, sta_event_handler, NULL), TAG,
+                            "ip handler");
+        ESP_RETURN_ON_ERROR(
+            esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, sta_event_handler, NULL), TAG,
+            "wifi handler");
+    }
+    wifi_config_t cfg = {0};
+    strlcpy((char *)cfg.sta.ssid, ssid, sizeof(cfg.sta.ssid));
+    strlcpy((char *)cfg.sta.password, password, sizeof(cfg.sta.password));
+    cfg.sta.pmf_cfg.capable = true;
+    ESP_RETURN_ON_ERROR(esp_wifi_set_mode(WIFI_MODE_APSTA), TAG, "apsta");
+    ESP_RETURN_ON_ERROR(esp_wifi_set_config(WIFI_IF_STA, &cfg), TAG, "sta config");
+    xEventGroupClearBits(s_sta_events, STA_GOT_IP | STA_FAILED);
+    s_sta_retries = 0;
+    s_sta_wanted = true;
+    esp_err_t err = esp_wifi_connect();
+    EventBits_t bits = 0;
+    if (err == ESP_OK) {
+        bits = xEventGroupWaitBits(s_sta_events, STA_GOT_IP | STA_FAILED, pdTRUE, pdFALSE, pdMS_TO_TICKS(timeout_ms));
+    }
+    if (!(bits & STA_GOT_IP)) {
+        wifi_ap_sta_disconnect();
+        return ESP_ERR_TIMEOUT;
+    }
+    ESP_LOGI(TAG, "station connected");
+    return ESP_OK;
+}
+
+/** @copydoc wifi_ap_sta_disconnect */
+void wifi_ap_sta_disconnect(void) {
+    s_sta_wanted = false;
+    if (s_sta_netif != NULL) {
+        esp_wifi_disconnect();
+        esp_wifi_set_mode(WIFI_MODE_AP);
     }
 }
 

@@ -22,6 +22,7 @@
 #include "http_guard.h"
 #include "log_hook.h"
 #include "ota.h"
+#include "ota_online.h"
 #include "nvs_flash.h"
 #include "settings.h"
 #include "usb_hid.h"
@@ -192,6 +193,51 @@ static esp_err_t status_get(httpd_req_t *req) {
     return send_json(req, r);
 }
 
+/**
+ * @brief Describe the online update engine (REST `online` object and `ota.state` event).
+ *
+ * @return New cJSON object (caller owns it).
+ */
+static cJSON *online_json(void) {
+    ou_status_t u;
+    ota_online_get_status(&u);
+    cJSON *o = cJSON_CreateObject();
+    cJSON_AddStringToObject(o, "state", ota_online_state_name(u.state));
+    if (u.state == OU_ERROR) {
+        cJSON_AddStringToObject(o, "error", ota_online_error_name(u.error));
+    }
+    cJSON_AddBoolToObject(o, "wifi_configured", settings_has_sta());
+    cJSON_AddStringToObject(o, "channel", u.prerelease_channel ? "prerelease" : "stable");
+    if (u.have_release) {
+        cJSON *r = cJSON_AddObjectToObject(o, "release");
+        cJSON_AddStringToObject(r, "version", u.release.version);
+        cJSON_AddStringToObject(r, "min_version", u.release.min_version);
+        cJSON_AddStringToObject(r, "notes_url", u.release.notes_url);
+        cJSON_AddNumberToObject(r, "size", u.release.size);
+        cJSON_AddBoolToObject(r, "signed", u.release.signed_image);
+        cJSON_AddBoolToObject(r, "downgrade", u.decision == OTA_DECISION_DOWNGRADE);
+    }
+    if (u.state == OU_DOWNLOADING || u.state == OU_INSTALLED) {
+        cJSON_AddNumberToObject(o, "received", u.received);
+        cJSON_AddNumberToObject(o, "total", u.total);
+    }
+    if (u.state == OU_AWAIT_CONFIRM) {
+        cJSON_AddNumberToObject(o, "confirm_remaining_s", u.confirm_remaining_s);
+    }
+    return o;
+}
+
+/** @copydoc api_ota_events */
+void api_ota_events(void (*emit)(const char *event, const char *json)) {
+    cJSON *o = online_json();
+    char *text = cJSON_PrintUnformatted(o);
+    if (text != NULL) {
+        emit("ota.state", text);
+        cJSON_free(text);
+    }
+    cJSON_Delete(o);
+}
+
 /** GET /api/v1/ota/status. */
 static esp_err_t ota_status_get(httpd_req_t *req) {
     ota_status_t s;
@@ -207,6 +253,7 @@ static esp_err_t ota_status_get(httpd_req_t *req) {
     cJSON_AddBoolToObject(r, "rollback_happened", s.rollback_happened);
     cJSON_AddNumberToObject(r, "boot_failures", s.boot_failures);
     cJSON_AddStringToObject(r, "last_result", s.last_result);
+    cJSON_AddItemToObject(r, "online", online_json());
     return send_json(req, r);
 }
 
@@ -842,6 +889,8 @@ static cJSON *settings_json(void) {
     cJSON_AddBoolToObject(r, "require_confirmation", settings_get_require_confirm());
     cJSON_AddNumberToObject(r, "ap_boot_window_s", settings_get_boot_window_s());
     cJSON_AddNumberToObject(r, "ap_idle_timeout_s", settings_get_idle_timeout_s());
+    cJSON_AddStringToObject(r, "update_channel", settings_get_prerelease_channel() ? "prerelease" : "stable");
+    cJSON_AddBoolToObject(r, "sta_configured", settings_has_sta()); /* Never the credentials themselves. */
     return r;
 }
 
@@ -855,7 +904,12 @@ static bool settings_object_valid(const cJSON *s) {
     const cJSON *rc = cJSON_GetObjectItemCaseSensitive(s, "require_confirmation");
     const cJSON *bw = cJSON_GetObjectItemCaseSensitive(s, "ap_boot_window_s");
     const cJSON *it = cJSON_GetObjectItemCaseSensitive(s, "ap_idle_timeout_s");
+    const cJSON *ch = cJSON_GetObjectItemCaseSensitive(s, "update_channel");
     if (rc != NULL && !cJSON_IsBool(rc)) {
+        return false;
+    }
+    if (ch != NULL && !(cJSON_IsString(ch) &&
+                        (strcmp(ch->valuestring, "stable") == 0 || strcmp(ch->valuestring, "prerelease") == 0))) {
         return false;
     }
     if (bw != NULL && !(cJSON_IsNumber(bw) && bw->valuedouble == (double)bw->valueint && bw->valueint > 0 &&
@@ -888,6 +942,10 @@ static void settings_object_apply(const cJSON *s) {
     }
     if (cJSON_IsNumber(it)) {
         settings_set_idle_timeout_s((uint32_t)it->valueint);
+    }
+    const cJSON *ch = cJSON_GetObjectItemCaseSensitive(s, "update_channel");
+    if (cJSON_IsString(ch)) {
+        settings_set_prerelease_channel(strcmp(ch->valuestring, "prerelease") == 0);
     }
 }
 
@@ -949,6 +1007,80 @@ static esp_err_t restore_post(httpd_req_t *req) {
     }
     settings_object_apply(st);
     cJSON_Delete(j);
+    cJSON *r = cJSON_CreateObject();
+    cJSON_AddBoolToObject(r, "ok", true);
+    return send_json(req, r);
+}
+
+/** PUT /api/v1/settings/sta {"ssid","password"}: save (or, with an empty ssid, forget) the update Wi-Fi network. */
+static esp_err_t settings_sta_put(httpd_req_t *req) {
+    if (!guard(req, CT_JSON)) {
+        return ESP_OK;
+    }
+    cJSON *j = read_json_body(req);
+    if (j == NULL) {
+        return ESP_OK;
+    }
+    const cJSON *ssid = cJSON_GetObjectItemCaseSensitive(j, "ssid");
+    const cJSON *pass = cJSON_GetObjectItemCaseSensitive(j, "password");
+    const bool shape = cJSON_IsString(ssid) && (pass == NULL || cJSON_IsString(pass));
+    esp_err_t err = ESP_ERR_INVALID_ARG;
+    if (shape) {
+        err = settings_set_sta(ssid->valuestring, pass != NULL ? pass->valuestring : "");
+    }
+    cJSON_Delete(j);
+    if (err != ESP_OK) {
+        return send_error(req, "400 Bad Request", "invalid_sta",
+                          "SSID must be 1-32 characters; the password empty or 8-63 printable characters");
+    }
+    return settings_get(req); /* Reports sta_configured only. */
+}
+
+/** POST /api/v1/ota/check {"channel":"stable"|"prerelease"}: start looking for an update on GitHub. */
+static esp_err_t ota_check_post(httpd_req_t *req) {
+    if (!guard(req, CT_JSON)) {
+        return ESP_OK;
+    }
+    cJSON *j = read_json_body(req);
+    if (j == NULL) {
+        return ESP_OK;
+    }
+    const cJSON *ch = cJSON_GetObjectItemCaseSensitive(j, "channel");
+    const bool pre =
+        cJSON_IsString(ch) ? strcmp(ch->valuestring, "prerelease") == 0 : settings_get_prerelease_channel();
+    cJSON_Delete(j);
+    const esp_err_t err = ota_online_check(pre);
+    if (err == ESP_ERR_NOT_FOUND) {
+        return send_error(req, "409 Conflict", "no_wifi_credentials", "Save the Wi-Fi network used for updates first");
+    }
+    if (err != ESP_OK) {
+        return send_error(req, "409 Conflict", "busy",
+                          "An update operation is already running, or the Wi-Fi AP is off");
+    }
+    cJSON *r = cJSON_CreateObject();
+    cJSON_AddBoolToObject(r, "ok", true);
+    return send_json(req, r);
+}
+
+/** POST /api/v1/ota/install {"allow_downgrade":bool}: install the release found by the last check. */
+static esp_err_t ota_install_post(httpd_req_t *req) {
+    if (!guard(req, CT_JSON)) {
+        return ESP_OK;
+    }
+    cJSON *j = read_json_body(req);
+    if (j == NULL) {
+        return ESP_OK;
+    }
+    const bool down = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(j, "allow_downgrade"));
+    cJSON_Delete(j);
+    const esp_err_t err = ota_online_install(down);
+    if (err == ESP_ERR_NOT_ALLOWED) {
+        return send_error(req, "409 Conflict", "downgrade_not_confirmed", "This release is older than the running one");
+    }
+    if (err != ESP_OK) {
+        return send_error(req, "409 Conflict", "nothing_to_install",
+                          "Check for updates first, or an install is running");
+    }
     cJSON *r = cJSON_CreateObject();
     cJSON_AddBoolToObject(r, "ok", true);
     return send_json(req, r);
@@ -1066,6 +1198,9 @@ esp_err_t api_register(httpd_handle_t server) {
         {.uri = "/api/v1/pairing/cancel", .method = HTTP_POST, .handler = pairing_cancel_post},
         {.uri = "/api/v1/settings", .method = HTTP_GET, .handler = settings_get},
         {.uri = "/api/v1/settings", .method = HTTP_PUT, .handler = settings_put},
+        {.uri = "/api/v1/settings/sta", .method = HTTP_PUT, .handler = settings_sta_put},
+        {.uri = "/api/v1/ota/check", .method = HTTP_POST, .handler = ota_check_post},
+        {.uri = "/api/v1/ota/install", .method = HTTP_POST, .handler = ota_install_post},
         {.uri = "/api/v1/backup", .method = HTTP_GET, .handler = backup_get},
         {.uri = "/api/v1/restore", .method = HTTP_POST, .handler = restore_post},
         {.uri = "/api/v1/system/factory-reset", .method = HTTP_POST, .handler = factory_reset_post},

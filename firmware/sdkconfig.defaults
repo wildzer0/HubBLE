@@ -41,3 +41,15 @@ CONFIG_BT_NIMBLE_NVS_PERSIST=y
 CONFIG_BT_NIMBLE_SM_LEGACY=y
 CONFIG_BT_NIMBLE_SM_SC=y
 CONFIG_BT_NIMBLE_WHITELIST_SIZE=4
+
+# Signed OTA images (M6, ADR 6). Hardware secure boot stays OFF: only the app verifies the signature when an update is
+# written (esp_ota_end), which stops spoofed updates but is not protection against physical access. The signing key
+# path is injected by firmware/CMakeLists.txt (HUBBLE_SIGNING_KEY).
+CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT=y
+CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME=y
+CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT=y
+
+# HTTPS for "check for updates" (certificate bundle with the common root CAs).
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=n
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_CMN=y

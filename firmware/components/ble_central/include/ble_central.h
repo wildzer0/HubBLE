@@ -283,6 +283,13 @@ unsigned ble_central_connected_count(void);
  */
 unsigned ble_central_bonded_count(void);
 
+/**
+ * @brief Whether a paired keyboard exists (physical confirmation of an OTA install needs one; skipped otherwise).
+ *
+ * @return true if at least one registered device is a keyboard.
+ */
+bool ble_central_has_keyboard(void);
+
 #ifdef __cplusplus
 }
 #endif

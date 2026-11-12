@@ -12,7 +12,14 @@ include(FetchContent)
 FetchContent_Declare(unity
     GIT_REPOSITORY https://github.com/ThrowTheSwitch/Unity.git
     GIT_TAG v2.6.1)
-FetchContent_MakeAvailable(unity)
+FetchContent_Declare(cjson
+    GIT_REPOSITORY https://github.com/DaveGamble/cJSON.git
+    GIT_TAG v1.7.18)
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+set(ENABLE_CJSON_TEST OFF CACHE BOOL "" FORCE)
+set(ENABLE_CJSON_UNINSTALL OFF CACHE BOOL "" FORCE)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(unity cjson)
 
 enable_testing()
 
@@ -69,3 +76,9 @@ target_include_directories(test_combo_lat PRIVATE ${COMP}/combo/include ${COMP}/
 # --- M4 pure-logic components ---------------------------------------------------
 hubble_add_test(test_pairing unit/test_pairing.c ${COMP}/pairing/pairing.c)
 target_include_directories(test_pairing PRIVATE ${COMP}/pairing/include)
+
+# --- M6 pure-logic components ---------------------------------------------------
+hubble_add_test(test_ota_manifest unit/test_ota_manifest.c ${COMP}/ota_manifest/ota_manifest.c ${COMP}/semver/semver.c)
+target_include_directories(test_ota_manifest PRIVATE ${COMP}/ota_manifest/include ${COMP}/semver/include)
+target_include_directories(test_ota_manifest PRIVATE ${cjson_SOURCE_DIR})
+target_link_libraries(test_ota_manifest PRIVATE cjson)

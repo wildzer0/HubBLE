@@ -1193,6 +1193,17 @@ unsigned ble_central_connected_count(void) {
     return n;
 }
 
+/** @copydoc ble_central_has_keyboard */
+bool ble_central_has_keyboard(void) {
+    bool yes = false;
+    LOCK();
+    for (int i = 0; i < BLE_CENTRAL_MAX_DEVICES; i++) {
+        yes = yes || (s_reg[i].used && !s_dev[i].pending && s_reg[i].kbd);
+    }
+    UNLOCK();
+    return yes;
+}
+
 /** @copydoc ble_central_bonded_count */
 unsigned ble_central_bonded_count(void) {
     unsigned n = 0;

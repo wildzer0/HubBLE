@@ -25,3 +25,32 @@ bool settings_password_valid(const char *password) {
     }
     return strcmp(password, SETTINGS_DEFAULT_AP_PASSWORD) != 0;
 }
+
+/** @copydoc settings_sta_valid */
+bool settings_sta_valid(const char *ssid, const char *password) {
+    if (ssid == NULL || password == NULL) {
+        return false;
+    }
+    const size_t sl = strlen(ssid);
+    if (sl < 1 || sl > SETTINGS_SSID_MAX_LEN) {
+        return false;
+    }
+    for (size_t i = 0; i < sl; i++) {
+        if ((unsigned char)ssid[i] < 0x20 || (unsigned char)ssid[i] == 0x7F) {
+            return false;
+        }
+    }
+    const size_t pl = strlen(password);
+    if (pl == 0) {
+        return true;
+    }
+    if (pl < SETTINGS_STA_PASSWORD_MIN_LEN || pl > SETTINGS_PASSWORD_MAX_LEN) {
+        return false;
+    }
+    for (size_t i = 0; i < pl; i++) {
+        if ((unsigned char)password[i] < 0x20 || (unsigned char)password[i] > 0x7E) {
+            return false;
+        }
+    }
+    return true;
+}

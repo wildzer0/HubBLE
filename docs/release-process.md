@@ -7,5 +7,6 @@
    (`*-ota.bin`, `*-factory.bin`, `manifest.json`, `SHA256SUMS`), publishes the
    GitHub release (pre-release for `v0.*` and `-rc.N`) and deploys the docs.
 
-Signing of OTA images is **stubbed** until M6: until then `*-ota.bin` is the
-plain app image. Never move or delete a published tag; fix forward.
+`*-ota.bin` is signed with the release key from the `HUBBLE_SIGNING_KEY` secret; the release fails without it and every
+image is re-verified with `espsecure` before publishing (`key-management.md`). Never move or delete a published tag;
+fix forward.

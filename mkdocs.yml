@@ -17,6 +17,7 @@ nav:
   - Pairing and security: pairing-and-security.md
   - Security: security.md
   - OTA and recovery: ota-and-recovery.md
+  - Signing keys: key-management.md
   - Power: power.md
   - Latency: latency.md
   - USB IDs: usb-ids.md

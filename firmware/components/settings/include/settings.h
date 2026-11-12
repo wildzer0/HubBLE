@@ -87,6 +87,48 @@ bool settings_get_require_confirm(void);
  */
 esp_err_t settings_set_require_confirm(bool enabled);
 
+/**
+ * @brief Whether station credentials for "check for updates" are stored.
+ *
+ * @return true if an SSID is stored.
+ */
+bool settings_has_sta(void);
+
+/**
+ * @brief Read the station credentials (only the update engine may call this; they are never sent to the API).
+ *
+ * @param ssid     Receives the SSID.
+ * @param ssid_cap Capacity of @p ssid (at least SETTINGS_SSID_MAX_LEN + 1).
+ * @param pass     Receives the password (empty for an open network).
+ * @param pass_cap Capacity of @p pass (at least SETTINGS_PASSWORD_MAX_LEN + 1).
+ * @return ESP_OK, or ESP_ERR_NOT_FOUND if none are stored.
+ */
+esp_err_t settings_get_sta(char *ssid, size_t ssid_cap, char *pass, size_t pass_cap);
+
+/**
+ * @brief Store station credentials; an empty SSID clears them.
+ *
+ * @param ssid     Network name, or "" to forget.
+ * @param password Passphrase.
+ * @return ESP_OK, ESP_ERR_INVALID_ARG if invalid, or an NVS error.
+ */
+esp_err_t settings_set_sta(const char *ssid, const char *password);
+
+/**
+ * @brief Whether pre-releases are offered by "check for updates".
+ *
+ * @return true for the pre-release channel, false for stable (default).
+ */
+bool settings_get_prerelease_channel(void);
+
+/**
+ * @brief Select the update channel.
+ *
+ * @param prerelease true for pre-releases.
+ * @return ESP_OK or an NVS error.
+ */
+esp_err_t settings_set_prerelease_channel(bool prerelease);
+
 /** @brief AP boot window in seconds (stored value or the default). */
 uint32_t settings_get_boot_window_s(void);
 

@@ -245,6 +245,37 @@ export async function restoreBackup(backup: Backup): Promise<void> {
   await request<{ ok: boolean }>('POST', '/api/v1/restore', backup);
 }
 
+/**
+ * Save the Wi-Fi network used for "check for updates", or forget it with an empty SSID.
+ *
+ * @param ssid Network name ("" to forget).
+ * @param password Passphrase ("" for an open network).
+ * @returns The settings after the change (`sta_configured` only, never the credentials).
+ */
+export function setStaCredentials(ssid: string, password: string): Promise<Settings> {
+  return request<Settings>('PUT', '/api/v1/settings/sta', { ssid, password });
+}
+
+/**
+ * Start "check for updates" on GitHub.
+ *
+ * @param channel Release channel.
+ */
+export async function checkForUpdates(channel: 'stable' | 'prerelease'): Promise<void> {
+  await request<{ ok: boolean }>('POST', '/api/v1/ota/check', { channel });
+}
+
+/**
+ * Install the release found by the last check.
+ *
+ * @param allowDowngrade True only after the user confirmed installing an older version.
+ */
+export async function installUpdate(allowDowngrade: boolean): Promise<void> {
+  await request<{ ok: boolean }>('POST', '/api/v1/ota/install', {
+    allow_downgrade: allowDowngrade,
+  });
+}
+
 /** Successful upload response. */
 export interface UploadResult {
   /** Version of the installed image. */

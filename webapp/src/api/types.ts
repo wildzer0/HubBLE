@@ -44,6 +44,72 @@ export interface OtaStatus {
   boot_failures: number;
   /** Text describing the last OTA attempt; empty if none. */
   last_result: string;
+  /** State of the "check for updates" engine (GitHub). */
+  online: OnlineUpdate;
+}
+
+/** States of the online update engine. */
+export type OnlineState =
+  | 'idle'
+  | 'connecting'
+  | 'checking'
+  | 'available'
+  | 'up_to_date'
+  | 'confirm'
+  | 'downloading'
+  | 'installed'
+  | 'error';
+
+/** Errors of the online update engine. */
+export type OnlineError =
+  | 'no_wifi_credentials'
+  | 'wifi_failed'
+  | 'network_error'
+  | 'no_release'
+  | 'bad_manifest'
+  | 'no_board_image'
+  | 'unsigned'
+  | 'too_old'
+  | 'downgrade'
+  | 'confirm_timeout'
+  | 'hash_mismatch'
+  | 'install_failed'
+  | 'busy';
+
+/** Release found by "check for updates". */
+export interface OnlineRelease {
+  /** Release version. */
+  version: string;
+  /** Oldest running version that may install it directly. */
+  min_version: string;
+  /** Release notes page. */
+  notes_url: string;
+  /** Image size in bytes. */
+  size: number;
+  /** The image is signed. */
+  signed: boolean;
+  /** True if it is older than the running version (needs explicit confirmation). */
+  downgrade: boolean;
+}
+
+/** The `online` object of `GET /api/v1/ota/status` and the `ota.state` event. */
+export interface OnlineUpdate {
+  /** Engine state. */
+  state: OnlineState;
+  /** Error, when `state` is `error`. */
+  error?: OnlineError;
+  /** True when Wi-Fi credentials for updates are saved. */
+  wifi_configured: boolean;
+  /** Channel used by the last check. */
+  channel: 'stable' | 'prerelease';
+  /** Release found, when any. */
+  release?: OnlineRelease;
+  /** Bytes downloaded. */
+  received?: number;
+  /** Bytes to download. */
+  total?: number;
+  /** Seconds left to confirm physically. */
+  confirm_remaining_s?: number;
 }
 
 /** A flash partition as reported by diagnostics. */
@@ -218,6 +284,10 @@ export interface Settings {
   ap_boot_window_s: number;
   /** Seconds the AP stays on after the last client left. */
   ap_idle_timeout_s: number;
+  /** Update channel used by "check for updates". */
+  update_channel: 'stable' | 'prerelease';
+  /** True when Wi-Fi credentials for updates are saved (the credentials themselves are never returned). */
+  sta_configured: boolean;
 }
 
 /** Response of `GET /api/v1/devices/{id}/report-map`. */
@@ -258,6 +328,6 @@ export interface Backup {
   format: 'hubble-backup';
   /** Backup schema version. */
   version: 1;
-  /** The exported settings. */
+  /** The exported settings (the Wi-Fi credentials are not part of it). */
   settings: Settings;
 }

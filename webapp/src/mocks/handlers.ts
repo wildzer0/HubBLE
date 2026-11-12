@@ -7,6 +7,8 @@
 import type {
   Backup,
   Device,
+  OnlineUpdate,
+  OnlineRelease,
   Diagnostics,
   OtaStatus,
   Pairing,
@@ -104,6 +106,21 @@ const LOCK_S = 60;
 /** Maximum devices. */
 const MAX_DEVICES = 4;
 
+/** What the mocked "check for updates" finds (set with `POST /api/v1/mock/ota`). */
+export type OtaScenario = 'available' | 'downgrade' | 'up_to_date' | 'wifi_failed' | 'confirm';
+
+/** Release the mock finds on each channel. */
+function mockRelease(channel: 'stable' | 'prerelease', downgrade: boolean): OnlineRelease {
+  return {
+    version: downgrade ? '0.1.0' : channel === 'prerelease' ? '0.8.0-rc.1' : '0.7.0',
+    min_version: '0.1.0',
+    notes_url: 'https://example.org/releases/notes',
+    size: 1_179_648,
+    signed: true,
+    downgrade,
+  };
+}
+
 /** Options for {@link resetMock}. */
 export interface MockOptions {
   /** Start with the setup already done (dev server); unit tests use false like a fresh dongle. */
@@ -120,7 +137,11 @@ function initialState(opts: MockOptions = {}) {
       require_confirmation: true,
       ap_boot_window_s: 300,
       ap_idle_timeout_s: 180,
+      update_channel: 'stable',
+      sta_configured: false,
     } as Settings,
+    online: { state: 'idle', channel: 'stable', wifi_configured: false } as OnlineUpdate,
+    scenario: 'available' as OtaScenario,
     pairing: idlePairing(),
     pairingTarget: null as ScanResult | null,
     pairingLegacy: false,
@@ -329,6 +350,95 @@ export const MOCK_REPORT_MAP =
   '05010906a101050719e029e715002501750195088102950175088101950575010508190129059102950175039101' +
   '95067508150025650507190029658100c0';
 
+/** Handle STA credentials and the online update endpoints; null otherwise. */
+function handleOnline(req: MockRequest): MockResponse | null {
+  const { method, path } = req;
+  if (method === 'PUT' && path === '/api/v1/settings/sta') {
+    const bad = guard(req, 'application/json');
+    if (bad) return bad;
+    const b = req.json as { ssid?: unknown; password?: unknown } | undefined;
+    const ssid = b?.ssid;
+    const pw = typeof b?.password === 'string' ? b.password : '';
+    if (typeof ssid !== 'string' || ssid.length > 32) {
+      return err(400, 'invalid_sta', 'SSID must be 1-32 characters');
+    }
+    if (ssid !== '' && pw !== '' && (pw.length < 8 || pw.length > 63)) {
+      return err(400, 'invalid_sta', 'Password must be empty or 8-63 characters');
+    }
+    state.settings = { ...state.settings, sta_configured: ssid !== '' };
+    return { status: 200, json: state.settings };
+  }
+  if (method === 'POST' && path === '/api/v1/ota/check') {
+    const bad = guard(req, 'application/json');
+    if (bad) return bad;
+    if (!state.settings.sta_configured) {
+      return err(409, 'no_wifi_credentials', 'Save the Wi-Fi network used for updates first');
+    }
+    const channel =
+      (req.json as { channel?: string } | undefined)?.channel === 'prerelease'
+        ? 'prerelease'
+        : 'stable';
+    const o = { channel, wifi_configured: true } as const;
+    switch (state.scenario) {
+      case 'wifi_failed':
+        state.online = { ...o, state: 'error', error: 'wifi_failed' };
+        break;
+      case 'up_to_date':
+        state.online = { ...o, state: 'up_to_date' };
+        break;
+      default:
+        state.online = {
+          ...o,
+          state: 'available',
+          release: mockRelease(channel, state.scenario === 'downgrade'),
+        };
+    }
+    return { status: 200, json: { ok: true } };
+  }
+  if (method === 'POST' && path === '/api/v1/ota/install') {
+    const bad = guard(req, 'application/json');
+    if (bad) return bad;
+    const rel = state.online.release;
+    if (state.online.state !== 'available' || !rel) {
+      return err(409, 'nothing_to_install', 'Check for updates first');
+    }
+    if (
+      rel.downgrade &&
+      (req.json as { allow_downgrade?: boolean } | undefined)?.allow_downgrade !== true
+    ) {
+      return err(409, 'downgrade_not_confirmed', 'This release is older than the running one');
+    }
+    if (state.scenario === 'confirm') {
+      state.online = { ...state.online, state: 'confirm', confirm_remaining_s: 30 };
+    } else {
+      state.version = rel.version;
+      state.online = { ...state.online, state: 'installed', received: rel.size, total: rel.size };
+    }
+    return { status: 200, json: { ok: true } };
+  }
+  if (method === 'POST' && path === '/api/v1/mock/ota') {
+    // Test hook: choose what the next check finds, or advance an install waiting for the confirmation.
+    const b = req.json as { scenario?: OtaScenario; advance?: boolean } | undefined;
+    if (b?.scenario) state.scenario = b.scenario;
+    const rel = state.online.release;
+    if (b?.advance && rel) {
+      if (state.online.state === 'confirm') {
+        state.online = {
+          ...state.online,
+          state: 'downloading',
+          received: rel.size / 2,
+          total: rel.size,
+        };
+      } else if (state.online.state === 'downloading') {
+        state.version = rel.version;
+        state.online = { ...state.online, state: 'installed', received: rel.size, total: rel.size };
+      }
+    }
+    return { status: 200, json: state.online };
+  }
+  return null;
+}
+
 /** Handle `/api/v1/settings`, backup and restore; null otherwise. */
 function handleSettings(req: MockRequest): MockResponse | null {
   const { method, path } = req;
@@ -336,7 +446,11 @@ function handleSettings(req: MockRequest): MockResponse | null {
   if (path === '/api/v1/settings' && method === 'PUT') {
     const bad = guard(req, 'application/json');
     if (bad) return bad;
-    const next = { ...state.settings, ...(req.json as Partial<Settings>) };
+    const next = {
+      ...state.settings,
+      ...(req.json as Partial<Settings>),
+      sta_configured: state.settings.sta_configured,
+    };
     if (!validSettings(next)) return err(400, 'invalid_setting', 'A setting is out of range');
     state.settings = next;
     return { status: 200, json: state.settings };
@@ -352,7 +466,11 @@ function handleSettings(req: MockRequest): MockResponse | null {
     if (b?.format !== 'hubble-backup' || b.version !== 1 || !validSettings(b.settings)) {
       return err(400, 'bad_backup', 'Not a valid HubBLE backup');
     }
-    state.settings = b.settings;
+    state.settings = {
+      ...b.settings,
+      update_channel: (b.settings as Partial<Settings>).update_channel ?? 'stable',
+      sta_configured: state.settings.sta_configured,
+    };
     return { status: 200, json: { ok: true } };
   }
   return null;
@@ -364,7 +482,9 @@ function validSettings(s: Partial<Settings> | undefined): s is Settings {
   return (
     typeof s?.require_confirmation === 'boolean' &&
     win(s.ap_boot_window_s) &&
-    win(s.ap_idle_timeout_s)
+    win(s.ap_idle_timeout_s) &&
+    // Older backups (and clients) may omit the channel.
+    [undefined, 'stable', 'prerelease'].includes(s.update_channel)
   );
 }
 
@@ -389,6 +509,7 @@ function mockOta(): OtaStatus {
     rollback_happened: false,
     boot_failures: 0,
     last_result: `running ${state.version}, self-test passed`,
+    online: { ...state.online, wifi_configured: state.settings.sta_configured },
   };
 }
 
@@ -444,7 +565,8 @@ function guard(req: MockRequest, expectedCt: string): MockResponse | null {
  */
 export function handleMock(req: MockRequest): MockResponse {
   const { method, path } = req;
-  const routed = handlePairing(req) ?? handleDevices(req) ?? handleSettings(req);
+  const routed =
+    handlePairing(req) ?? handleDevices(req) ?? handleOnline(req) ?? handleSettings(req);
   if (routed) return routed;
   if (method === 'GET') {
     switch (path) {

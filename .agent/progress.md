@@ -73,3 +73,12 @@ Done: all §3.7 pages except the Update-from-GitHub and the STA/LED/wakeup/combo
 support and are added with those milestones); mock API for every endpoint; firmware: extended settings, backup/restore,
 factory reset, input tester tap (`bridge_set_input_tap`, WS subscription with 15 s expiry). Web bundle ~29 KB gzipped.
 Next: M6 (OTA from GitHub + signing; ask before generating the key). Tag only at the end.
+
+## M6 — OTA from GitHub + signed images (same local branch)
+
+Decision (user, 2026-11-12): RSA-3072 (S3 has no ECDSA for apps) + local DEVELOPMENT key only (git-ignored, firmware/keys/).
+The RELEASE key must be generated with the user BEFORE the first push (M8), offline backup + secret HUBBLE_SIGNING_KEY.
+Done: ota_manifest (host-tested), ota_online engine, wifi_ap STA, settings STA/channel, API (/ota/check, /ota/install, /settings/sta,
+ota.state), web Update/Settings UI + mock + e2e, release.yml signing step, docs (key-management, ADR 6, security, ota).
+Not verifiable without hardware: signature rejection on device, TLS to GitHub, APSTA channel behaviour, heap (docs/testing/m6.md).
+Next: M7 (power management). Tag only at the end.

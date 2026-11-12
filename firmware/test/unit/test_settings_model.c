@@ -30,8 +30,21 @@ static void test_password_rules(void) {
     TEST_ASSERT_TRUE(settings_password_valid(longp));
 }
 
+/** Station credentials: SSID 1..32 chars, password empty or 8..63 printable. */
+static void test_sta_valid(void) {
+    TEST_ASSERT_TRUE(settings_sta_valid("Home", "password1"));
+    TEST_ASSERT_TRUE(settings_sta_valid("Open net", ""));
+    TEST_ASSERT_FALSE(settings_sta_valid("", "password1"));
+    TEST_ASSERT_FALSE(settings_sta_valid("0123456789012345678901234567890123", "password1"));
+    TEST_ASSERT_FALSE(settings_sta_valid("Ho\nme", "password1"));
+    TEST_ASSERT_FALSE(settings_sta_valid("Home", "short"));
+    TEST_ASSERT_FALSE(settings_sta_valid("Home", "pass\x01word1"));
+    TEST_ASSERT_FALSE(settings_sta_valid(NULL, ""));
+}
+
 int main(void) {
     UNITY_BEGIN();
+    RUN_TEST(test_sta_valid);
     RUN_TEST(test_password_rules);
     return UNITY_END();
 }

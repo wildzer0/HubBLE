@@ -22,7 +22,7 @@ Every message is `{ "event": "<name>", "data": <payload> }`.
 | `log.line` | every 1 s when new log text exists | `{ "text": "I (1234) web: ...\n" }` (complete lines, may contain several) |
 | `ota.progress` | during an upload, about every 2 % | `{ "received": 100000, "total": 870000 }` |
 
-Planned for later milestones: `ota.result`, `ap.timeout` (see `CLAUDE.md` §4.2).
+Planned for later milestones: `ap.timeout` (see `CLAUDE.md` §4.2).
 
 ## Limits
 
@@ -59,3 +59,10 @@ Server → client `input.event`, `data` is one of:
 
 Mouse events are paced to about 50 per second and dropped when the queue is full: the tester is best effort and never
 slows down the USB forwarding path. Quarantined (unpaired) devices are not shown.
+
+## Online updates (M6)
+
+- `ota.state`: the `online` object of `GET /api/v1/ota/status`: `state` (`idle`, `connecting`, `checking`, `available`, `up_to_date`,
+  `confirm`, `downloading`, `installed`, `error`), `error` (when `state` is `error`), `channel`, `release`
+  (`version`, `min_version`, `notes_url`, `size`, `signed`, `downgrade`), `received`/`total` while downloading and
+  `confirm_remaining_s` while waiting for the physical confirmation. Sent on every state change and download step.

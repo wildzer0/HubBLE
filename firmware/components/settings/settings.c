@@ -19,6 +19,9 @@ static const char *TAG = "settings";
 /** NVS key names (max 15 chars). */
 #define KEY_AP_PASS     "ap_pass"
 #define KEY_REQ_CONFIRM "req_conf"
+#define KEY_STA_SSID    "sta_ssid"
+#define KEY_STA_PASS    "sta_pass"
+#define KEY_CHANNEL     "upd_pre"
 #define KEY_BOOT_WIN    "boot_win_s"
 #define KEY_IDLE_TMO    "idle_tmo_s"
 #define KEY_BOOT_FAIL   "boot_fail"
@@ -161,6 +164,63 @@ esp_err_t settings_set_boot_window_s(uint32_t seconds) {
 /** @copydoc settings_set_idle_timeout_s */
 esp_err_t settings_set_idle_timeout_s(uint32_t seconds) {
     return set_window(KEY_IDLE_TMO, seconds);
+}
+
+/** @copydoc settings_has_sta */
+bool settings_has_sta(void) {
+    size_t len = 0;
+    return s_ready && nvs_get_str(s_nvs, KEY_STA_SSID, NULL, &len) == ESP_OK && len > 1;
+}
+
+/** @copydoc settings_get_sta */
+esp_err_t settings_get_sta(char *ssid, size_t ssid_cap, char *pass, size_t pass_cap) {
+    if (!settings_has_sta()) {
+        return ESP_ERR_NOT_FOUND;
+    }
+    size_t sl = ssid_cap;
+    size_t pl = pass_cap;
+    pass[0] = '\0';
+    esp_err_t err = nvs_get_str(s_nvs, KEY_STA_SSID, ssid, &sl);
+    if (err != ESP_OK) {
+        return err;
+    }
+    err = nvs_get_str(s_nvs, KEY_STA_PASS, pass, &pl);
+    return err == ESP_ERR_NVS_NOT_FOUND ? ESP_OK : err; /* No password = open network. */
+}
+
+/** @copydoc settings_set_sta */
+esp_err_t settings_set_sta(const char *ssid, const char *password) {
+    if (!s_ready) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (ssid != NULL && ssid[0] == '\0') {
+        nvs_erase_key(s_nvs, KEY_STA_SSID);
+        nvs_erase_key(s_nvs, KEY_STA_PASS);
+        return nvs_commit(s_nvs);
+    }
+    if (!settings_sta_valid(ssid, password)) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    esp_err_t err = nvs_set_str(s_nvs, KEY_STA_SSID, ssid);
+    if (err == ESP_OK) {
+        err = nvs_set_str(s_nvs, KEY_STA_PASS, password);
+    }
+    return err == ESP_OK ? nvs_commit(s_nvs) : err;
+}
+
+/** @copydoc settings_get_prerelease_channel */
+bool settings_get_prerelease_channel(void) {
+    uint8_t v = 0;
+    return s_ready && nvs_get_u8(s_nvs, KEY_CHANNEL, &v) == ESP_OK && v != 0;
+}
+
+/** @copydoc settings_set_prerelease_channel */
+esp_err_t settings_set_prerelease_channel(bool prerelease) {
+    if (!s_ready) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    esp_err_t err = nvs_set_u8(s_nvs, KEY_CHANNEL, prerelease ? 1 : 0);
+    return err == ESP_OK ? nvs_commit(s_nvs) : err;
 }
 
 /** @copydoc settings_boot_failures */

@@ -28,5 +28,11 @@ export function parseBackup(text: string): Backup | null {
   ) {
     return null;
   }
-  return b as Backup;
+  // Backups made before the update channel existed lack it: fill the default.
+  const channel = s.update_channel === 'prerelease' ? 'prerelease' : 'stable';
+  return {
+    format: 'hubble-backup',
+    version: 1,
+    settings: { ...s, update_channel: channel, sta_configured: false },
+  } as Backup;
 }

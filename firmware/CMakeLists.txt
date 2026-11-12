@@ -19,6 +19,17 @@ set(SDKCONFIG_DEFAULTS "sdkconfig.defaults;sdkconfig.defaults.${HUBBLE_BOARD}")
 if(DEFINED HUBBLE_OVERLAY AND NOT HUBBLE_OVERLAY STREQUAL "")
     list(APPEND SDKCONFIG_DEFAULTS "sdkconfig.defaults.${HUBBLE_OVERLAY}")
 endif()
+# Signed app images (CLAUDE.md §3.8, ADR 6): the ESP32-S3 only supports RSA-3072 (Secure Boot V2 scheme), used here WITHOUT
+# hardware secure boot. The key is given with -DHUBBLE_SIGNING_KEY=<pem> (CI release: from a secret); local builds
+# default to the development key created by tools/gen_dev_key.sh (never a release key).
+if(NOT DEFINED HUBBLE_SIGNING_KEY)
+    set(HUBBLE_SIGNING_KEY "${CMAKE_CURRENT_LIST_DIR}/keys/dev_signing_key.pem")
+endif()
+if(NOT EXISTS "${HUBBLE_SIGNING_KEY}")
+    message(FATAL_ERROR "Signing key '${HUBBLE_SIGNING_KEY}' not found. Run tools/gen_dev_key.sh for a development key.")
+endif()
+file(WRITE "${CMAKE_BINARY_DIR}/signing.defaults" "CONFIG_SECURE_BOOT_SIGNING_KEY=\"${HUBBLE_SIGNING_KEY}\"\n")
+list(APPEND SDKCONFIG_DEFAULTS "${CMAKE_BINARY_DIR}/signing.defaults")
 # Each board keeps its own generated sdkconfig inside its build directory so
 # switching boards never reuses a stale configuration.
 set(SDKCONFIG "${CMAKE_BINARY_DIR}/sdkconfig")

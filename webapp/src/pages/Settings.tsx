@@ -5,7 +5,7 @@
  * wakeup, Shift-combo time) appear when their firmware support lands (M6/M7).
  */
 import { useEffect, useState } from 'preact/hooks';
-import { getSettings, putSettings } from '../api/client';
+import { getSettings, putSettings, setStaCredentials } from '../api/client';
 import type { Settings as SettingsData } from '../api/types';
 import { useT } from '../i18n/context';
 import type { Locale } from '../i18n';
@@ -15,6 +15,101 @@ import { useApi } from '../lib/useApi';
 /** Allowed range of the AP windows, seconds (matches the firmware limits). */
 const WINDOW_MIN_S = 30;
 const WINDOW_MAX_S = 86400;
+/** Longest Wi-Fi network name. */
+const STA_SSID_MAX = 32;
+
+/**
+ * Wi-Fi network used only for "check for updates". The credentials are write-only: the dongle never sends
+ * them back (CLAUDE.md §3.12), so the form only shows whether something is saved.
+ *
+ * @param props.configured Whether credentials are saved.
+ * @param props.onChanged Called with the new "configured" flag after a save/forget.
+ * @returns The form element.
+ */
+function StaForm({
+  configured,
+  onChanged,
+}: {
+  configured: boolean;
+  onChanged: (configured: boolean) => void;
+}) {
+  const t = useT();
+  const [ssid, setSsid] = useState('');
+  const [pass, setPass] = useState('');
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const valid =
+    ssid.length >= 1 &&
+    ssid.length <= STA_SSID_MAX &&
+    (pass === '' || (pass.length >= 8 && pass.length <= 63));
+
+  const apply = async (s: string, p: string) => {
+    try {
+      const r = await setStaCredentials(s, p);
+      onChanged(r.sta_configured);
+      setMsg({ ok: true, text: s === '' ? t('settings.sta_forgotten') : t('settings.sta_saved') });
+      setSsid('');
+      setPass('');
+    } catch (e) {
+      setMsg({ ok: false, text: e instanceof Error ? e.message : String(e) });
+    }
+  };
+
+  return (
+    <form
+      aria-labelledby="sta-h"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void apply(ssid, pass);
+      }}
+    >
+      <h3 id="sta-h">{t('settings.sta')}</h3>
+      <p class="muted">{t('settings.sta_hint')}</p>
+      <p data-testid="sta-state">{configured ? t('settings.sta_set') : t('settings.sta_unset')}</p>
+      <p>
+        <label>
+          {t('settings.sta_ssid')}{' '}
+          <input
+            value={ssid}
+            maxLength={STA_SSID_MAX}
+            autocomplete="off"
+            onInput={(e) => {
+              setSsid(e.currentTarget.value);
+              setMsg(null);
+            }}
+          />
+        </label>
+      </p>
+      <p>
+        <label>
+          {t('settings.sta_password')}{' '}
+          <input
+            type="password"
+            value={pass}
+            autocomplete="new-password"
+            onInput={(e) => {
+              setPass(e.currentTarget.value);
+              setMsg(null);
+            }}
+          />
+        </label>
+      </p>
+      <button type="submit" disabled={!valid}>
+        {t('settings.sta_save')}
+      </button>{' '}
+      {configured && (
+        <button
+          type="button"
+          onClick={() => {
+            void apply('', '');
+          }}
+        >
+          {t('settings.sta_forget')}
+        </button>
+      )}
+      {msg && <p role={msg.ok ? 'status' : 'alert'}>{msg.text}</p>}
+    </form>
+  );
+}
 
 /**
  * Render the settings page.
@@ -105,11 +200,38 @@ export function Settings({ locale, onLocale }: { locale: Locale; onLocale: (l: L
           {t('settings.restart_hint')}
         </p>
 
+        <h3>{t('settings.updates')}</h3>
+        <p>
+          <label>
+            {t('online.channel')}{' '}
+            <select
+              value={form.update_channel}
+              onChange={(e) => {
+                setForm({
+                  ...form,
+                  update_channel: e.currentTarget.value === 'prerelease' ? 'prerelease' : 'stable',
+                });
+                setMsg(null);
+              }}
+            >
+              <option value="stable">{t('online.channel_stable')}</option>
+              <option value="prerelease">{t('online.channel_prerelease')}</option>
+            </select>
+          </label>
+        </p>
+
         <button type="submit" disabled={!ok}>
           {t('settings.save')}
         </button>
         {msg && <p role={msg.ok ? 'status' : 'alert'}>{msg.text}</p>}
       </form>
+
+      <StaForm
+        configured={form.sta_configured}
+        onChanged={(c) => {
+          setForm({ ...form, sta_configured: c });
+        }}
+      />
 
       <h3>{t('settings.language')}</h3>
       <label>

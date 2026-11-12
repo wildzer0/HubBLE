@@ -60,6 +60,31 @@ paths:
         '409': { $ref: '#/components/responses/Error' }
         '413': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
+  /api/v1/ota/check:
+    post:
+      summary: Check GitHub for an update (`{ channel?: "stable" | "prerelease" }`)
+      description: >
+        Starts the background check (joins the saved Wi-Fi network as a station). Poll `GET /ota/status` (`online`) or listen
+        to the `ota.state` event. 409 `no_wifi_credentials` when no network is saved; 409 `busy`.
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/ota/install:
+    post:
+      summary: Install the release found by the last check (`{ allow_downgrade?: bool }`)
+      description: >
+        Waits for the physical confirmation when required, downloads over HTTPS, verifies SHA-256 and signature, reboots.
+        409 `downgrade_not_confirmed` for an older release without `allow_downgrade`; 409 `nothing_to_install`.
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/settings/sta:
+    put:
+      summary: Save (or forget, with an empty `ssid`) the Wi-Fi network used for updates (`{ ssid, password }`)
+      description: Write-only. The response is the settings object, which only says `sta_configured`.
+      responses:
+        '200': { description: Settings }
+        '400': { $ref: '#/components/responses/Error' }
   /api/v1/diagnostics:
     get:
       summary: System diagnostics
@@ -168,7 +193,7 @@ paths:
         '200': { $ref: '#/components/responses/Ok' }
   /api/v1/settings:
     get:
-      summary: Settings (`require_confirmation`, `ap_boot_window_s`, `ap_idle_timeout_s`; never secrets)
+      summary: Settings (`require_confirmation`, `ap_boot_window_s`, `ap_idle_timeout_s`, `update_channel`, `sta_configured`; never secrets)
       description: The AP times (30..86400 s) apply from the next restart.
       responses:
         '200': { description: Settings }

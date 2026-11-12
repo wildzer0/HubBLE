@@ -192,6 +192,59 @@ export const en = {
   'system.factory_reset': 'Factory reset',
   'settings.restart_hint': 'The Wi-Fi times apply from the next restart of the dongle.',
   'common.skip': 'Skip to content',
+  'settings.updates': 'Updates',
+  'settings.sta': 'Wi-Fi network for updates',
+  'settings.sta_hint':
+    'Used only while checking for updates: the dongle joins this network briefly and then leaves it. The password is never shown again.',
+  'settings.sta_set': 'A network is saved.',
+  'settings.sta_unset': 'No network saved.',
+  'settings.sta_ssid': 'Network name',
+  'settings.sta_password': 'Password (empty for an open network)',
+  'settings.sta_save': 'Save network',
+  'settings.sta_forget': 'Forget network',
+  'settings.sta_saved': 'Network saved.',
+  'settings.sta_forgotten': 'Network forgotten.',
+  'update.manual': 'Install from a file',
+  'online.heading': 'Check for updates',
+  'online.no_wifi': 'To check for updates, save a Wi-Fi network with internet access first.',
+  'online.go_settings': 'Open Settings',
+  'online.channel': 'Channel',
+  'online.channel_stable': 'Stable',
+  'online.channel_prerelease': 'Pre-release',
+  'online.check': 'Check for updates',
+  'online.ap_hint':
+    'While checking, the dongle joins your network and the phone may disconnect for a few seconds: reconnect if the page stops responding.',
+  'online.connecting': 'Joining the Wi-Fi network…',
+  'online.checking': 'Looking for the newest release…',
+  'online.up_to_date': 'You are running the newest version.',
+  'online.found': 'Version {version} is available',
+  'online.signed': 'signed',
+  'online.unsigned': 'not signed',
+  'online.notes': 'Release notes',
+  'online.downgrade':
+    'This is an OLDER version than the one running. I want to install version {version} anyway.',
+  'online.install': 'Install {version}',
+  'online.confirm_hint':
+    'If physical confirmation is on, you will be asked to hold both Shift keys for 3 seconds on a paired keyboard.',
+  'online.confirm':
+    'Hold both Shift keys for 3 seconds on a paired keyboard to start the installation ({s} s left).',
+  'online.installed': 'Installed. The dongle is restarting…',
+  'online.error.no_wifi_credentials': 'No Wi-Fi network saved for updates.',
+  'online.error.wifi_failed': 'Could not join the Wi-Fi network. Check its name and password.',
+  'online.error.network_error': 'Could not reach GitHub or the download was interrupted.',
+  'online.error.no_release': 'No release was found.',
+  'online.error.bad_manifest': 'The release information is missing or invalid.',
+  'online.error.no_board_image': 'This release has no image for this board.',
+  'online.error.unsigned': 'This release is not signed and was refused.',
+  'online.error.too_old':
+    'Your version is too old to jump to this release directly: install an intermediate release first.',
+  'online.error.downgrade': 'Installing an older version needs an explicit confirmation.',
+  'online.error.confirm_timeout': 'The physical confirmation did not happen in time.',
+  'online.error.hash_mismatch':
+    'The downloaded file is corrupt (checksum mismatch) and was discarded.',
+  'online.error.install_failed':
+    'The image was rejected (invalid or wrongly signed) and was not installed.',
+  'online.error.busy': 'Another update operation is running.',
 } as const;
 
 /** Union of all valid translation keys. */

@@ -8,6 +8,7 @@
 #include "bridge.h"
 
 #include "ble_central.h"
+#include "ota_online.h"
 #include "combo.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -154,6 +155,7 @@ static void combo_task(void *arg) {
             /* The same gesture is the physical confirmation of a pairing waiting for it (CLAUDE.md §3.4.3). The
              * candidate is quarantined, so this can only come from an already paired keyboard. */
             ble_central_physical_confirm();
+            ota_online_physical_confirm(); /* ... and of an online update waiting for it. */
             break;
         case COMBO_RECOVERY:
             ESP_LOGW(TAG, "recovery combo: resetting the Wi-Fi password");

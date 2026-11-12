@@ -130,3 +130,42 @@ describe('mock API: devices, pairing, settings', () => {
     expect(handleMock(get('/api/v1/devices')).json).toMatchObject({ devices: [{}, {}] });
   });
 });
+
+describe('mock API: online updates', () => {
+  beforeEach(() => {
+    resetMock({ setupDone: true });
+  });
+  const send = (method: string, path: string, json?: unknown): ReturnType<typeof handleMock> =>
+    handleMock({
+      method,
+      path,
+      headers: { 'x-hubble': '1', 'content-type': 'application/json' },
+      json,
+      bodyBytes: 0,
+    });
+
+  it('needs saved Wi-Fi credentials and never returns them', () => {
+    expect(send('POST', '/api/v1/ota/check', {}).status).toBe(409);
+    expect(send('PUT', '/api/v1/settings/sta', { ssid: 'Home', password: 'short' }).status).toBe(
+      400,
+    );
+    const saved = send('PUT', '/api/v1/settings/sta', { ssid: 'Home', password: 'longenough' });
+    expect(saved.status).toBe(200);
+    expect(JSON.stringify(saved.json)).not.toContain('longenough');
+    expect(JSON.stringify(saved.json)).not.toContain('Home');
+    expect(send('POST', '/api/v1/ota/check', { channel: 'stable' }).status).toBe(200);
+  });
+
+  it('installs the found release and refuses a downgrade without confirmation', () => {
+    send('PUT', '/api/v1/settings/sta', { ssid: 'Home', password: '' });
+    send('POST', '/api/v1/mock/ota', { scenario: 'downgrade' });
+    send('POST', '/api/v1/ota/check', { channel: 'stable' });
+    expect(send('POST', '/api/v1/ota/install', {}).status).toBe(409);
+    expect(send('POST', '/api/v1/ota/install', { allow_downgrade: true }).status).toBe(200);
+    expect(handleMock(get('/api/v1/status')).json).toMatchObject({ version: '0.1.0' });
+  });
+
+  it('refuses to install before a check', () => {
+    expect(send('POST', '/api/v1/ota/install', {}).status).toBe(409);
+  });
+});

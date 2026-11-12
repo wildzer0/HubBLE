@@ -53,4 +53,6 @@ doxygen Doxyfile                 # firmware API docs -> docs/api/generated/firmw
 
 ## Local signing
 
-Image signing is stubbed until M6; this section will describe local development keys.
+Firmware builds are signed (RSA-3072, ADR 6). `tools/build-firmware.sh` creates a git-ignored development key in
+`firmware/keys/` on first use; set `HUBBLE_SIGNING_KEY=<pem>` to sign with another key. Releases use the key from the
+`HUBBLE_SIGNING_KEY` Actions secret. See `key-management.md`. Images signed with different keys do not accept each other.

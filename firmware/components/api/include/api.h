@@ -23,9 +23,9 @@ extern "C" {
 
 /** Number of URI handlers api_register() adds (so the server can size max_uri_handlers). */
 #if CONFIG_HUBBLE_USB_DEBUG_INJECT
-#define API_URI_HANDLER_COUNT 22
+#define API_URI_HANDLER_COUNT 25
 #else
-#define API_URI_HANDLER_COUNT 21
+#define API_URI_HANDLER_COUNT 24
 #endif
 
 /**
@@ -45,6 +45,22 @@ bool api_device_event_json(int slot, char *out, size_t cap);
  * @param emit Called once per event with the event name and its JSON payload.
  */
 void api_pairing_events(void (*emit)(const char *event, const char *json));
+
+/**
+ * @brief Emit the `ota.state` WebSocket event (online update engine state, same object as `online` in
+ *        `GET /api/v1/ota/status`).
+ *
+ * @param emit Function receiving the event name and the JSON `data` object.
+ */
+void api_ota_events(void (*emit)(const char *event, const char *json));
+
+/**
+ * @brief Emit the `ota.state` WebSocket event (online update engine state, same object as `online` in
+ *        `GET /api/v1/ota/status`).
+ *
+ * @param emit Function receiving the event name and the JSON `data` object.
+ */
+void api_ota_events(void (*emit)(const char *event, const char *json));
 
 /**
  * @brief Register all REST handlers.
