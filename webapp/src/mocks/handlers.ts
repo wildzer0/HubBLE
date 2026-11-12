@@ -240,7 +240,7 @@ function mockPairingAction(action: string): void {
   else if (p.state === 'quarantine' && p.challenge) {
     const progress = p.challenge.progress + 1;
     if (progress >= p.challenge.length) confirmOrBond();
-    else state.pairing = { ...p, challenge: { ...p.challenge, progress } };
+    else state.pairing = { ...p, challenge: { ...p.challenge, progress }, rx_reports: progress };
   } else if (p.state === 'confirm') bond();
 }
 

@@ -248,6 +248,8 @@ export interface Pairing {
   remaining_s: number;
   /** Seconds left of the 60 s lock after 3 failures; 0 if not locked. */
   lock_remaining_s: number;
+  /** Notifications received from the device being paired (shows whether it is talking to the dongle at all). */
+  rx_reports?: number;
   /** True while a physical confirmation (both Shifts, 3 s) is awaited. */
   needs_confirmation: boolean;
   /** 6-digit passkey to type on the keyboard, when present. */

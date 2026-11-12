@@ -122,6 +122,10 @@ export const it: Record<MessageKey, string> = {
   'pair.scan': 'Cerca dispositivi',
   'pair.scanning': 'Ricerca di dispositivi HID vicini…',
   'pair.no_results': 'Ancora nulla. Controlla che il dispositivo sia in modalità pairing.',
+  'pair.rx':
+    'Segnali ricevuti dal dispositivo: {n}. Se resta a 0 mentre premi i tasti, il dongle non riceve nulla.',
+  'pair.banner': 'Associazione in corso.',
+  'pair.banner_open': 'Apri',
   'pair.pair_with': 'Associa {name}',
   'pair.connecting': 'Connessione a {name}…',
   'pair.waiting_device': 'In attesa del dispositivo…',

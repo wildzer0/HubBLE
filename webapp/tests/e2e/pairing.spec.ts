@@ -69,3 +69,15 @@ test('cancelling returns to the start', async ({ page }) => {
   await page.getByRole('button', { name: 'Cancel' }).click();
   await expect(page.getByRole('button', { name: 'Scan for devices' })).toBeVisible();
 });
+
+test('a pairing left behind can be resumed or cancelled from any page', async ({ page }) => {
+  await page.goto('/#/pair');
+  await page.getByRole('button', { name: 'Scan for devices' }).click();
+  await page.getByRole('button', { name: 'Pair with Mock Mouse' }).click();
+  await page.getByTestId('challenge').waitFor();
+  await page.goto('/#/dashboard');
+  const banner = page.getByTestId('pairing-banner');
+  await expect(banner).toBeVisible();
+  await banner.getByRole('button', { name: 'Cancel' }).click();
+  await expect(banner).toBeHidden();
+});

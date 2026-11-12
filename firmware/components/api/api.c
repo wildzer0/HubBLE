@@ -741,6 +741,7 @@ static cJSON *pairing_json(void) {
     cJSON_AddStringToObject(o, "device", s.name);
     cJSON_AddNumberToObject(o, "remaining_s", (s.remaining_ms + 999) / 1000);
     cJSON_AddNumberToObject(o, "lock_remaining_s", s.lock_remaining_s);
+    cJSON_AddNumberToObject(o, "rx_reports", s.rx_reports);
     cJSON_AddBoolToObject(o, "needs_confirmation", s.need_confirm);
     if (s.has_passkey) {
         char pk[PAIR_PASSKEY_DIGITS + 1];

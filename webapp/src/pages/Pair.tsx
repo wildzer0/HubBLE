@@ -58,6 +58,9 @@ function Challenge({ p }: { p: Pairing }) {
         <p class="big" data-testid="challenge" aria-label={ch.value.split('').join(' ')}>
           {ch.value}
         </p>
+        <p class="hint" data-testid="rx">
+          {t('pair.rx', { n: p.rx_reports ?? 0 })}
+        </p>
       </>
     );
   }
@@ -78,6 +81,9 @@ function Challenge({ p }: { p: Pairing }) {
       </ol>
       <p class="muted" role="status">
         {t('pair.progress', { n: ch.progress, total: ch.length })}
+      </p>
+      <p class="hint" data-testid="rx">
+        {t('pair.rx', { n: p.rx_reports ?? 0 })}
       </p>
     </>
   );

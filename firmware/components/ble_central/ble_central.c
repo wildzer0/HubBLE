@@ -93,6 +93,7 @@ typedef struct {
     ble_scan_result_t scan[BLE_CENTRAL_MAX_SCAN]; /**< Scan list. */
     size_t nscan;                                 /**< Entries in the scan list. */
     uint16_t appearance;                          /**< GAP appearance of the candidate (0 if not advertised). */
+    uint32_t rx_reports;                          /**< Notifications received from the candidate (diagnostic). */
 } pair_t;
 
 static SemaphoreHandle_t s_mu;               /**< Protects everything below. */
@@ -516,6 +517,9 @@ static void on_notify(struct ble_gap_event *ev) {
         return;
     }
     dev_t *dv = &s_dev[slot];
+    if (dv->pending) {
+        s_pair.rx_reports++;
+    }
     const bool diag = dv->pending && s_pair_diag_left > 0;
     if (diag) {
         /* Never the payload (CLAUDE.md §3.12): only which attribute spoke and how long the report was. */
@@ -1020,6 +1024,7 @@ esp_err_t ble_central_pair(const uint8_t addr[6], uint8_t addr_type, bool allow_
      * removes its old bond, so the new keys replace it. */
     char name[BLE_CENTRAL_NAME_MAX] = "";
     s_pair.appearance = 0;
+    s_pair.rx_reports = 0;
     for (size_t i = 0; i < s_pair.nscan; i++) {
         if (memcmp(s_pair.scan[i].addr, addr, 6) == 0) {
             strlcpy(name, s_pair.scan[i].name, sizeof(name));
@@ -1082,6 +1087,7 @@ void ble_central_pairing_status(ble_pairing_status_t *out) {
     out->challenge_len = s_fsm.challenge.len;
     out->remaining_ms = pairing_remaining_ms(&s_fsm, t);
     out->lock_remaining_s = pairing_lock_remaining_s(&s_fsm, t);
+    out->rx_reports = s_pair.rx_reports;
     out->need_confirm = s_fsm.need_confirm;
     out->require_confirm = s_fsm.require_confirm;
     if (s_pair.slot >= 0 && s_reg[s_pair.slot].used) {

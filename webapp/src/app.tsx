@@ -10,6 +10,7 @@ import { LocaleContext, useT } from './i18n/context';
 import { pickLocale } from './i18n';
 import type { Locale } from './i18n';
 import { Icon } from './components/ui';
+import { PairingBanner } from './components/PairingBanner';
 import { Dashboard } from './pages/Dashboard';
 import { DeviceDetail } from './pages/DeviceDetail';
 import { Pair } from './pages/Pair';
@@ -170,6 +171,7 @@ export function App() {
       <SkipLink />
       <TopBar />
       <main id="main" tabIndex={-1}>
+        {route !== 'pair' && route !== 'setup' && <PairingBanner />}
         {route === 'setup' && <Setup />}
         {route === 'dashboard' && <Dashboard />}
         {route === 'pair' && <Pair />}

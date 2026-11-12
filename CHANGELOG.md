@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Pairing page: while a challenge is active it shows how many signals the dongle has received from the device being
+  paired, to tell "the device is silent" from "the clicks were not recognised" (`rx_reports` in the pairing status).
+- A banner on every other page while a pairing is in progress, with "Open" and "Cancel", so a pairing left behind
+  cannot trap the dongle in its challenge.
+
 ## [1.1.2] - 2026-11-12
 
 ### Fixed

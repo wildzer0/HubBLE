@@ -117,6 +117,10 @@ export const en = {
   'pair.scan': 'Scan for devices',
   'pair.scanning': 'Scanning for nearby HID devices…',
   'pair.no_results': 'Nothing found yet. Make sure the device is in pairing mode.',
+  'pair.rx':
+    'Signals received from the device: {n}. If this stays at 0 while you press keys, the dongle is not receiving anything from it.',
+  'pair.banner': 'A pairing is in progress.',
+  'pair.banner_open': 'Open',
   'pair.pair_with': 'Pair with {name}',
   'pair.connecting': 'Connecting to {name}…',
   'pair.waiting_device': 'Waiting for the device…',

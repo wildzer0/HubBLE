@@ -180,6 +180,7 @@ typedef struct {
     uint8_t challenge_len;                  /**< Inputs needed. */
     uint32_t remaining_ms;                  /**< Time left in the current phase. */
     uint32_t lock_remaining_s;              /**< Seconds of pairing lock left (0 = not locked). */
+    uint32_t rx_reports;                    /**< Notifications received from the device being paired (diagnostic). */
     bool need_confirm;                      /**< This pairing needs the physical confirmation. */
     bool require_confirm;                   /**< Setting value. */
     char name[BLE_CENTRAL_NAME_MAX];        /**< Name of the device being paired. */
