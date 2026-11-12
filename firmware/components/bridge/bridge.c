@@ -147,6 +147,7 @@ static void on_host_leds(uint8_t leds) {
  * @param slot Slot or -1.
  */
 static void on_changed(int slot) {
+    wifi_ap_set_bonded_devices(ble_central_bonded_count()); /* The AP policy depends on whether anything is bonded. */
     if (s_on_changed != NULL) {
         s_on_changed(slot);
     }
@@ -326,5 +327,7 @@ esp_err_t bridge_init(void (*on_changed_cb)(int slot)) {
     if (xTaskCreate(combo_task, "combo", COMBO_TASK_STACK, NULL, COMBO_TASK_PRIO, NULL) != pdPASS) {
         return ESP_ERR_NO_MEM;
     }
-    return ble_central_init(&cbs);
+    const esp_err_t err = ble_central_init(&cbs);
+    wifi_ap_set_bonded_devices(ble_central_bonded_count()); /* The registry is loaded by now. */
+    return err;
 }

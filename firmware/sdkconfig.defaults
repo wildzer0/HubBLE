@@ -53,3 +53,9 @@ CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT=y
 CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y
 CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=n
 CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_CMN=y
+
+# 1 ms scheduler tick: the HID report task retries every millisecond (with the default 100 Hz tick that delay rounds
+# down to zero and the task would spin), and all millisecond timeouts get their real resolution.
+CONFIG_FREERTOS_HZ=1000
+# The NimBLE host task runs the GATT callbacks, the report decoding and the USB hand-off; 4 KB was tight.
+CONFIG_BT_NIMBLE_HOST_TASK_STACK_SIZE=6144

@@ -102,6 +102,16 @@ void wifi_ap_sta_disconnect(void);
  */
 void wifi_ap_set_host_suspended(bool suspended);
 
+/**
+ * @brief Tell the AP policy how many BLE devices are bonded.
+ *
+ * With none the AP stays on (first-run convenience, CLAUDE.md §3.5); with at least one it follows the boot window and
+ * the idle timeout. Thread-safe.
+ *
+ * @param count Number of bonded devices.
+ */
+void wifi_ap_set_bonded_devices(unsigned count);
+
 #ifdef __cplusplus
 }
 #endif

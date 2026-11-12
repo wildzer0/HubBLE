@@ -63,6 +63,8 @@ static volatile uint64_t s_last_heartbeat_ms;
 static volatile bool s_ota_active;
 /** Host suspended flag from the power task. */
 static volatile bool s_host_suspended;
+/** Number of bonded BLE devices (set by the bridge); with none the AP stays on (first-run convenience). */
+static volatile uint32_t s_bonded_devices;
 /** One-shot "force on" request, consumed by the manager. */
 static volatile bool s_force_on;
 /** One-shot "re-apply password" request, consumed by the manager. */
@@ -162,11 +164,10 @@ static void manager_task(void *arg) {
         }
         const ap_policy_inputs_t in = {
             .now_ms = now,
-        /* BLE does not exist in M1: see HUBBLE_ASSUME_BONDED. */
 #ifdef CONFIG_HUBBLE_ASSUME_BONDED
-            .bonded_devices = 1,
+            .bonded_devices = 1, /* Test builds only. */
 #else
-            .bonded_devices = 0,
+            .bonded_devices = s_bonded_devices,
 #endif
             .clients = (uint32_t)sta.num,
             .ws_alive = s_last_heartbeat_ms != 0 && (now - s_last_heartbeat_ms) < HEARTBEAT_TTL_MS,
@@ -396,6 +397,11 @@ void wifi_ap_note_heartbeat(void) {
 /** @copydoc wifi_ap_set_ota_active */
 void wifi_ap_set_ota_active(bool active) {
     s_ota_active = active;
+}
+
+/** @copydoc wifi_ap_set_bonded_devices */
+void wifi_ap_set_bonded_devices(unsigned count) {
+    s_bonded_devices = count;
 }
 
 /** @copydoc wifi_ap_set_host_suspended */

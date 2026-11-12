@@ -42,7 +42,7 @@ enum { STR_LANG = 0, STR_MANUFACTURER, STR_PRODUCT, STR_SERIAL, STR_COUNT };
 /** Priority of the report task: above the HTTP/Wi-Fi tasks so HID never waits for them. */
 #define REPORT_TASK_PRIO 6
 /** Retry period while the endpoint is busy or movement is still queued. */
-#define RETRY_TICKS pdMS_TO_TICKS(1)
+#define RETRY_TICKS (pdMS_TO_TICKS(1) > 0 ? pdMS_TO_TICKS(1) : 1) /* never 0: that would busy-wait */
 /** Minimum spacing between remote-wakeup attempts, to avoid hammering a host that ignores them. */
 #define WAKEUP_MIN_INTERVAL_MS 500
 

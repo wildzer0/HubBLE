@@ -62,6 +62,8 @@ static const char *TAG = "ble";
 /** Scan: interval/window in 0.625 ms units (full duty while pairing). */
 #define SCAN_ITVL   0x50
 #define SCAN_WINDOW 0x30
+/** Background reconnect scan interval while another device is connected: 30 ms in 200 ms (15 % duty). */
+#define SCAN_ITVL_BUSY 0x140
 /** Retries and spacing when starting a scan right after cancelling the background connect. */
 #define SCAN_RETRIES  10
 #define SCAN_RETRY_MS 20
@@ -185,7 +187,14 @@ static int slot_by_conn(uint16_t conn) {
  */
 static void conn_params(struct ble_gap_conn_params *p) {
     memset(p, 0, sizeof(*p));
-    p->scan_itvl = SCAN_ITVL;
+    /* The connect procedure scans for the peripheral. While another device is already connected (and we are not
+     * pairing) a full-duty scan would steal radio time from its 7.5 ms connection events and from the Wi-Fi AP, so
+     * it is thinned out; reading the flags without the lock is fine for this heuristic. */
+    bool connected = false;
+    for (int i = 0; i < BLE_CENTRAL_MAX_DEVICES; i++) {
+        connected = connected || (s_dev[i].ready && !s_dev[i].pending);
+    }
+    p->scan_itvl = (connected && !pairing_active(&s_fsm)) ? SCAN_ITVL_BUSY : SCAN_ITVL;
     p->scan_window = SCAN_WINDOW;
     p->itvl_min = s_profile.itvl;
     p->itvl_max = s_profile.itvl;
@@ -310,6 +319,16 @@ static void hogp_ready(hogp_t *h, void *ctx) {
         s_pair_diag_left = PAIR_DIAG_NOTIFICATIONS;
     }
     refresh_link(slot);
+    if (!was_pending) {
+        /* The "keyboard" flag is stored with the bond. Older firmware classified some mice (those with a shortcut-key
+         * collection) as keyboards, so re-evaluate it on every connection: a stale flag would make a new pairing wait
+         * for a physical confirmation from a keyboard that does not exist. */
+        const uint8_t kbd = hogp_is_keyboard(&s_dev[slot].hogp) ? 1 : 0;
+        if (s_reg[slot].used && s_reg[slot].kbd != kbd) {
+            s_reg[slot].kbd = kbd;
+            save_registry();
+        }
+    }
     if (was_pending) {
         /* The advertised appearance decides, then the report map: many mice also declare a keyboard collection
          * (shortcut keys) and many keyboards also declare a mouse, so neither alone is reliable. */

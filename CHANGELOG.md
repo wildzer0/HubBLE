@@ -6,6 +6,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- The Wi-Fi AP policy never knew about bonded devices (the count was hard-wired to 0 since M1), so the AP never switched
+  off by itself, kept the board hot and competed with BLE for the radio. It now follows the boot window and idle timeout
+  as specified; with no bonded device it stays on.
+- The "keyboard" flag stored with a bond is re-evaluated on every connection. Mice that older firmware had classified as
+  keyboards made a new pairing wait for a physical confirmation from a keyboard that did not exist.
+- The scheduler tick was 100 Hz, so the 1 ms retry of the USB report task rounded to zero and could spin; it is now
+  1 kHz and the retry is at least one tick.
+- While a device is connected, the background reconnect scan for the others is thinned out (15 % duty instead of 60 %)
+  so it no longer steals radio time from the 7.5 ms connection and from the Wi-Fi AP.
+- The NimBLE host task has a 6 KB stack (it was 4 KB) for the GATT callbacks and report hand-off.
+
 ### Changed
 
 - The XIAO ESP32-S3 target is paused: CI, releases and the web installer build only the S3-Zero (the XIAO sources stay in the tree). `docs/development.md` explains how to re-enable it or add another board.
