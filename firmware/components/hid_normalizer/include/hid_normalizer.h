@@ -82,6 +82,25 @@ void hid_norm_boot_keyboard_layout(hid_layout_t *layout);
  */
 bool hid_norm_is_pointer(const hid_layout_t *layout);
 
+/**
+ * @brief Is this layout a real keyboard (typed keys), as opposed to a mouse with shortcut keys?
+ *
+ * @param layout Parsed layout.
+ * @return true for a keyboard.
+ */
+bool hid_norm_is_keyboard(const hid_layout_t *layout);
+
+/**
+ * @brief Which pairing challenge fits a device: the code to type (true) or the click sequence (false)?
+ *
+ * The advertised GAP appearance decides when it names a keyboard or a pointing device; otherwise the report map does.
+ *
+ * @param appearance GAP appearance seen while scanning, or 0 if the device did not advertise one.
+ * @param layout     The device's parsed layout.
+ * @return true if the user can type on the device.
+ */
+bool hid_norm_pairing_is_keyboard(uint16_t appearance, const hid_layout_t *layout);
+
 #ifdef __cplusplus
 }
 #endif

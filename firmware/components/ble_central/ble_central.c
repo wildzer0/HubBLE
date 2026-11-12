@@ -92,6 +92,7 @@ typedef struct {
     bool connect_requested;                       /**< Waiting for the background connect to stop before connecting. */
     ble_scan_result_t scan[BLE_CENTRAL_MAX_SCAN]; /**< Scan list. */
     size_t nscan;                                 /**< Entries in the scan list. */
+    uint16_t appearance;                          /**< GAP appearance of the candidate (0 if not advertised). */
 } pair_t;
 
 static SemaphoreHandle_t s_mu;               /**< Protects everything below. */
@@ -309,9 +310,9 @@ static void hogp_ready(hogp_t *h, void *ctx) {
     }
     refresh_link(slot);
     if (was_pending) {
-        /* A device with pointer axes gets the click challenge even if it also declares a keyboard collection
-         * (trackballs often do): the user cannot type on it. */
-        const bool kbd_challenge = hogp_is_keyboard(&s_dev[slot].hogp) && !hogp_is_pointer(&s_dev[slot].hogp);
+        /* The advertised appearance decides, then the report map: many mice also declare a keyboard collection
+         * (shortcut keys) and many keyboards also declare a mouse, so neither alone is reliable. */
+        const bool kbd_challenge = hid_norm_pairing_is_keyboard(s_pair.appearance, &s_dev[slot].hogp.layout);
         pairing_on_hid_ready(&s_fsm, now_ms(), kbd_challenge, hw_rng);
     }
     UNLOCK();
@@ -417,6 +418,7 @@ static void on_disconnected(uint16_t conn_handle) {
         pending = s_dev[slot].pending;
         s_dev[slot].conn = NO_CONN;
         s_dev[slot].ready = false;
+        s_dev[slot].hogp.state = HOGP_IDLE; /* A new link may reuse this connection handle. */
         s_dev[slot].rssi = 0;
     }
     UNLOCK();
@@ -481,6 +483,16 @@ static void on_encrypted(uint16_t conn_handle, int status) {
             return;
         }
         changed(-1);
+    }
+    LOCK();
+    const bool running = s_dev[slot].hogp.conn == conn_handle &&
+                         (s_dev[slot].hogp.state == HOGP_BUSY || s_dev[slot].hogp.state == HOGP_READY);
+    UNLOCK();
+    if (running) {
+        /* Some peripherals re-encrypt right after pairing. Restarting discovery from scratch in the middle of the
+         * first run would wipe its state and leave the device "ready" without a single subscription. */
+        ESP_LOGI(TAG, "slot %d: encryption changed again, HID discovery already running", slot);
+        return;
     }
     int rc = hogp_start(&s_dev[slot].hogp, conn_handle, &s_hogp_cbs, (void *)(intptr_t)slot);
     if (rc != 0) {
@@ -1007,9 +1019,11 @@ esp_err_t ble_central_pair(const uint8_t addr[6], uint8_t addr_type, bool allow_
     /* Reserve the slot; it is persisted only once the pairing completes. A re-pair of a known device first
      * removes its old bond, so the new keys replace it. */
     char name[BLE_CENTRAL_NAME_MAX] = "";
+    s_pair.appearance = 0;
     for (size_t i = 0; i < s_pair.nscan; i++) {
         if (memcmp(s_pair.scan[i].addr, addr, 6) == 0) {
             strlcpy(name, s_pair.scan[i].name, sizeof(name));
+            s_pair.appearance = s_pair.scan[i].appearance;
         }
     }
     memset(&s_reg[slot], 0, sizeof(s_reg[slot]));

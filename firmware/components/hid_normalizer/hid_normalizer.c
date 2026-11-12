@@ -305,3 +305,49 @@ bool hid_norm_is_pointer(const hid_layout_t *layout) {
     }
     return false;
 }
+
+/** GAP appearances of HID devices (Bluetooth Assigned Numbers, category 0x0F). */
+#define APPEARANCE_KEYBOARD  0x03C1
+#define APPEARANCE_MOUSE     0x03C2
+#define APPEARANCE_DIGITIZER 0x03C5
+#define APPEARANCE_TOUCHPAD  0x03C9
+
+/** First usage of the modifier keys (Left Control). */
+#define USAGE_FIRST_MODIFIER 0xE0
+
+/** @copydoc hid_norm_is_keyboard */
+bool hid_norm_is_keyboard(const hid_layout_t *layout) {
+    bool has_keys = false;
+    bool has_modifiers = false;
+    for (unsigned n = 0; n < layout->nfields; n++) {
+        const hid_field_t *f = &layout->fields[n];
+        if (f->dir != HID_REPORT_IN || f->usage_page != HID_PAGE_KEYBOARD) {
+            continue;
+        }
+        for (unsigned i = 0; i < f->count; i++) {
+            const uint16_t usage = (f->flags & HID_FLAG_VARIABLE) ? hid_field_usage(f, i) : 0;
+            if ((f->flags & HID_FLAG_VARIABLE) == 0 || usage < USAGE_FIRST_MODIFIER) {
+                has_keys = true; /* A key array, or a bitmap of ordinary keys. */
+            } else {
+                has_modifiers = true;
+            }
+        }
+    }
+    /* Mice and trackballs often declare a keyboard collection for shortcut keys; those have keys but no modifier
+     * byte. A device that is also a pointer must therefore have both to count as a keyboard. */
+    return has_keys && (!hid_norm_is_pointer(layout) || has_modifiers);
+}
+
+/** @copydoc hid_norm_pairing_is_keyboard */
+bool hid_norm_pairing_is_keyboard(uint16_t appearance, const hid_layout_t *layout) {
+    switch (appearance) {
+    case APPEARANCE_KEYBOARD:
+        return true;
+    case APPEARANCE_MOUSE:
+    case APPEARANCE_DIGITIZER:
+    case APPEARANCE_TOUCHPAD:
+        return false;
+    default:
+        return hid_norm_is_keyboard(layout);
+    }
+}

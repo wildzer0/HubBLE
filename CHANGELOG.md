@@ -6,6 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Pairing: the challenge was chosen wrongly for devices that expose both a keyboard and a pointer (a keyboard with a
+  mouse report got the click challenge in 1.1.0/1.1.1). The advertised GAP appearance now decides, then the report map
+  (a pointer needs modifier keys as well to count as a keyboard).
+- A peripheral that re-encrypts right after pairing could restart HID discovery in the middle of the first run; the
+  second start is now ignored.
+- Web app: icons carry their own size, so a stale cached stylesheet can no longer blow them up; the System page shows the
+  log lines from before the page was opened.
+- HID discovery now logs one line per characteristic (handle, report ID and type, CCC, subscribed or not) to find
+  devices that report "ready" but send no input.
+
 ### Changed
 
 - Wi-Fi transmit power is capped at 10 dBm by default (`CONFIG_HUBBLE_WIFI_TX_POWER_DBM`) to run cooler.

@@ -476,6 +476,15 @@ static void advance(hogp_t *h) {
         case PH_DONE:
         default:
             h->state = HOGP_READY;
+            /* One line per characteristic: enough to see why a device that reports "ready" sends no input
+             * (missing Report Reference, no CCC, not an input report, subscription refused). */
+            for (unsigned i = 0; i < h->nchrs; i++) {
+                const hogp_chr_t *c = &h->chrs[i];
+                ESP_LOGI(TAG, "conn %u: chr kind %u handle 0x%04x props 0x%02x ref id %u type %u ccc 0x%04x -> %s",
+                         h->conn, (unsigned)c->kind, (unsigned)c->val_handle, (unsigned)c->props,
+                         (unsigned)c->report_id, (unsigned)c->report_type, (unsigned)c->ccc_handle,
+                         wants_subscribe(h, c) ? "subscribed" : "not subscribed");
+            }
             ESP_LOGI(TAG, "conn %u: HID ready (%u fields%s)", h->conn, h->layout.nfields,
                      h->boot_fallback ? ", boot fallback" : "");
             if (h->cbs.on_ready != NULL) {
@@ -531,13 +540,7 @@ bool hogp_is_battery(const hogp_t *h, uint16_t attr_handle) {
 
 /** @copydoc hogp_is_keyboard */
 bool hogp_is_keyboard(const hogp_t *h) {
-    for (unsigned i = 0; i < h->layout.nfields; i++) {
-        const hid_field_t *f = &h->layout.fields[i];
-        if (f->dir == HID_REPORT_IN && f->usage_page == HID_PAGE_KEYBOARD) {
-            return true;
-        }
-    }
-    return false;
+    return hid_norm_is_keyboard(&h->layout);
 }
 
 /** @copydoc hogp_is_pointer */

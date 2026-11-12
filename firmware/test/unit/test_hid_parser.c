@@ -332,6 +332,79 @@ void test_is_pointer_with_keyboard_collection(void) {
     TEST_ASSERT_FALSE(hid_norm_is_pointer(&kb));
 }
 
+/* A keyboard with a mouse collection (some keyboards expose one) is still a keyboard; a mouse with shortcut keys is
+ * not. */
+static const uint8_t KBD_WITH_MOUSE[] =
+    {
+        0x05, 0x01, 0x09, 0x06, 0xA1, 0x01, 0x85, 0x01, /* Keyboard, ID 1 */
+        0x05, 0x07, 0x19, 0xE0, 0x29, 0xE7, 0x15, 0x00, 0x25, 0x01, 0x75, 0x01, 0x95, 0x08, 0x81, 0x02, /* modifiers */
+        0x95, 0x01, 0x75, 0x08, 0x81, 0x01, /* reserved byte */
+        0x95, 0x06, 0x75, 0x08, 0x15, 0x00, 0x26, 0xFF, 0x00, 0x05, 0x07, 0x19, 0x00, 0x2A, 0xFF, 0x00,
+        0x81, 0x00,                                                                   /* keys */
+        0xC0, 0x05, 0x01, 0x09, 0x02, 0xA1, 0x01, 0x85, 0x02, 0x09, 0x01, 0xA1, 0x00, /* Mouse, ID 2 */
+        0x05, 0x09, 0x19, 0x01, 0x29, 0x03, 0x15, 0x00, 0x25, 0x01, 0x95, 0x03, 0x75, 0x01, 0x81, 0x02,
+        0x95, 0x01, 0x75, 0x05, 0x81, 0x01, 0x05, 0x01, 0x09, 0x30, 0x09, 0x31, 0x09, 0x38, 0x15, 0x81,
+        0x25, 0x7F, 0x75, 0x08, 0x95, 0x03, 0x81, 0x06, 0xC0, 0xC0,
+};
+static const uint8_t MOUSE_WITH_SHORTCUT_KEYS[] = {
+    0x05, 0x01, 0x09, 0x02, 0xA1, 0x01, 0x85, 0x01, 0x09, 0x01, 0xA1, 0x00, /* Mouse, ID 1 */
+    0x05, 0x09, 0x19, 0x01, 0x29, 0x05, 0x15, 0x00, 0x25, 0x01, 0x95, 0x05, 0x75, 0x01, 0x81, 0x02, 0x95,
+    0x01, 0x75, 0x03, 0x81, 0x01, 0x05, 0x01, 0x09, 0x30, 0x09, 0x31, 0x16, 0x01, 0x80, 0x26, 0xFF, 0x7F,
+    0x75, 0x10, 0x95, 0x02, 0x81, 0x06, 0xC0, 0xC0, 0x05, 0x01, 0x09, 0x06, 0xA1, 0x01, 0x85, 0x02, /* Keyboard-ish
+                                                                                                       collection, ID 2:
+                                                                                                       key array only */
+    0x05, 0x07, 0x95, 0x06, 0x75, 0x08, 0x15, 0x00, 0x25, 0x65, 0x19, 0x00, 0x29, 0x65, 0x81, 0x00, 0xC0,
+};
+
+void test_keyboard_with_mouse_is_a_keyboard(void) {
+    hid_layout_t l;
+    TEST_ASSERT_EQUAL(HID_PARSE_OK, hid_parser_parse(KBD_WITH_MOUSE, sizeof(KBD_WITH_MOUSE), &l));
+    TEST_ASSERT_TRUE(hid_norm_is_pointer(&l));
+    TEST_ASSERT_TRUE(hid_norm_is_keyboard(&l));
+    TEST_ASSERT_TRUE(hid_norm_pairing_is_keyboard(0, &l));
+}
+
+void test_mouse_with_shortcut_keys_is_not_a_keyboard(void) {
+    hid_layout_t l;
+    TEST_ASSERT_EQUAL(HID_PARSE_OK, hid_parser_parse(MOUSE_WITH_SHORTCUT_KEYS, sizeof(MOUSE_WITH_SHORTCUT_KEYS), &l));
+    TEST_ASSERT_TRUE(hid_norm_is_pointer(&l));
+    TEST_ASSERT_FALSE(hid_norm_is_keyboard(&l));
+    TEST_ASSERT_FALSE(hid_norm_pairing_is_keyboard(0, &l));
+}
+
+void test_appearance_overrides_the_report_map(void) {
+    hid_layout_t l;
+    TEST_ASSERT_EQUAL(HID_PARSE_OK, hid_parser_parse(MOUSE_WITH_SHORTCUT_KEYS, sizeof(MOUSE_WITH_SHORTCUT_KEYS), &l));
+    TEST_ASSERT_TRUE(hid_norm_pairing_is_keyboard(0x03C1, &l)); /* advertises "keyboard" */
+    hid_layout_t k;
+    TEST_ASSERT_EQUAL(HID_PARSE_OK, hid_parser_parse(KBD_WITH_MOUSE, sizeof(KBD_WITH_MOUSE), &k));
+    TEST_ASSERT_FALSE(hid_norm_pairing_is_keyboard(0x03C2, &k)); /* advertises "mouse" */
+    hid_layout_t boot;
+    hid_norm_boot_keyboard_layout(&boot);
+    TEST_ASSERT_TRUE(hid_norm_is_keyboard(&boot));
+}
+
+/* The notification payload has no report ID byte; the ID comes from the Report Reference descriptor. */
+void test_decode_realistic_mouse_and_keyboard_notifications(void) {
+    hid_layout_t l;
+    hid_norm_event_t ev;
+    TEST_ASSERT_EQUAL(HID_PARSE_OK, hid_parser_parse(MOUSE_WITH_SHORTCUT_KEYS, sizeof(MOUSE_WITH_SHORTCUT_KEYS), &l));
+    const uint8_t click[] = {0x02, 0x00, 0x00, 0x00, 0x00}; /* right button, no motion */
+    TEST_ASSERT_TRUE(hid_norm_decode(&l, 1, click, sizeof(click), &ev));
+    TEST_ASSERT_TRUE(ev.has_mouse);
+    TEST_ASSERT_EQUAL_UINT8(0x02, ev.buttons);
+    TEST_ASSERT_EQUAL(HID_PARSE_OK, hid_parser_parse(KBD_WITH_MOUSE, sizeof(KBD_WITH_MOUSE), &l));
+    const uint8_t keys[] = {0x02, 0x00, 0x04, 0, 0, 0, 0, 0}; /* LShift + A */
+    TEST_ASSERT_TRUE(hid_norm_decode(&l, 1, keys, sizeof(keys), &ev));
+    TEST_ASSERT_TRUE(ev.has_keyboard);
+    TEST_ASSERT_EQUAL_UINT8(0x02, ev.modifiers);
+    TEST_ASSERT_EQUAL_UINT8(0x04, ev.keys[0]);
+    const uint8_t motion[] = {0x01, 0x05, 0xFB, 0x00};
+    TEST_ASSERT_TRUE(hid_norm_decode(&l, 2, motion, sizeof(motion), &ev));
+    TEST_ASSERT_EQUAL_INT32(5, ev.dx);
+    TEST_ASSERT_EQUAL_INT32(-5, ev.dy);
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_parse_boot_keyboard);
@@ -352,5 +425,9 @@ int main(void) {
     RUN_TEST(test_garbage_never_crashes);
     RUN_TEST(test_axis_sum_saturates);
     RUN_TEST(test_is_pointer_with_keyboard_collection);
+    RUN_TEST(test_keyboard_with_mouse_is_a_keyboard);
+    RUN_TEST(test_mouse_with_shortcut_keys_is_not_a_keyboard);
+    RUN_TEST(test_appearance_overrides_the_report_map);
+    RUN_TEST(test_decode_realistic_mouse_and_keyboard_notifications);
     return UNITY_END();
 }

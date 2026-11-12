@@ -36,6 +36,25 @@ function LiveLog() {
   const t = useT();
   const [lines, setLines] = useState<string[]>([]);
 
+  // Show what was logged before the page opened (the dongle keeps the last lines in RAM): without it the panel
+  // is empty exactly when something has just gone wrong.
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/v1/logs')
+      .then((r) => r.text())
+      .then(
+        (text) => {
+          if (!alive) return;
+          const past = text.split('\n').filter((l) => l.length > 0);
+          setLines((old) => [...past, ...old].slice(-MAX_LOG_LINES));
+        },
+        () => undefined, // the live lines still work
+      );
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   useEffect(
     () =>
       subscribe((m) => {
