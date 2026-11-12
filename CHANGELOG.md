@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-11-13
+
 ### Fixed
 
 - Battery: the first Battery Level characteristic of the service is kept (the last one used to win when a device lists
