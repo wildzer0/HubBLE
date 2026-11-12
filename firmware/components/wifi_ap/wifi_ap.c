@@ -124,6 +124,8 @@ static esp_err_t apply_config(void) {
 /** @brief Start the AP radio. */
 static void ap_start(void) {
     if (apply_config() == ESP_OK && esp_wifi_start() == ESP_OK) {
+        /* Units of 0.25 dBm. A lower power keeps the board cooler; the phone is a few metres away. */
+        esp_wifi_set_max_tx_power((int8_t)(CONFIG_HUBBLE_WIFI_TX_POWER_DBM * 4));
         s_ap_running = true;
         ESP_LOGI(TAG, "AP on: SSID %s", s_ssid);
     } else {

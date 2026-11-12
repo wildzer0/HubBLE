@@ -546,6 +546,7 @@ function mockDiagnostics(): Diagnostics {
       next_update: { label: 'ota_1', address: 0x200000, size: MOCK_SLOT_BYTES },
     },
     boot_failures: 0,
+    chip_temp_c: 61.5,
     usb_state: 'detached',
     power: { mode: 'active', remote_wakeup: state.settings.remote_wakeup },
     ble: {

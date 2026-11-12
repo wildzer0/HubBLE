@@ -291,6 +291,10 @@ static esp_err_t diagnostics_get(httpd_req_t *req) {
     add_partition(parts, "running", &d.running);
     add_partition(parts, "next_update", &d.next_update);
     cJSON_AddNumberToObject(r, "boot_failures", settings_boot_failures());
+    float temp_c;
+    if (diag_chip_temperature(&temp_c)) {
+        cJSON_AddNumberToObject(r, "chip_temp_c", (double)((int)(temp_c * 10.0f)) / 10.0);
+    }
     cJSON_AddStringToObject(r, "usb_state", usb_hid_state_name(usb_hid_get_state()));
     cJSON_AddNumberToObject(r, "keyboard_leds", usb_hid_get_leds());
     cJSON *ble = cJSON_AddObjectToObject(r, "ble");

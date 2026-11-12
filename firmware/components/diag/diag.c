@@ -8,6 +8,7 @@
 
 #include <string.h>
 
+#include "driver/temperature_sensor.h"
 #include "esp_heap_caps.h"
 #include "esp_ota_ops.h"
 #include "esp_partition.h"
@@ -66,6 +67,21 @@ void diag_collect(diag_info_t *out) {
     out->psram_free = (uint32_t)heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
     fill_partition(&out->running, esp_ota_get_running_partition());
     fill_partition(&out->next_update, esp_ota_get_next_update_partition(NULL));
+}
+
+/** Temperature sensor handle; NULL until the first reading (or if it cannot be installed). */
+static temperature_sensor_handle_t s_tsens;
+
+/** @copydoc diag_chip_temperature */
+bool diag_chip_temperature(float *celsius) {
+    if (s_tsens == NULL) {
+        temperature_sensor_config_t cfg = TEMPERATURE_SENSOR_CONFIG_DEFAULT(10, 80); /* Range covers a hot dongle. */
+        if (temperature_sensor_install(&cfg, &s_tsens) != ESP_OK || temperature_sensor_enable(s_tsens) != ESP_OK) {
+            s_tsens = NULL;
+            return false;
+        }
+    }
+    return temperature_sensor_get_celsius(s_tsens, celsius) == ESP_OK;
 }
 
 /** @copydoc diag_reboot_to_download */

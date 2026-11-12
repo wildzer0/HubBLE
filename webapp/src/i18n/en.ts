@@ -45,6 +45,7 @@ export const en = {
   'system.heap': 'Free internal RAM',
   'system.psram': 'Free PSRAM',
   'system.partition': 'Running partition',
+  'system.temperature': 'Chip temperature',
   'system.boot_failures': 'Boot failures',
   'system.logs': 'Live log',
   'system.logs_empty': 'No log lines yet.',

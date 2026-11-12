@@ -189,6 +189,8 @@ export function System() {
               'ble',
             )}
             {row(t('system.wifi_clients'), d.wifi.clients)}
+            {d.chip_temp_c !== undefined &&
+              row(t('system.temperature'), `${d.chip_temp_c.toFixed(1)} °C`, 'temp')}
             {row(t('system.boot_failures'), d.boot_failures)}
           </dl>
         )}

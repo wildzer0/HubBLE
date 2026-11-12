@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- Wi-Fi transmit power is capped at 10 dBm by default (`CONFIG_HUBBLE_WIFI_TX_POWER_DBM`) to run cooler.
+
+### Added
+
+- Chip (die) temperature in the diagnostics API and on the System page.
+
 ## [1.1.1] - 2026-11-12
 
 ### Fixed

@@ -49,6 +49,7 @@ export const it: Record<MessageKey, string> = {
   'system.heap': 'RAM interna libera',
   'system.psram': 'PSRAM libera',
   'system.partition': 'Partizione in esecuzione',
+  'system.temperature': 'Temperatura del chip',
   'system.boot_failures': 'Avvii falliti',
   'system.logs': 'Log in tempo reale',
   'system.logs_empty': 'Ancora nessuna riga di log.',

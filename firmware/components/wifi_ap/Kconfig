@@ -6,6 +6,14 @@ menu "HubBLE Wi-Fi access point"
         help
             2.4 GHz channel of the SoftAP. The web app will make this configurable later (M5).
 
+    config HUBBLE_WIFI_TX_POWER_DBM
+        int "Wi-Fi transmit power (dBm)"
+        default 10
+        range 2 20
+        help
+            The AP is used from a phone within a few metres, so the default 20 dBm only makes the board hotter.
+            10 dBm is plenty at that distance and noticeably cooler. Raise it if the phone loses the AP.
+
     config HUBBLE_ASSUME_BONDED
         bool "Pretend a BLE device is bonded (testing only)"
         default n

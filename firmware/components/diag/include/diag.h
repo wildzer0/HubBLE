@@ -8,6 +8,7 @@
  */
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -40,6 +41,16 @@ typedef struct {
  * @param out Receives the data.
  */
 void diag_collect(diag_info_t *out);
+
+/**
+ * @brief Read the on-chip temperature sensor (die temperature, typically 10-25 degrees above the board surface).
+ *
+ * The sensor is installed on first use. Thread-safe for the single HTTP task that calls it.
+ *
+ * @param[out] celsius Receives the temperature in degrees Celsius.
+ * @return true if a reading is available.
+ */
+bool diag_chip_temperature(float *celsius);
 
 /**
  * @brief Reboot into the ROM USB download mode so a USB re-flash needs no BOOT button.

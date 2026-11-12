@@ -136,6 +136,8 @@ export interface Diagnostics {
   partitions: { running: PartitionInfo; next_update: PartitionInfo };
   /** Boot-failure counter. */
   boot_failures: number;
+  /** Chip (die) temperature, degrees Celsius; absent if the sensor cannot be read. */
+  chip_temp_c?: number;
   /** USB state (M2). */
   usb_state: UsbState;
   /** BLE stack facts. */

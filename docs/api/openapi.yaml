@@ -327,6 +327,7 @@ components:
           properties:
             running: { $ref: '#/components/schemas/Partition' }
             next_update: { $ref: '#/components/schemas/Partition' }
+        chip_temp_c: { type: number, description: "Die temperature in degrees Celsius (absent if unreadable)" }
         boot_failures: { type: integer }
         usb_state: { type: string }
         ble: { nullable: true, description: Reserved for M3 }
