@@ -30,7 +30,7 @@ checking each mitigation listed in `security.md`. Nothing here replaces testing 
 
 - State-changing calls need `X-HubBLE: 1`, a JSON (or octet-stream) content type, a same-host `Origin` and our `Host`; the
   WebSocket handshake is guarded the same way.
-- Pairing: 60 s window, one device, 30 s challenge, three failures lock pairing for 60 s; the physical confirmation (both Shifts on
+- Pairing: 60 s window, one device, 30 s challenge, three failures lock pairing for 60 s; the physical confirmation (Ctrl + Alt on
   a paired keyboard) protects new pairings and online installs when a keyboard is paired.
 - *Residual:* the Wi-Fi password is the only authentication. Anyone holding it can read logs, the passkey of a pairing in
   progress and, while a page subscribes, the input tester stream; can upload signed firmware; can factory reset.

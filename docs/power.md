@@ -22,7 +22,7 @@ connections the dongle must keep alive to wake the host, so its own consumption 
 | Wake the computer from sleep | on | Allows remote wakeup. Applies immediately. |
 | LED brightness | 25 % | 0 turns the LED off completely. Applies within a second. |
 | Dim green when a device is connected | off | Optional "all good" indication. |
-| Hold both Shift keys for | 3 s | Time of the Wi-Fi-on gesture, 1 to 10 s. Applies after the next restart. |
+| Hold Ctrl and Alt for | 3 s | Time of the Wi-Fi-on gesture, 1 to 10 s. Applies after the next restart. |
 
 ## LED patterns
 

@@ -33,7 +33,7 @@ Report vulnerabilities as described in `SECURITY.md`.
 - **Authentication levels** are shown as 🟢/🟡/🔴 (see `pairing-and-security.md`). Legacy pairing is refused by default.
 - **Quarantine** keeps a Just Works candidate muted until a challenge is solved; a failed or abandoned pairing deletes
   the bond (nothing half-paired persists).
-- **Physical confirmation** (default ON) requires both Shifts for 3 s on an already paired keyboard.
+- **Physical confirmation** (default ON) requires Ctrl + Alt for 3 s on an already paired keyboard.
 - **Residual risk:** an active radio MITM during the pairing window against a Just Works device is not prevented.
 - Passkeys are generated with the hardware RNG, never logged and only returned by the API while being displayed.
 

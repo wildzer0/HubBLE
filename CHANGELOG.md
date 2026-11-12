@@ -6,6 +6,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- The keyboard gesture is now **Ctrl + Alt** (either side) held for 3 s instead of the two Shift keys, and
+  **Ctrl + Alt + Esc** for 10 s for the password reset. It also confirms a pairing or an online update. The setting
+  keeps its old key name `shift_hold_ms` so existing backups still restore.
+- The XIAO ESP32-S3 target is paused: CI, releases and the web installer build only the S3-Zero (the XIAO sources stay in
+  the tree). `docs/development.md` explains how to re-enable it or add another board.
+
+### Added
+
+- "Switch Wi-Fi off now" on the Devices page (`POST /api/v1/system/wifi-off`): the AP goes off within a second and stays
+  off until the Ctrl + Alt gesture or a restart. Refused while no device is paired.
+
 ### Fixed
 
 - The Wi-Fi AP policy never knew about bonded devices (the count was hard-wired to 0 since M1), so the AP never switched
@@ -18,10 +31,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - While a device is connected, the background reconnect scan for the others is thinned out (15 % duty instead of 60 %)
   so it no longer steals radio time from the 7.5 ms connection and from the Wi-Fi AP.
 - The NimBLE host task has a 6 KB stack (it was 4 KB) for the GATT callbacks and report hand-off.
-
-### Changed
-
-- The XIAO ESP32-S3 target is paused: CI, releases and the web installer build only the S3-Zero (the XIAO sources stay in the tree). `docs/development.md` explains how to re-enable it or add another board.
 
 ## [1.1.3] - 2026-11-12
 

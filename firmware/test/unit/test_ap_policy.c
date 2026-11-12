@@ -82,6 +82,39 @@ static void test_ota_holds_ap(void) {
 }
 
 /** A force-on request (Shift combo) switches an expired AP back on. */
+/** "Off now" switches the AP off at once, even inside the boot window and with a client connected, and sticks. */
+static void test_force_off_sticks_until_force_on(void) {
+    ap_policy_t p;
+    ap_policy_init(&p, &k_cfg);
+    ap_policy_inputs_t in = quiet(10); /* inside the boot window */
+    TEST_ASSERT_TRUE(ap_policy_step(&p, &in).ap_on);
+    in.force_off = true;
+    in.clients = 1;
+    in.ws_alive = true;
+    TEST_ASSERT_FALSE(ap_policy_step(&p, &in).ap_on);
+    in = quiet(11); /* the request was one-shot, the state sticks */
+    TEST_ASSERT_FALSE(ap_policy_step(&p, &in).ap_on);
+    in = quiet(12);
+    in.force_on = true; /* the Ctrl + Alt gesture */
+    TEST_ASSERT_TRUE(ap_policy_step(&p, &in).ap_on);
+    in = quiet(13);
+    TEST_ASSERT_TRUE(ap_policy_step(&p, &in).ap_on); /* back to the normal rules */
+}
+
+/** "Off now" is ignored while nothing is bonded and while an OTA runs. */
+static void test_force_off_ignored_without_bonds_or_during_ota(void) {
+    ap_policy_t p;
+    ap_policy_init(&p, &k_cfg);
+    ap_policy_inputs_t in = {.now_ms = 5000, .force_off = true}; /* no bonded device */
+    TEST_ASSERT_TRUE(ap_policy_step(&p, &in).ap_on);
+    in = quiet(6);
+    in.force_off = true;
+    in.ota_active = true;
+    TEST_ASSERT_TRUE(ap_policy_step(&p, &in).ap_on);
+    in = quiet(7);
+    TEST_ASSERT_TRUE(ap_policy_step(&p, &in).ap_on); /* it did not stick */
+}
+
 static void test_force_on(void) {
     ap_policy_t p;
     ap_policy_init(&p, &k_cfg);
@@ -118,6 +151,8 @@ int main(void) {
     RUN_TEST(test_session_then_idle_timeout);
     RUN_TEST(test_client_without_webapp);
     RUN_TEST(test_ota_holds_ap);
+    RUN_TEST(test_force_off_sticks_until_force_on);
+    RUN_TEST(test_force_off_ignored_without_bonds_or_during_ota);
     RUN_TEST(test_force_on);
     RUN_TEST(test_host_suspend);
     return UNITY_END();

@@ -17,10 +17,10 @@ import { useApi } from '../lib/useApi';
 /** Allowed range of the AP windows, seconds (matches the firmware limits). */
 const WINDOW_MIN_S = 30;
 const WINDOW_MAX_S = 86400;
-/** Allowed hold time of the both-Shift gesture, ms. */
+/** Allowed hold time of the Ctrl+Alt gesture, ms. */
 const SHIFT_MIN_MS = 1000;
 const SHIFT_MAX_MS = 10000;
-/** Milliseconds per second (the API stores the Shift time in ms, the UI shows seconds). */
+/** Milliseconds per second (the API stores the gesture time in ms, the UI shows seconds). */
 const MS_PER_S = 1000;
 
 /**

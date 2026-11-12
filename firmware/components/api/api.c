@@ -474,6 +474,24 @@ static esp_err_t reboot_post(httpd_req_t *req) {
     return send_json(req, r);
 }
 
+/**
+ * POST /api/v1/system/wifi-off: switch the AP off now (it stays off until the Ctrl + Alt gesture or a restart).
+ * Refused while no device is paired: the AP is then the only way to pair one.
+ */
+static esp_err_t wifi_off_post(httpd_req_t *req) {
+    if (!guard(req, CT_JSON)) {
+        return ESP_OK;
+    }
+    if (ble_central_bonded_count() == 0) {
+        return send_error(req, "409 Conflict", "no_bonded_devices",
+                          "Pair a device first: the Wi-Fi stays on while none is paired");
+    }
+    wifi_ap_request_off();
+    cJSON *r = cJSON_CreateObject();
+    cJSON_AddBoolToObject(r, "ok", true);
+    return send_json(req, r);
+}
+
 /** POST /api/v1/system/reboot-download. */
 static esp_err_t reboot_download_post(httpd_req_t *req) {
     if (!guard(req, CT_JSON)) {
@@ -1277,6 +1295,7 @@ esp_err_t api_register(httpd_handle_t server) {
         {.uri = "/api/v1/ota/upload", .method = HTTP_POST, .handler = ota_upload_post},
         {.uri = "/api/v1/system/reboot", .method = HTTP_POST, .handler = reboot_post},
         {.uri = "/api/v1/system/reboot-download", .method = HTTP_POST, .handler = reboot_download_post},
+        {.uri = "/api/v1/system/wifi-off", .method = HTTP_POST, .handler = wifi_off_post},
         {.uri = "/api/v1/devices", .method = HTTP_GET, .handler = devices_get},
         {.uri = "/api/v1/devices/*", .method = HTTP_GET, .handler = device_item_get},
         {.uri = "/api/v1/devices/*", .method = HTTP_PATCH, .handler = device_item_patch},

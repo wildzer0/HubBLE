@@ -117,6 +117,14 @@ export async function rebootDownload(): Promise<void> {
   await request<{ ok: boolean }>('POST', '/api/v1/system/reboot-download', {});
 }
 
+/**
+ * Switch the dongle's Wi-Fi access point off now. It stays off until the Ctrl + Alt gesture on a paired keyboard or a
+ * restart. Refused (409 `no_bonded_devices`) while no device is paired.
+ */
+export async function wifiOff(): Promise<void> {
+  await request<{ ok: boolean }>('POST', '/api/v1/system/wifi-off', {});
+}
+
 /** Reset the dongle to factory state: settings, Wi-Fi password and all bonds are erased, then it reboots. */
 export async function factoryReset(): Promise<void> {
   await request<{ ok: boolean }>('POST', '/api/v1/system/factory-reset', {});

@@ -52,8 +52,15 @@ void wifi_ap_note_heartbeat(void);
  */
 void wifi_ap_set_ota_active(bool active);
 
-/** @brief Request the AP to switch on (e.g. both-Shift combo, M3). */
+/** @brief Request the AP to switch on (e.g. the Ctrl + Alt combo, M3). */
 void wifi_ap_request_on(void);
+
+/**
+ * @brief Request the AP to switch off now and stay off until wifi_ap_request_on() (web app button).
+ *
+ * Ignored by the policy while no device is bonded or an OTA runs. The switch happens within about a second.
+ */
+void wifi_ap_request_off(void);
 
 /** @brief Re-read the stored password and restart the AP so it takes effect (clients are dropped). */
 void wifi_ap_apply_password(void);

@@ -67,6 +67,8 @@ static volatile bool s_host_suspended;
 static volatile uint32_t s_bonded_devices;
 /** One-shot "force on" request, consumed by the manager. */
 static volatile bool s_force_on;
+/** One-shot "off now" request, consumed by the manager. */
+static volatile bool s_force_off;
 /** One-shot "re-apply password" request, consumed by the manager. */
 static volatile bool s_reconfigure;
 /** Status copy for readers; guarded by s_lock. */
@@ -173,9 +175,11 @@ static void manager_task(void *arg) {
             .ws_alive = s_last_heartbeat_ms != 0 && (now - s_last_heartbeat_ms) < HEARTBEAT_TTL_MS,
             .ota_active = s_ota_active,
             .force_on = s_force_on,
+            .force_off = s_force_off,
             .host_suspended = s_host_suspended,
         };
         s_force_on = false;
+        s_force_off = false;
         const ap_policy_decision_t d = ap_policy_step(&policy, &in);
 
         if (s_reconfigure && s_ap_running) {
@@ -407,6 +411,11 @@ void wifi_ap_set_bonded_devices(unsigned count) {
 /** @copydoc wifi_ap_set_host_suspended */
 void wifi_ap_set_host_suspended(bool suspended) {
     s_host_suspended = suspended;
+}
+
+/** @copydoc wifi_ap_request_off */
+void wifi_ap_request_off(void) {
+    s_force_off = true;
 }
 
 /** @copydoc wifi_ap_request_on */

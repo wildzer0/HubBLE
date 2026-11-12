@@ -6,7 +6,7 @@
  *  - join the saved Wi-Fi network as a station (APSTA), on demand only;
  *  - find the newest release (stable or pre-release channel) with the GitHub Releases API, read its `manifest.json`;
  *  - decide with ota_manifest (board, SemVer order, minimum version, signed, anti-downgrade);
- *  - after the optional physical confirmation (both Shifts, 3 s on a paired keyboard) download the image over HTTPS,
+ *  - after the optional physical confirmation (Ctrl + Alt, 3 s on a paired keyboard) download the image over HTTPS,
  *    check its SHA-256 against the manifest while streaming into the OTA slot, then let esp_ota_end verify the RSA
  *    signature and select the slot.
  *
@@ -33,7 +33,7 @@ typedef enum {
     OU_CHECKING,      /**< Asking GitHub for the newest release. */
     OU_AVAILABLE,     /**< A release was found that can be installed (see `decision`). */
     OU_UP_TO_DATE,    /**< The newest release is the running version. */
-    OU_AWAIT_CONFIRM, /**< Waiting for both Shifts held 3 s on a paired keyboard. */
+    OU_AWAIT_CONFIRM, /**< Waiting for Ctrl + Alt held 3 s on a paired keyboard. */
     OU_DOWNLOADING,   /**< Streaming the image into the OTA slot. */
     OU_INSTALLED,     /**< Installed; the dongle restarts in a moment. */
     OU_ERROR          /**< The last operation failed (see `error`). */
@@ -96,7 +96,7 @@ esp_err_t ota_online_check(bool prerelease);
 esp_err_t ota_online_install(bool allow_downgrade);
 
 /**
- * @brief Physical confirmation happened (both Shifts held 3 s). Ignored unless an install waits for it.
+ * @brief Physical confirmation happened (Ctrl + Alt held 3 s). Ignored unless an install waits for it.
  */
 void ota_online_physical_confirm(void);
 

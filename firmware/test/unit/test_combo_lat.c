@@ -1,6 +1,6 @@
 /**
  * @file test_combo_lat.c
- * @brief Host tests for combo (double Shift / recovery) and lat_stats.
+ * @brief Host tests for combo (Ctrl + Alt / recovery) and lat_stats.
  */
 #include "combo.h"
 #include "lat_stats.h"
@@ -11,7 +11,7 @@ void setUp(void) {
 void tearDown(void) {
 }
 
-#define BOTH (COMBO_MOD_LSHIFT | COMBO_MOD_RSHIFT)
+#define BOTH (COMBO_MOD_LCTRL | COMBO_MOD_LALT)
 
 void test_ap_on_after_hold(void) {
     combo_t c;
@@ -27,16 +27,26 @@ void test_ap_on_after_hold(void) {
     TEST_ASSERT_EQUAL(COMBO_AP_ON, combo_update(&c, 12200, BOTH, none, 6));
 }
 
-void test_one_shift_or_other_key_does_not_fire(void) {
+void test_one_modifier_or_other_key_does_not_fire(void) {
     combo_t c;
     combo_init(&c, 3000);
     const uint8_t none[6] = {0};
     const uint8_t a[6] = {0x04};
-    TEST_ASSERT_EQUAL(COMBO_NONE, combo_update(&c, 0, COMBO_MOD_LSHIFT, none, 6));
-    TEST_ASSERT_EQUAL(COMBO_NONE, combo_update(&c, 5000, COMBO_MOD_LSHIFT, none, 6));
+    TEST_ASSERT_EQUAL(COMBO_NONE, combo_update(&c, 0, COMBO_MOD_LCTRL, none, 6));
+    TEST_ASSERT_EQUAL(COMBO_NONE, combo_update(&c, 5000, COMBO_MOD_LALT, none, 6));
     TEST_ASSERT_EQUAL(COMBO_NONE, combo_update(&c, 6000, BOTH, none, 6));
-    TEST_ASSERT_EQUAL(COMBO_NONE, combo_update(&c, 8000, BOTH, a, 6));            /* a key interrupts */
-    TEST_ASSERT_EQUAL(COMBO_NONE, combo_update(&c, 20000, BOTH | 0x01, none, 6)); /* extra modifier */
+    TEST_ASSERT_EQUAL(COMBO_NONE, combo_update(&c, 8000, BOTH, a, 6));                        /* a key interrupts */
+    TEST_ASSERT_EQUAL(COMBO_NONE, combo_update(&c, 20000, BOTH | COMBO_MOD_LSHIFT, none, 6)); /* extra modifier */
+    TEST_ASSERT_EQUAL(COMBO_NONE, combo_update(&c, 30000, BOTH | 0x08, none, 6));             /* GUI */
+}
+
+void test_either_side_counts(void) {
+    combo_t c;
+    combo_init(&c, 3000);
+    const uint8_t none[6] = {0};
+    const uint8_t mods = COMBO_MOD_RCTRL | COMBO_MOD_RALT;
+    TEST_ASSERT_EQUAL(COMBO_NONE, combo_update(&c, 0, mods, none, 6));
+    TEST_ASSERT_EQUAL(COMBO_AP_ON, combo_update(&c, 3000, mods, none, 6));
 }
 
 void test_recovery_after_10s_with_esc(void) {
@@ -101,7 +111,8 @@ void test_lat_stats_overflow_bucket(void) {
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_ap_on_after_hold);
-    RUN_TEST(test_one_shift_or_other_key_does_not_fire);
+    RUN_TEST(test_one_modifier_or_other_key_does_not_fire);
+    RUN_TEST(test_either_side_counts);
     RUN_TEST(test_recovery_after_10s_with_esc);
     RUN_TEST(test_esc_phase_never_fires_ap_on);
     RUN_TEST(test_clock_wraparound);

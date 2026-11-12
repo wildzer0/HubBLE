@@ -8,7 +8,7 @@
  *    proves *which* device it is: a click sequence (mouse, 30 s) or a typed code (keyboard).
  *  - Legacy pairing (no LE Secure Connections) is rejected unless the user enabled "allow legacy" for this
  *    pairing; it is then 🔴.
- *  - With "require physical confirmation" the last step is CONFIRM: both Shifts held 3 s on an ALREADY paired
+ *  - With "require physical confirmation" the last step is CONFIRM: Ctrl + Alt held 3 s on an ALREADY paired
  *    keyboard (skipped when there is none).
  *  - Rate limiting: 3 consecutive failures lock pairing for 60 s.
  * What the quarantine does NOT protect against: an active radio man-in-the-middle during the pairing window.

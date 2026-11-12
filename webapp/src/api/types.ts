@@ -250,7 +250,7 @@ export interface Pairing {
   lock_remaining_s: number;
   /** Notifications received from the device being paired (shows whether it is talking to the dongle at all). */
   rx_reports?: number;
-  /** True while a physical confirmation (both Shifts, 3 s) is awaited. */
+  /** True while a physical confirmation (Ctrl + Alt, 3 s) is awaited. */
   needs_confirmation: boolean;
   /** 6-digit passkey to type on the keyboard, when present. */
   passkey?: string;
@@ -284,7 +284,7 @@ export interface ScanResponse {
 
 /** Non-secret settings (`GET/PUT /api/v1/settings`). */
 export interface Settings {
-  /** Require both-Shift physical confirmation for new pairings. */
+  /** Require Ctrl+Alt physical confirmation for new pairings. */
   require_confirmation: boolean;
   /** Seconds the AP stays on after power-up. */
   ap_boot_window_s: number;
@@ -300,7 +300,7 @@ export interface Settings {
   led_brightness: number;
   /** Show dim green while a device is connected. */
   status_led: boolean;
-  /** Hold time of the both-Shift gesture in ms (applies from the next boot). */
+  /** Hold time of the Ctrl+Alt gesture in ms (applies from the next boot). */
   shift_hold_ms: number;
 }
 

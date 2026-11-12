@@ -248,12 +248,15 @@ pairs **one device at a time**.
    BONDED | FAILED`.
 
 ### 3.5 Wi-Fi access point
+> **Gesture changed (user decision after v1.1.3):** the keyboard gesture is **Ctrl + Alt** (either side) held for 3 s, and
+> **Ctrl + Alt + Esc** for 10 s for the password reset, instead of the two Shift keys. The web app can also switch the AP
+> off immediately (`POST /api/v1/system/wifi-off`).
 - SoftAP, SSID `HubBLE-XXXX` (last 4 hex digits of the MAC), **WPA2-PSK**.
 - **First run**: documented default setup password; the web app's setup wizard
   **forces** the user to set a new password (min 10 chars) before anything else.
 - The AP is **off** during normal use (latency/coexistence). It turns on when:
   1. **at power-up**, for a configurable window (default 5 min);
-  2. **both Shift keys held for 3 s** (no other keys) on any paired keyboard
+  2. **Ctrl + Alt held for 3 s** (no other keys) on any paired keyboard
      (the key events are still forwarded normally — they are harmless);
   3. always, while **no device is bonded** (first-run convenience).
 - While at least one client is connected **and** the web app is open (WebSocket
@@ -371,7 +374,7 @@ The 8 MB XIAO variant uses larger slots (e.g. 3 MB each) with the same layout lo
   USB wake via BIOS/IT policy.
 
 ### 3.10 Recovery paths (last resort, documented)
-- Forgotten Wi-Fi password: hold **both Shifts + Esc for 10 s** on a paired
+- Forgotten Wi-Fi password: hold **Ctrl + Alt + Esc for 10 s** on a paired
   keyboard → AP password reset to the default setup password and the setup
   wizard is shown again (bonds are kept).
 - Full factory reset without the web app: hold **BOOT** while plugging the

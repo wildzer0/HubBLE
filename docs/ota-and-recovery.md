@@ -22,7 +22,7 @@
 2. **Update, Check for updates:** the dongle keeps its own access point on, joins your network (APSTA), asks the GitHub
    Releases API for the newest release of the channel, reads its `manifest.json` and leaves your network again.
 3. The page shows the version, size, whether it is signed, and a link to the release notes.
-4. **Install:** if *Require physical confirmation* is on and a keyboard is paired, hold both Shifts for 3 s on it
+4. **Install:** if *Require physical confirmation* is on and a keyboard is paired, hold Ctrl + Alt for 3 s on it
    (30 s allowed). The dongle then downloads the image over HTTPS (certificate bundle), checks its SHA-256 against the
    manifest while writing it to the inactive slot, and only then lets the bootloader API verify the signature and
    select the slot. HID forwarding keeps working during the download.
@@ -60,5 +60,5 @@ M2 this will be re-verified.)
 |---|---|
 | Bad update | Automatic rollback (see above). |
 | Cannot reach the web app | Join `HubBLE-XXXX`, open `http://192.168.4.1`. The AP is always on while no BLE device is bonded. |
-| Forgotten Wi-Fi password | Not yet possible without USB (the Shift-combo reset needs BLE, M3). Re-flash the factory image over USB: it keeps your NVS but the password is stored there, so also erase flash: `esptool.py erase_flash`. |
+| Forgotten Wi-Fi password | Not yet possible without USB (the Ctrl + Alt combo reset needs BLE, M3). Re-flash the factory image over USB: it keeps your NVS but the password is stored there, so also erase flash: `esptool.py erase_flash`. |
 | Dongle not responding | Hold BOOT while plugging in, then flash `*-factory.bin` at `0x0` (see [Getting started](getting-started.md)). |

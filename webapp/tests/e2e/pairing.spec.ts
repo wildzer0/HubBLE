@@ -12,7 +12,7 @@ test('keyboard: passkey screen, physical confirmation, green result', async ({ p
 
   await mockPairing(request, 'advance'); // passkey typed
   await expect(page.getByTestId('confirm')).toBeVisible(); // a keyboard is already paired
-  await mockPairing(request, 'advance'); // both Shifts held
+  await mockPairing(request, 'advance'); // Ctrl + Alt held
   await expect(page.getByTestId('result-ok')).toContainText('Mock Keyboard is paired.');
   await expect(page.getByTestId('result-ok')).toContainText('Verified (passkey)');
 });

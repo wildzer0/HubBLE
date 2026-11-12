@@ -18,7 +18,7 @@ export async function resetMock(request: APIRequestContext, setupDone = true): P
 }
 
 /**
- * Do what the user would do on the device being paired (type the passkey, click, hold Shift).
+ * Do what the user would do on the device being paired (type the passkey, click, hold Ctrl + Alt).
  *
  * @param request Playwright request context.
  * @param action `advance`, `fail` or `timeout`.

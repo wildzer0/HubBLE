@@ -126,6 +126,13 @@ export const it: Record<MessageKey, string> = {
     'Segnali ricevuti dal dispositivo: {n}. Se resta a 0 mentre premi i tasti, il dongle non riceve nulla.',
   'pair.banner': 'Associazione in corso.',
   'pair.banner_open': 'Apri',
+  'wifi_off.button': 'Spegni subito il Wi-Fi',
+  'wifi_off.hint':
+    'Il Wi-Fi si spegne entro un secondo e questa pagina perde la connessione. Per riaccenderlo tieni premuti Ctrl e Alt insieme per 3 secondi su una tastiera associata.',
+  'wifi_off.done':
+    'Il Wi-Fi si sta spegnendo. Per riaccenderlo tieni premuti Ctrl e Alt insieme per 3 secondi su una tastiera associata.',
+  'wifi_off.no_devices':
+    'Associa prima un dispositivo: il Wi-Fi resta acceso finché non ce n’è uno.',
   'pair.pair_with': 'Associa {name}',
   'pair.connecting': 'Connessione a {name}…',
   'pair.waiting_device': 'In attesa del dispositivo…',
@@ -139,7 +146,7 @@ export const it: Record<MessageKey, string> = {
   'pair.click_middle': 'Centrale',
   'pair.progress': '{n} di {total}',
   'pair.confirm':
-    'Tieni premuti entrambi gli Shift per 3 secondi su una tastiera già associata per confermare.',
+    'Tieni premuti Ctrl e Alt insieme per 3 secondi su una tastiera già associata per confermare.',
   'pair.remaining': '{s} s rimasti',
   'pair.bonded': '{name} è associato.',
   'pair.done': 'Torna al pannello',
@@ -167,7 +174,7 @@ export const it: Record<MessageKey, string> = {
   'settings.security': 'Sicurezza',
   'settings.require_confirmation': 'Richiedi conferma fisica',
   'settings.require_confirmation_hint':
-    'Un nuovo pairing va confermato tenendo premuti entrambi gli Shift per 3 secondi su una tastiera già associata.',
+    'Un nuovo pairing va confermato tenendo premuti Ctrl e Alt insieme per 3 secondi su una tastiera già associata.',
   'settings.wifi': 'Access point Wi-Fi',
   'settings.boot_window': 'Acceso dopo l’accensione',
   'settings.idle_timeout': 'Spegni dopo l’ultimo client',
@@ -236,9 +243,9 @@ export const it: Record<MessageKey, string> = {
     'Questa versione è PIÙ VECCHIA di quella in uso. Voglio installare comunque la versione {version}.',
   'online.install': 'Installa {version}',
   'online.confirm_hint':
-    'Se la conferma fisica è attiva, ti verrà chiesto di tenere premuti entrambi gli Shift per 3 secondi su una tastiera associata.',
+    'Se la conferma fisica è attiva, ti verrà chiesto di tenere premuti Ctrl e Alt insieme per 3 secondi su una tastiera associata.',
   'online.confirm':
-    'Tieni premuti entrambi gli Shift per 3 secondi su una tastiera associata per avviare l’installazione ({s} s rimasti).',
+    'Tieni premuti Ctrl e Alt insieme per 3 secondi su una tastiera associata per avviare l’installazione ({s} s rimasti).',
   'online.installed': 'Installato. Il dongle si sta riavviando…',
   'online.error.no_wifi_credentials': 'Nessuna rete Wi-Fi salvata per gli aggiornamenti.',
   'online.error.wifi_failed': 'Impossibile entrare nella rete Wi-Fi. Controlla nome e password.',
@@ -263,9 +270,9 @@ export const it: Record<MessageKey, string> = {
   'settings.led': 'LED',
   'settings.led_brightness': 'Luminosità LED (0 = spento)',
   'settings.status_led': 'Mostra verde tenue quando un dispositivo è connesso',
-  'settings.shift_hold': 'Tieni premuti entrambi gli Shift per',
+  'settings.shift_hold': 'Tieni premuti Ctrl e Alt insieme per',
   'settings.led_hint':
-    'Il LED è sempre spento mentre il computer è in sospensione. Il tempo degli Shift si applica dopo il prossimo riavvio del dongle.',
+    'Il LED è sempre spento mentre il computer è in sospensione. Il tempo della combinazione si applica dopo il prossimo riavvio del dongle.',
   'system.power': 'Consumi',
   'system.power_active': 'Piena velocità',
   'system.power_low': 'Basso consumo (computer in sospensione)',

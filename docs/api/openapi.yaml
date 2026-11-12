@@ -168,6 +168,18 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/Ok' }
         '403': { $ref: '#/components/responses/Error' }
+  /api/v1/system/wifi-off:
+    post:
+      summary: Switch the Wi-Fi access point off now (it stays off until the Ctrl + Alt gesture or a restart)
+      description: Refused with 409 `no_bonded_devices` while no device is paired, because the AP is then the only way to pair one.
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
   /api/v1/devices:
     get:
       summary: Registered (bonded) devices with live state

@@ -6,7 +6,7 @@
  *  - decode every report from ble_central with hid_normalizer and feed usb_hid as source = device slot;
  *  - release all keys/buttons of a device when it disconnects;
  *  - measure notification -> USB-report-queued latency per device;
- *  - run the combo detector on the merged keyboard state (both Shifts -> Wi-Fi AP on; both Shifts + Esc for
+ *  - run the combo detector on the merged keyboard state (Ctrl + Alt -> Wi-Fi AP on; Ctrl + Alt + Esc for
  *    10 s -> reset the Wi-Fi password);
  *  - forward the host's keyboard LED state to the BLE keyboards.
  * The forwarding path allocates nothing and never blocks on Wi-Fi/HTTP work.

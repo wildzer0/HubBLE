@@ -9,8 +9,10 @@
  *     (WebSocket heartbeat alive); after the last such client leaves it stays on
  *     for the idle timeout;
  *  0. never while the host is suspended (power saving, CLAUDE.md §3.9), except while an OTA runs;
- *  4. when a "force on" request arrives (double-Shift combo, M3); this counts as
- *     activity, so the idle timeout then applies.
+ *  4. when a "force on" request arrives (Ctrl + Alt combo, M3); this counts as
+ *     activity, so the idle timeout then applies;
+ *  5. a "force off" request (the web app's "switch Wi-Fi off now") keeps it off until the next "force on" or power-up.
+ *     It is ignored while no peripheral is bonded (the AP must stay reachable for the first pairing) and during an OTA.
  * Dependencies: libc only. Threading: caller serialises access (single manager task).
  */
 #pragma once
@@ -35,7 +37,8 @@ typedef struct {
     uint32_t clients;        /**< Wi-Fi stations currently associated to the AP. */
     bool ws_alive;           /**< A web app WebSocket heartbeat was seen recently. */
     bool ota_active;         /**< An OTA upload/install is in progress. */
-    bool force_on;           /**< One-shot request to switch the AP on (e.g. Shift combo). */
+    bool force_on;           /**< One-shot request to switch the AP on (e.g. Ctrl + Alt combo). */
+    bool force_off;          /**< One-shot request to switch the AP off now (web app button). */
     bool host_suspended;     /**< The host suspended the USB bus: AP off (unless an OTA runs). */
 } ap_policy_inputs_t;
 
@@ -50,6 +53,7 @@ typedef struct {
     ap_policy_config_t cfg;  /**< Timing configuration. */
     uint64_t last_active_ms; /**< Last time a client+web-app session (or force request) was seen. */
     bool ever_active;        /**< true once last_active_ms is meaningful. */
+    bool forced_off;         /**< An explicit "off now" is in force (cleared by force_on or when nothing is bonded). */
 } ap_policy_t;
 
 /**

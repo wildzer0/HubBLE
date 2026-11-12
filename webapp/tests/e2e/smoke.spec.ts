@@ -26,3 +26,10 @@ test('navigation and live connection', async ({ page }) => {
   await page.getByRole('link', { name: 'Update' }).click();
   await expect(page).toHaveURL(/#\/update$/);
 });
+
+test('the Wi-Fi can be switched off from the devices page', async ({ page }) => {
+  await page.goto('/#/dashboard');
+  await page.getByRole('button', { name: 'Switch Wi-Fi off now' }).click();
+  await page.getByRole('button', { name: /Confirm: Switch Wi-Fi off now/ }).click();
+  await expect(page.getByText(/The Wi-Fi is switching off/)).toBeVisible();
+});

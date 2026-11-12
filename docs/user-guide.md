@@ -20,6 +20,9 @@ it on the dongle (the password is only in the code, not written anywhere else).
 
 The app has four tabs along the bottom: **Devices**, **Update**, **Settings** and **System**. The Devices tab shows one card per paired device (tap it for the details): type, connection state, battery, signal, the **security badge** (see below) and the measured
 latency the dongle adds. The top shows the firmware version, the USB state seen by the computer and when the Wi-Fi switches off.
+**Switch Wi-Fi off now** turns the dongle's Wi-Fi off at once (useful to test the devices without the radio
+competing with Bluetooth). It stays off until you hold **Ctrl and Alt together for 3 seconds** on a paired keyboard, or
+replug the dongle. It is refused while no device is paired, because the Wi-Fi is then the only way to pair one.
 
 The **Test input** button opens the input tester and **Add device** starts a pairing.
 
@@ -48,7 +51,7 @@ answer or a timeout removes the device again.
 
 ![Challenge](img/pair-challenge.png)
 
-If *Require physical confirmation* is on and a keyboard is already paired, finish by holding **both Shift keys for 3
+If *Require physical confirmation* is on and a keyboard is already paired, finish by holding **Ctrl and Alt for 3
 seconds** on that keyboard. Three failed pairings in a row lock pairing for 60 seconds. Details and limits:
 [Pairing and security](pairing-and-security.md).
 
@@ -70,7 +73,7 @@ while the page is open and enabled; nothing is stored. Quarantined devices are n
 ## 6. Settings
 
 Physical confirmation, how long the Wi-Fi stays on (after power-up and after the last client), remote wakeup, LED
-brightness and indication, the Shift gesture time, the update channel, and the Wi-Fi network used for updates. The network
+brightness and indication, the Ctrl + Alt gesture time, the update channel, and the Wi-Fi network used for updates. The network
 password is write-only: the dongle never shows it again. Language (English or Italian) is here too.
 
 ![Settings](img/settings.png)
@@ -86,7 +89,7 @@ network. While it searches, this connection may stall for a second or two.
 **Check for updates** joins your saved Wi-Fi network briefly, finds the newest release of the chosen channel (*Stable* or
 *Pre-release*) and shows its version, size, signature state and release notes. **Install** downloads it, verifies the SHA-256
 and the signature and restarts. HID forwarding keeps working during the download. If physical confirmation is on, hold both
-Shifts for 3 seconds when asked. An older version needs an explicit confirmation. Or install a `*-ota.bin` file you
+Ctrl + Alt for 3 seconds when asked. An older version needs an explicit confirmation. Or install a `*-ota.bin` file you
 downloaded. If the new firmware does not pass its self-test it is rolled back automatically. See
 [OTA and recovery](ota-and-recovery.md).
 
@@ -103,12 +106,12 @@ restore** of the settings (paired devices are never exported, they contain keys)
 ## 9. How the dongle behaves
 
 - The Wi-Fi is **off** during normal use. It turns on at power-up for a few minutes, while no device is paired, and when you
-  hold **both Shift keys for 3 seconds** on a paired keyboard.
+  hold **Ctrl and Alt together for 3 seconds** on a paired keyboard.
 - While at least one phone has the web app open, the Wi-Fi stays on; after the last one leaves it switches off after the
   idle time.
 - When the computer **sleeps**, the dongle asks your devices to save battery, turns the Wi-Fi and LED off, and (if allowed)
   lets a key press wake the computer. See [Power](power.md).
-- **Forgot the Wi-Fi password?** Hold both Shifts and Esc for 10 seconds on a paired keyboard. See
+- **Forgot the Wi-Fi password?** Hold Ctrl + Alt + Esc for 10 seconds on a paired keyboard. See
   [Troubleshooting](troubleshooting.md).
 
 ## 10. LED

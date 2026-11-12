@@ -121,6 +121,12 @@ export const en = {
     'Signals received from the device: {n}. If this stays at 0 while you press keys, the dongle is not receiving anything from it.',
   'pair.banner': 'A pairing is in progress.',
   'pair.banner_open': 'Open',
+  'wifi_off.button': 'Switch Wi-Fi off now',
+  'wifi_off.hint':
+    'The Wi-Fi turns off within a second and this page loses the connection. Hold Ctrl and Alt together for 3 seconds on a paired keyboard to turn it on again.',
+  'wifi_off.done':
+    'The Wi-Fi is switching off. Hold Ctrl and Alt together for 3 seconds on a paired keyboard to turn it on again.',
+  'wifi_off.no_devices': 'Pair a device first: the Wi-Fi stays on while none is paired.',
   'pair.pair_with': 'Pair with {name}',
   'pair.connecting': 'Connecting to {name}…',
   'pair.waiting_device': 'Waiting for the device…',
@@ -133,7 +139,8 @@ export const en = {
   'pair.click_right': 'Right',
   'pair.click_middle': 'Middle',
   'pair.progress': '{n} of {total}',
-  'pair.confirm': 'Hold both Shift keys for 3 seconds on an already paired keyboard to confirm.',
+  'pair.confirm':
+    'Hold Ctrl and Alt together for 3 seconds on an already paired keyboard to confirm.',
   'pair.remaining': '{s} s left',
   'pair.bonded': '{name} is paired.',
   'pair.done': 'Back to the dashboard',
@@ -161,7 +168,7 @@ export const en = {
   'settings.security': 'Security',
   'settings.require_confirmation': 'Require physical confirmation',
   'settings.require_confirmation_hint':
-    'A new pairing must be confirmed by holding both Shift keys for 3 seconds on an already paired keyboard.',
+    'A new pairing must be confirmed by holding Ctrl and Alt together for 3 seconds on an already paired keyboard.',
   'settings.wifi': 'Wi-Fi access point',
   'settings.boot_window': 'On after power-up',
   'settings.idle_timeout': 'Switch off after last client',
@@ -230,9 +237,9 @@ export const en = {
     'This is an OLDER version than the one running. I want to install version {version} anyway.',
   'online.install': 'Install {version}',
   'online.confirm_hint':
-    'If physical confirmation is on, you will be asked to hold both Shift keys for 3 seconds on a paired keyboard.',
+    'If physical confirmation is on, you will be asked to hold Ctrl and Alt together for 3 seconds on a paired keyboard.',
   'online.confirm':
-    'Hold both Shift keys for 3 seconds on a paired keyboard to start the installation ({s} s left).',
+    'Hold Ctrl and Alt together for 3 seconds on a paired keyboard to start the installation ({s} s left).',
   'online.installed': 'Installed. The dongle is restarting…',
   'online.error.no_wifi_credentials': 'No Wi-Fi network saved for updates.',
   'online.error.wifi_failed': 'Could not join the Wi-Fi network. Check its name and password.',
@@ -257,9 +264,9 @@ export const en = {
   'settings.led': 'LED',
   'settings.led_brightness': 'LED brightness (0 = off)',
   'settings.status_led': 'Show dim green while a device is connected',
-  'settings.shift_hold': 'Hold both Shift keys for',
+  'settings.shift_hold': 'Hold Ctrl and Alt for',
   'settings.led_hint':
-    'The LED is always off while the computer sleeps. The Shift time applies after the next restart of the dongle.',
+    'The LED is always off while the computer sleeps. The gesture time applies after the next restart of the dongle.',
   'system.power': 'Power',
   'system.power_active': 'Full speed',
   'system.power_low': 'Low power (computer asleep)',

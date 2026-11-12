@@ -169,7 +169,7 @@ static void combo_task(void *arg) {
         uint32_t now_ms = (uint32_t)(esp_timer_get_time() / 1000);
         switch (combo_update(&combo, now_ms, k.modifiers, k.keys, HID_KBD_MAX_KEYS)) {
         case COMBO_AP_ON:
-            ESP_LOGI(TAG, "both Shifts held: Wi-Fi AP on");
+            ESP_LOGI(TAG, "Ctrl + Alt held: Wi-Fi AP on");
             wifi_ap_request_on();
             /* The same gesture is the physical confirmation of a pairing waiting for it (CLAUDE.md §3.4.3). The
              * candidate is quarantined, so this can only come from an already paired keyboard. */

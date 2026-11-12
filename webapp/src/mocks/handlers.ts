@@ -230,7 +230,7 @@ function confirmOrBond(): void {
 /**
  * Test hook (`POST /api/v1/mock/pairing`): what the user would do on the device.
  *
- * @param action `advance` (type the passkey / click / hold Shift), `fail` or `timeout`.
+ * @param action `advance` (type the passkey / click / hold Ctrl + Alt), `fail` or `timeout`.
  */
 function mockPairingAction(action: string): void {
   const p = state.pairing;
@@ -633,6 +633,18 @@ export function handleMock(req: MockRequest): MockResponse {
         resetMock({
           setupDone: (req.json as { setupDone?: boolean } | undefined)?.setupDone ?? true,
         });
+        return { status: 200, json: { ok: true } };
+      }
+      case '/api/v1/system/wifi-off': {
+        const bad = guard(req, 'application/json');
+        if (bad) return bad;
+        if (state.devices.length === 0) {
+          return err(
+            409,
+            'no_bonded_devices',
+            'Pair a device first: the Wi-Fi stays on while none is paired',
+          );
+        }
         return { status: 200, json: { ok: true } };
       }
       case '/api/v1/system/reboot':

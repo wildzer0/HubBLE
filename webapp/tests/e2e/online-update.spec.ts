@@ -87,7 +87,7 @@ test('physical confirmation, then download progress, then installed', async ({ p
   await page.goto('/#/update');
   await page.getByRole('button', { name: 'Check for updates' }).click();
   await page.getByRole('button', { name: 'Install 0.7.0' }).click();
-  await expect(page.getByText(/Hold both Shift keys for 3 seconds/).first()).toBeVisible();
+  await expect(page.getByText(/Hold Ctrl and Alt together for 3 seconds/).first()).toBeVisible();
   await mockOta(request, undefined, true);
   await expect(page.getByRole('progressbar')).toBeVisible();
   await expect(page.getByText('Uploading… 50%')).toBeVisible();

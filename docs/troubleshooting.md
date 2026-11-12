@@ -10,9 +10,9 @@
 
 - **The captive portal page does not open:** browse to `http://hubble.local` or `http://192.168.4.1`. Some phones need the
   mobile data switched off to stay on a Wi-Fi without internet.
-- **The Wi-Fi network is not there:** the access point is off during normal use. Hold both Shift keys for 3 seconds on a
+- **The Wi-Fi network is not there:** the access point is off during normal use. Hold Ctrl and Alt together for 3 seconds on a
   paired keyboard. With no device paired it is always on.
-- **Forgotten Wi-Fi password:** hold both Shifts and Esc for 10 s on a paired keyboard (the password returns to the
+- **Forgotten Wi-Fi password:** hold Ctrl + Alt + Esc for 10 s on a paired keyboard (the password returns to the
   default `hubble-setup` and the setup wizard starts again; paired devices are kept). Last resort: hold BOOT while
   plugging in and keep it pressed for 10 s (factory reset). See [OTA and recovery](ota-and-recovery.md).
 - **The page says "Offline":** the live connection dropped (for example the Wi-Fi restarted). It reconnects by itself.

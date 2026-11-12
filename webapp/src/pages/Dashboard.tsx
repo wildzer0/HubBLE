@@ -4,9 +4,11 @@
  * device (name, type, connection, battery, signal, security badge, measured latency), plus "Add device" and the
  * input tester.
  */
-import { getStatus } from '../api/client';
+import { useState } from 'preact/hooks';
+import { ApiError, getStatus, wifiOff } from '../api/client';
 import type { Device } from '../api/types';
 import { SecurityBadge } from '../components/SecurityBadge';
+import { ConfirmButton } from '../components/ConfirmButton';
 import { Alert, Icon, Pill } from '../components/ui';
 import { useT } from '../i18n/context';
 import { useApi } from '../lib/useApi';
@@ -65,6 +67,25 @@ export function Dashboard() {
   const devices = useDevices();
   const list = devices.data;
   const full = list !== null && list.devices.length >= list.max;
+  const [wifiMsg, setWifiMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const switchOff = () => {
+    wifiOff().then(
+      () => {
+        setWifiMsg({ ok: true, text: t('wifi_off.done') });
+      },
+      (e: unknown) => {
+        setWifiMsg({
+          ok: false,
+          text:
+            e instanceof ApiError && e.code === 'no_bonded_devices'
+              ? t('wifi_off.no_devices')
+              : e instanceof Error
+                ? e.message
+                : String(e),
+        });
+      },
+    );
+  };
 
   return (
     <>
@@ -131,6 +152,13 @@ export function Dashboard() {
               </dd>
             </div>
           </dl>
+          <ConfirmButton danger={false} label={t('wifi_off.button')} onConfirm={switchOff} />
+          <p class="hint">{t('wifi_off.hint')}</p>
+          {wifiMsg && (
+            <Alert kind={wifiMsg.ok ? 'ok' : 'bad'} role={wifiMsg.ok ? 'status' : 'alert'}>
+              {wifiMsg.text}
+            </Alert>
+          )}
         </section>
       )}
     </>

@@ -201,7 +201,7 @@ void ble_central_pairing_status(ble_pairing_status_t *out);
 void ble_central_set_require_confirm(bool enabled);
 
 /**
- * @brief The physical confirmation happened (both Shifts held 3 s on a paired keyboard). Ignored unless a pairing waits
+ * @brief The physical confirmation happened (Ctrl + Alt held 3 s on a paired keyboard). Ignored unless a pairing waits
  * for it.
  */
 void ble_central_physical_confirm(void);
