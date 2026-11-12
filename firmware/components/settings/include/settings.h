@@ -58,6 +58,14 @@ esp_err_t settings_get_ap_password(char *out, size_t cap);
 esp_err_t settings_set_ap_password(const char *password);
 
 /**
+ * @brief Forget the stored AP password: the default setup password applies again and the setup wizard is shown
+ *        (CLAUDE.md §3.10 recovery). Bonds are untouched.
+ *
+ * @return ESP_OK (also when nothing was stored) or an NVS error.
+ */
+esp_err_t settings_reset_ap_password(void);
+
+/**
  * @brief Whether the user has set their own Wi-Fi password (setup wizard completed).
  *
  * @return true if a custom password is stored.

@@ -10,6 +10,9 @@
  */
 #pragma once
 
+#include <stdbool.h>
+#include <stddef.h>
+
 #include "esp_err.h"
 #include "sdkconfig.h"
 #include "esp_http_server.h"
@@ -20,10 +23,20 @@ extern "C" {
 
 /** Number of URI handlers api_register() adds (so the server can size max_uri_handlers). */
 #if CONFIG_HUBBLE_USB_DEBUG_INJECT
-#define API_URI_HANDLER_COUNT 9
+#define API_URI_HANDLER_COUNT 17
 #else
-#define API_URI_HANDLER_COUNT 8
+#define API_URI_HANDLER_COUNT 16
 #endif
+
+/**
+ * @brief Build the JSON payload of a `device.updated` / `device.removed` WebSocket event.
+ *
+ * @param slot Device slot.
+ * @param out  Output buffer.
+ * @param cap  Buffer size.
+ * @return true if the JSON was produced (false for an invalid slot or a too small buffer).
+ */
+bool api_device_event_json(int slot, char *out, size_t cap);
 
 /**
  * @brief Register all REST handlers.

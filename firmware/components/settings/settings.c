@@ -77,6 +77,21 @@ esp_err_t settings_set_ap_password(const char *password) {
     return err;
 }
 
+/** @copydoc settings_reset_ap_password */
+esp_err_t settings_reset_ap_password(void) {
+    if (!s_ready) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    esp_err_t err = nvs_erase_key(s_nvs, KEY_AP_PASS);
+    if (err == ESP_ERR_NVS_NOT_FOUND) {
+        return ESP_OK; /* Already at the default. */
+    }
+    if (err == ESP_OK) {
+        err = nvs_commit(s_nvs);
+    }
+    return err;
+}
+
 /** @copydoc settings_is_setup_done */
 bool settings_is_setup_done(void) {
     size_t len = 0;

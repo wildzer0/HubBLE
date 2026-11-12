@@ -115,6 +115,13 @@ void usb_hid_mouse(unsigned src, uint8_t buttons, int32_t dx, int32_t dy, int32_
 void usb_hid_release_source(unsigned src);
 
 /**
+ * @brief Current merged keyboard state (what the host sees), for the combo detector.
+ *
+ * @param[out] out Receives the merged report.
+ */
+void usb_hid_get_keyboard_state(hid_kbd_report_t *out);
+
+/**
  * @brief Keyboard LED bits last set by the host (hid_led_bits_t).
  *
  * @return Bit field.

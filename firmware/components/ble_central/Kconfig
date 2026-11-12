@@ -1,0 +1,21 @@
+menu "HubBLE BLE central"
+    config HUBBLE_BLE_CONN_ITVL_UNITS
+        int "Requested connection interval (1.25 ms units)"
+        default 6
+        range 6 80
+        help
+            6 = 7.5 ms, the target of CLAUDE.md §1.1 (added latency <= 15 ms). The peripheral may refuse; the
+            negotiated value is exposed per device.
+
+    config HUBBLE_BLE_CONN_LATENCY
+        int "Requested peripheral latency (connection events) while the host is active"
+        default 0
+        range 0 30
+
+    config HUBBLE_BLE_SUPERVISION_TIMEOUT_10MS
+        int "Supervision timeout (10 ms units)"
+        default 200
+        range 100 3200
+        help
+            200 = 2 s (CLAUDE.md §3.3).
+endmenu

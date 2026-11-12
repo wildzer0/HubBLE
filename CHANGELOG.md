@@ -16,6 +16,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `debug_usb` build overlay: `POST /api/v1/debug/input` injects test input without BLE.
 - `tools/check.sh`: local mirror of the CI pipeline.
 
+- BLE central (NimBLE, up to 4 peripherals + 1 pairing candidate): HOGP client (report map, report references,
+  notifications, battery, keyboard LEDs), persistent device registry, allow-list auto-reconnect, 7.5 ms interval
+  request with measured values, per-device RSSI/latency/battery statistics.
+- Pure host-tested components: `hid_parser` (generic report-map parser, garbage-run under ASan/UBSan),
+  `hid_normalizer`, `combo` (both Shifts -> AP on, both Shifts + Esc 10 s -> Wi-Fi password reset), `lat_stats`.
+- `bridge`: BLE -> USB forwarding, key release on disconnect, host LED sync, combo task.
+- REST: `/devices`, `/devices/{id}` (+ `/report-map`), `/pairing/scan|start|cancel`; WebSocket `device.updated|removed`.
+  M3 pairing is Just Works; the secure pairing flows come in M4.
+
 ### Changed
 
 - The USB Serial/JTAG console is removed (TinyUSB owns the USB PHY); see ADR 10. Logs stay in the web app.

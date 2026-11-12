@@ -31,3 +31,11 @@ Planned for later milestones: `device.updated`, `device.removed`, `pairing.*`, `
 - Log text is only streamed while a WebSocket client is connected; older text is available from
   `GET /api/v1/logs`.
 - Release builds never log keystrokes or report payloads, so none can appear here.
+
+## Device events (M3)
+
+- `device.updated`: the device object of `GET /api/v1/devices` (id, name, connected, ready, battery, rssi, connection, latency_us...).
+  Sent on connect/disconnect, discovery done, battery change, rename.
+- `device.removed`: `{ "slot": n, "removed": true }` after a device was forgotten.
+- `pairing.state`: `{}`; a hint that the pairing state changed, poll `GET /api/v1/pairing/scan` for the details (the detailed
+  `pairing.passkey`/`pairing.challenge`/`pairing.result` events arrive with M4).

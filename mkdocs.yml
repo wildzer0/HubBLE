@@ -37,6 +37,7 @@ nav:
       - Board marker: adr/0008-board-marker.md
       - USB Serial/JTAG console: adr/0009-usb-serial-jtag-console.md
       - USB HID layout: adr/0010-usb-hid-interfaces.md
+      - BLE central design: adr/0011-ble-central-design.md
   - Testing:
       - M0 checklist: testing/m0.md
       - M1 checklist: testing/m1.md

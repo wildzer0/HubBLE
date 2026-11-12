@@ -1,15 +1,19 @@
 /**
  * @file main.c
- * @brief HubBLE application entry point (M2: + USB composite HID).
+ * @brief HubBLE application entry point (M3: + BLE central and bridge).
  *
  * Responsibilities: bring the subsystems up in dependency order, wire the OTA progress to the WebSocket,
  * and register the OTA self-test checks.
- * Dependencies: board, led, usb_hid, settings, log_buffer, ota, wifi_ap, captive_portal, web_server, web_assets.
- * Threading: runs once in the main task, then returns; every subsystem owns its own task(s).
+ * Dependencies: board, led, usb_hid, bridge, ble_central, api, settings, log_buffer, ota, wifi_ap, captive_portal,
+ * web_server, web_assets. Threading: runs once in the main task, then returns; every subsystem owns its own task(s).
  */
 #include <stdio.h>
+#include <string.h>
 
+#include "api.h"
+#include "ble_central.h"
 #include "board.h"
+#include "bridge.h"
 #include "captive_portal.h"
 #include "esp_app_desc.h"
 #include "esp_log.h"
@@ -26,6 +30,9 @@
 #include "wifi_ap.h"
 
 static const char *TAG = "hubble";
+
+/** Size of the buffer holding a device event JSON. */
+#define BLE_EVENT_JSON_MAX 640
 
 /** Duration of the white boot flash (CLAUDE.md §3.6: "white, short"). */
 #define BOOT_LED_FLASH_MS 300
@@ -98,9 +105,26 @@ static bool check_wifi(void) {
 static bool check_web(void) {
     return web_server_is_running();
 }
+static bool check_ble(void) {
+    return ble_central_is_ready();
+}
 static bool check_usb(void) {
     /* Driver installed and report task running; whether a host is attached is not a firmware fault. */
     return usb_hid_is_initialized();
+}
+
+/**
+ * @brief Device/pairing change -> WebSocket event (`device.updated`, `device.removed`, `pairing.state`).
+ *
+ * @param slot Device slot, or -1 for a pairing state change.
+ */
+static void on_ble_changed(int slot) {
+    char json[BLE_EVENT_JSON_MAX];
+    if (slot < 0) {
+        web_server_broadcast("pairing.state", "{}");
+    } else if (api_device_event_json(slot, json, sizeof(json))) {
+        web_server_broadcast(strstr(json, "\"removed\"") != NULL ? "device.removed" : "device.updated", json);
+    }
 }
 
 /** @brief Entry point called by ESP-IDF after the system is up. */
@@ -141,10 +165,16 @@ void app_main(void) {
         ESP_LOGE(TAG, "web server start failed: %s", esp_err_to_name(err));
     }
 
+    err = bridge_init(on_ble_changed);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "BLE bridge init failed: %s", esp_err_to_name(err));
+    }
+
     ota_set_progress_cb(on_ota_progress);
     ota_selftest_register("settings", check_settings);
     ota_selftest_register("wifi_ap", check_wifi);
     ota_selftest_register("web_server", check_web);
     ota_selftest_register("usb_hid", check_usb);
+    ota_selftest_register("ble", check_ble);
     ota_selftest_start();
 }

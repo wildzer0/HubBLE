@@ -117,6 +117,55 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/Ok' }
         '403': { $ref: '#/components/responses/Error' }
+  /api/v1/devices:
+    get:
+      summary: Registered (bonded) devices with live state
+      responses:
+        '200': { description: "{ devices: [...], max: 4 }" }
+  /api/v1/devices/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, description: "12 hex digits (the address)" } }
+    get:
+      summary: One device
+      responses:
+        '200': { description: Device }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      summary: Rename (`{ "name": "..." }`)
+      responses:
+        '200': { description: Device }
+        '400': { $ref: '#/components/responses/Error' }
+    delete:
+      summary: Forget the device and delete its bond
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+  /api/v1/devices/{id}/report-map:
+    get:
+      summary: Raw report map as hex (`{ hex, length }`); 409 if the device is not connected
+      responses:
+        '200': { description: Report map }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/pairing/scan:
+    get:
+      summary: Pairing state and the scan list (HID-looking advertisers)
+      responses:
+        '200': { description: "{ state, results: [{ address, address_type, name, rssi, appearance }] }" }
+    post:
+      summary: Start a 30 s scan (409 when busy or all four slots are used)
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/pairing/start:
+    post:
+      summary: Pair with `{ address, address_type }` (M3 Just Works; secure flows in M4)
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/pairing/cancel:
+    post:
+      summary: Cancel scanning / pairing
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
   /api/v1/debug/input:
     post:
       summary: Inject test input (only in builds with the debug_usb overlay)

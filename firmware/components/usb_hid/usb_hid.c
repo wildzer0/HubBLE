@@ -393,6 +393,13 @@ void usb_hid_release_source(unsigned src) {
     mark_dirty(DIRTY_ALL);
 }
 
+/** @copydoc usb_hid_get_keyboard_state */
+void usb_hid_get_keyboard_state(hid_kbd_report_t *out) {
+    portENTER_CRITICAL(&s_lock);
+    hid_merge_get_keyboard(&s_merge, out);
+    portEXIT_CRITICAL(&s_lock);
+}
+
 /** @copydoc usb_hid_get_leds */
 uint8_t usb_hid_get_leds(void) {
     return s_leds;

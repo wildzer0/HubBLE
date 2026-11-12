@@ -14,6 +14,15 @@ ADR 10, docs/testing/m2.md, CHANGELOG [Unreleased]. Console removed (CONFIG_ESP_
 UNVERIFIED on hardware: enumeration, BIOS, wakeup, and above all "reboot to download mode" with TinyUSB (docs/testing/m2.md E).
 Next: M3 (BLE central) — ask the user about the B68 custom firmware first. Tag v0.3.0 only at the end (policy).
 
+## M3 — BLE central and forwarding (branch milestone/m2-usb-hid continues, local only)
+DONE (builds for both boards, check.sh full green; NOTHING hardware-tested): hid_parser, hid_normalizer, combo, lat_stats (host tests),
+hogp_client, ble_central (+device_registry), bridge, REST /devices + /pairing, WS device events, ADR 11, docs/testing/m3.md.
+B68 note: its BLE is the BK3632 chip (Oblio only sends UART frames); pairing slot = hold B/N/M 3 s; BLE name OBLIO. EM06 is stock.
+Risks to check on hardware: allow-list connect needs public/static addresses; heap with NimBLE+Wi-Fi (target >=60 KB; PSRAM on S3-Zero is enabled
+but NimBLE uses internal RAM); 7.5 ms interval acceptance; legacy pairing of the BK3632 (may be 🔴/🟡 in M4).
+Fixtures pending: firmware/test/fixtures/{yunzii-b68,protoarc-em06}.hex.
+Next: M4 (secure pairing: passkey, quarantine/challenges, state machine host-tested). Tag only at the very end.
+
 ## Current milestone: M0 — Project bootstrap (target `v0.1.0`)
 
 ### Decisions (confirmed by the user)
