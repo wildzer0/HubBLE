@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-11-13
+
 ### Fixed
 
 - The quiet captive-portal mode (answering the connectivity probes as if there were internet) was the default in 1.2.0, but
