@@ -135,9 +135,9 @@ export const it: Record<MessageKey, string> = {
     'Associa prima un dispositivo: il Wi-Fi resta acceso finché non ce n’è uno.',
   'settings.portal_auto': 'Apri questa pagina quando ti colleghi al Wi-Fi',
   'settings.portal_auto_hint':
-    'Spento: il telefono resta semplicemente connesso e apri la pagina dal codice QR, da hubble.local o da 192.168.4.1. Acceso: il telefono apre la pagina da solo, ma alcuni telefoni poi lasciano il Wi-Fi perché senza internet. Sempre acceso finché la configurazione non è completata.',
+    'Acceso: il telefono propone da solo di aprire questa pagina quando si collega al Wi-Fi (consigliato, e l’unico modo affidabile su Android). Spento: non si apre nulla, va bene per iPhone e PC; su Android il browser resta sui dati mobili e non raggiunge il dongle finché non li spegni. Sempre acceso finché la configurazione non è completata.',
   'setup.portal_hint':
-    'D’ora in poi il Wi-Fi non apre una pagina da solo: inquadra il secondo codice, oppure apri http://192.168.4.1 o http://hubble.local nel browser.',
+    'Inquadra il secondo codice, oppure apri http://192.168.4.1 o http://hubble.local nel browser. Su Android, se il browser non raggiunge la pagina, spegni i dati mobili o usa la notifica «Accedi alla rete Wi-Fi».',
   'device.battery_low': 'Batteria scarica',
   'device.battery_low_banner':
     '{name}: la batteria è scarica ({pct} %). Ricaricala o sostituiscila presto.',

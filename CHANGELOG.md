@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- The quiet captive-portal mode (answering the connectivity probes as if there were internet) was the default in 1.2.0, but
+  on Android it makes the browser stay on mobile data and fail to reach `192.168.4.1` (`ERR_TOO_MANY_RETRIES`): the Wi-Fi
+  cannot be "validated" because the HTTPS probe has no valid certificate. The pop-up is the default again; the quiet mode
+  stays available in Settings, with the Android caveat documented.
+
 ## [1.2.0] - 2026-11-13
 
 ### Added

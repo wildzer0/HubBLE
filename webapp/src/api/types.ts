@@ -296,7 +296,7 @@ export interface Settings {
   sta_configured: boolean;
   /** A key press, click or movement wakes the suspended host. */
   remote_wakeup: boolean;
-  /** Joining the Wi-Fi pops up this page (captive portal). Off by default; always on until the setup wizard is done. */
+  /** Joining the Wi-Fi pops up this page (captive portal). On by default; always on until the setup wizard is done. */
   portal_auto: boolean;
   /** LED brightness in percent; 0 turns the status LED off. */
   led_brightness: number;

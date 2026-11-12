@@ -201,10 +201,11 @@ void settings_get_ota_result(char *out, size_t cap);
 #define SETTINGS_SHIFT_HOLD_DEFAULT_MS 3000
 
 /**
- * @brief Whether joining the Wi-Fi should pop up the web app (captive portal). Default false: the dongle then answers
- * the operating systems' connectivity probes as if the network had internet, so nothing pops up and the phone does not
- * drop the network; the page is opened from the QR code, `hubble.local` or `192.168.4.1`. Until the setup wizard is
- * done the popup is always on.
+ * @brief Whether joining the Wi-Fi should pop up the web app (captive portal). Default true. When false the dongle
+ * answers the operating systems' connectivity probes as if the network had internet, so nothing pops up; that suits
+ * iPhones and PCs, but Android then keeps its browser on mobile data (the Wi-Fi is not "validated": it cannot answer
+ * the HTTPS probe) and cannot reach 192.168.4.1 unless mobile data is off. Until the setup wizard is done the popup is
+ * always on.
  */
 bool settings_get_portal_auto(void);
 /** @brief Store the captive-portal popup flag. @param enabled New value. @return ESP_OK or an NVS error. */

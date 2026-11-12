@@ -258,7 +258,7 @@ esp_err_t settings_set_remote_wakeup(bool enabled) {
 
 /** @copydoc settings_get_portal_auto */
 bool settings_get_portal_auto(void) {
-    return get_flag(KEY_PORTAL_AUTO, false);
+    return get_flag(KEY_PORTAL_AUTO, true);
 }
 
 /** @copydoc settings_set_portal_auto */

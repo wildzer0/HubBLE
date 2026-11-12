@@ -42,3 +42,7 @@
   few seconds while the dongle joins your router.
 - **The dongle went back to the old version:** the new one failed its self-test and was rolled back automatically; the
   Update page shows the reason.
+
+- **Chrome says `ERR_TOO_MANY_RETRIES` (or times out) on `192.168.4.1` (Android):** the phone is sending the browser over mobile
+  data because the dongle's Wi-Fi has no internet. Open the page from the "Sign in to Wi-Fi" notification, or turn mobile data off,
+  or tap "Stay connected" when Android asks. Also check that *Open this page when joining the Wi-Fi* is on in Settings.

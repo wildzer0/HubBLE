@@ -129,9 +129,9 @@ export const en = {
   'wifi_off.no_devices': 'Pair a device first: the Wi-Fi stays on while none is paired.',
   'settings.portal_auto': 'Open this page when joining the Wi-Fi',
   'settings.portal_auto_hint':
-    'Off: the phone just stays connected and you open the page from the QR code, hubble.local or 192.168.4.1. On: the phone pops up the page by itself, but some phones then drop the Wi-Fi for having no internet. Always on until the setup is done.',
+    'On: the phone offers to open this page by itself when it joins the Wi-Fi (recommended, and the only reliable way on Android). Off: nothing pops up, which suits iPhones and PCs; on Android the browser then stays on mobile data and cannot reach the dongle unless you turn mobile data off. Always on until the setup is done.',
   'setup.portal_hint':
-    'From now on the Wi-Fi does not pop up a page by itself: scan the second code, or open http://192.168.4.1 or http://hubble.local in the browser.',
+    'Scan the second code, or open http://192.168.4.1 or http://hubble.local in the browser. On Android, if the browser cannot reach the page, turn mobile data off or use the “Sign in to Wi-Fi” notification.',
   'device.battery_low': 'Low battery',
   'device.battery_low_banner': '{name}: the battery is low ({pct} %). Charge or replace it soon.',
   'report.heading': 'Help improve compatibility',

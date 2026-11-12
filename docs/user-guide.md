@@ -18,10 +18,16 @@ it on the dongle (the password is only in the code, not written anywhere else).
 
 ## Opening the page
 
-After the setup, joining the dongle's Wi-Fi does **not** pop up a page by itself, so the phone keeps the connection
-instead of dropping it for having no internet. Open `http://192.168.4.1` (or `http://hubble.local`) in the browser, or scan
-the second QR code of the sticker. The pop-up can be turned back on in Settings (*Open this page when joining the Wi-Fi*);
-during the first-run setup it is always on.
+Joining the dongle's Wi-Fi offers to open the page by itself (the "sign in to the network" pop-up), which is the only
+reliable way on Android. You can also open `http://192.168.4.1` (or `http://hubble.local`) in the browser, or scan the second
+QR code of the sticker.
+
+**Android:** the dongle has no internet, so Android keeps its browser on mobile data and a browser opened by hand cannot
+reach `192.168.4.1` (Chrome shows `ERR_TOO_MANY_RETRIES` or a timeout). Use the "Sign in to Wi-Fi" notification, or turn mobile
+data off while you configure the dongle, or choose "Stay connected" when Android asks about the network.
+
+In Settings, *Open this page when joining the Wi-Fi* can be turned off: nothing pops up then, which suits iPhones and PCs
+but makes the Android problem above permanent.
 
 ## 2. Devices
 
