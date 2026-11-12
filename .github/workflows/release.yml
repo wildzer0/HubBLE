@@ -123,7 +123,13 @@ jobs:
           # Artifacts keep the firmware/build-<board>/ prefix as their common root is stripped;
           # rebuild the layout expected by make_release_assets.py.
           mkdir -p fw
-          for b in s3_zero; do mv "art/build-$b" "fw/build-$b"; done
+          for b in s3_zero; do
+            if [ -d "art/build-$b" ]; then
+              mv "art/build-$b" "fw/build-$b"
+            else
+              mv art "fw/build-$b" # with a single artifact the download has no per-artifact folder
+            fi
+          done
           python3 tools/make_release_assets.py "${GITHUB_REF_NAME#v}" fw release s3_zero
           rm -f "$RUNNER_TEMP/signing_key.pem"
       - name: Publish GitHub release

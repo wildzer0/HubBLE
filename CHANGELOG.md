@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.5] - 2026-11-12
+
+### Fixed
+
+- Release workflow: with a single board the downloaded build artifact has no per-board folder, so publishing 1.1.4 failed.
+  1.1.4 was therefore never published; 1.1.5 contains everything listed under 1.1.4.
+
 ## [1.1.4] - 2026-11-12
 
 ### Changed
