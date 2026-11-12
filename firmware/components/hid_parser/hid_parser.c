@@ -245,6 +245,11 @@ hid_parse_result_t hid_parser_parse(const uint8_t *desc, size_t len, hid_layout_
                     }
                 }
             } else if (tag == MAIN_COLLECTION) {
+                /* The first Application collection (type 1) at the top level says what the device mainly is. */
+                if (depth == 0 && size >= 1 && data[0] == 1 && layout->primary_page == 0 && loc.usage_count > 0) {
+                    layout->primary_page = g.usage_page;
+                    layout->primary_usage = loc.usages[0];
+                }
                 if (++depth > HID_PARSER_MAX_DEPTH) {
                     return HID_PARSE_BAD_DEPTH;
                 }

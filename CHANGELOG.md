@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- A trackball whose report map also contains a keyboard collection with modifier keys was still counted as "an already
+  paired keyboard", so pairing a real keyboard asked for a Ctrl + Alt confirmation that nobody could give. The parser now
+  records the first top-level collection (what the device mainly is) and the classification uses it; the stored flag is
+  re-evaluated at every connection, so an affected trackball is corrected without pairing it again.
+
 ## [1.1.5] - 2026-11-12
 
 ### Fixed

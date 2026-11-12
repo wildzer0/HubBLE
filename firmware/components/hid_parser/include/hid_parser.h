@@ -85,10 +85,12 @@ typedef struct {
 
 /** Everything the normalizer needs to decode a device's reports. */
 typedef struct {
-    hid_field_t fields[HID_PARSER_MAX_FIELDS];   /**< Stored fields in descriptor order. */
-    uint8_t nfields;                             /**< Number of valid entries in @c fields. */
-    bool uses_report_ids;                        /**< At least one Report ID item was seen. */
-    uint8_t n_ids[2];                            /**< Number of distinct report IDs per direction. */
+    hid_field_t fields[HID_PARSER_MAX_FIELDS]; /**< Stored fields in descriptor order. */
+    uint8_t nfields;                           /**< Number of valid entries in @c fields. */
+    bool uses_report_ids;                      /**< At least one Report ID item was seen. */
+    uint16_t primary_page;  /**< Usage page of the FIRST top-level (Application) collection, 0 if none. */
+    uint16_t primary_usage; /**< Its usage (Generic Desktop: 0x06 keyboard, 0x02 mouse): what the device mainly is. */
+    uint8_t n_ids[2];       /**< Number of distinct report IDs per direction. */
     uint8_t ids[2][HID_PARSER_MAX_REPORT_IDS];   /**< The distinct report IDs per direction. */
     uint16_t bits[2][HID_PARSER_MAX_REPORT_IDS]; /**< Payload size in bits of each of those reports. */
 } hid_layout_t;

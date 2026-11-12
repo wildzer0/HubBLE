@@ -356,6 +356,35 @@ static const uint8_t MOUSE_WITH_SHORTCUT_KEYS[] = {
     0x05, 0x07, 0x95, 0x06, 0x75, 0x08, 0x15, 0x00, 0x25, 0x65, 0x19, 0x00, 0x29, 0x65, 0x81, 0x00, 0xC0,
 };
 
+/* A trackball whose keyboard collection has modifier keys too (as the ProtoArc EM06 seems to): still a pointer. */
+static const uint8_t MOUSE_WITH_MODIFIER_KEYBOARD[] = {
+    0x05, 0x01, 0x09, 0x02, 0xA1, 0x01, 0x85, 0x01, 0x09, 0x01, 0xA1, 0x00, /* Mouse first, ID 1 */
+    0x05, 0x09, 0x19, 0x01, 0x29, 0x03, 0x15, 0x00, 0x25, 0x01, 0x95, 0x03, 0x75, 0x01, 0x81, 0x02, 0x95,
+    0x01, 0x75, 0x05, 0x81, 0x01, 0x05, 0x01, 0x09, 0x30, 0x09, 0x31, 0x15, 0x81, 0x25, 0x7F, 0x75, 0x08,
+    0x95, 0x02, 0x81, 0x06, 0xC0, 0xC0, 0x05, 0x01, 0x09, 0x06, 0xA1, 0x01, 0x85, 0x02, /* Keyboard, ID 2, WITH
+                                                                                           modifiers */
+    0x05, 0x07, 0x19, 0xE0, 0x29, 0xE7, 0x15, 0x00, 0x25, 0x01, 0x75, 0x01, 0x95, 0x08, 0x81, 0x02, 0x95,
+    0x06, 0x75, 0x08, 0x15, 0x00, 0x25, 0x65, 0x19, 0x00, 0x29, 0x65, 0x81, 0x00, 0xC0,
+};
+
+void test_trackball_with_modifier_keyboard_is_not_a_keyboard(void) {
+    hid_layout_t l;
+    TEST_ASSERT_EQUAL(HID_PARSE_OK,
+                      hid_parser_parse(MOUSE_WITH_MODIFIER_KEYBOARD, sizeof(MOUSE_WITH_MODIFIER_KEYBOARD), &l));
+    TEST_ASSERT_EQUAL_UINT16(0x01, l.primary_page);
+    TEST_ASSERT_EQUAL_UINT16(0x02, l.primary_usage); /* mouse first */
+    TEST_ASSERT_TRUE(hid_norm_is_pointer(&l));
+    TEST_ASSERT_FALSE(hid_norm_is_keyboard(&l));
+    /* ... so it can neither be offered the typed challenge nor count as "an already paired keyboard". */
+    TEST_ASSERT_FALSE(hid_norm_pairing_is_keyboard(0, &l));
+}
+
+void test_primary_collection_of_a_keyboard(void) {
+    hid_layout_t l;
+    TEST_ASSERT_EQUAL(HID_PARSE_OK, hid_parser_parse(KBD_WITH_MOUSE, sizeof(KBD_WITH_MOUSE), &l));
+    TEST_ASSERT_EQUAL_UINT16(0x06, l.primary_usage);
+}
+
 void test_keyboard_with_mouse_is_a_keyboard(void) {
     hid_layout_t l;
     TEST_ASSERT_EQUAL(HID_PARSE_OK, hid_parser_parse(KBD_WITH_MOUSE, sizeof(KBD_WITH_MOUSE), &l));
@@ -425,6 +454,8 @@ int main(void) {
     RUN_TEST(test_garbage_never_crashes);
     RUN_TEST(test_axis_sum_saturates);
     RUN_TEST(test_is_pointer_with_keyboard_collection);
+    RUN_TEST(test_trackball_with_modifier_keyboard_is_not_a_keyboard);
+    RUN_TEST(test_primary_collection_of_a_keyboard);
     RUN_TEST(test_keyboard_with_mouse_is_a_keyboard);
     RUN_TEST(test_mouse_with_shortcut_keys_is_not_a_keyboard);
     RUN_TEST(test_appearance_overrides_the_report_map);

@@ -1031,7 +1031,12 @@ esp_err_t ble_central_pair(const uint8_t addr[6], uint8_t addr_type, bool allow_
     /* Physical confirmation needs an ALREADY paired keyboard other than the candidate (CLAUDE.md §3.4.3). */
     bool other_keyboard = false;
     for (int i = 0; i < BLE_CENTRAL_MAX_DEVICES; i++) {
-        other_keyboard = other_keyboard || (i != slot && s_reg[i].used && !s_dev[i].pending && s_reg[i].kbd);
+        const bool kbd = i != slot && s_reg[i].used && !s_dev[i].pending && s_reg[i].kbd;
+        if (kbd) {
+            ESP_LOGI(TAG, "slot %d (\"%s\") counts as an already paired keyboard: physical confirmation applies", i,
+                     s_reg[i].name);
+        }
+        other_keyboard = other_keyboard || kbd;
     }
     bool scanning = s_fsm.state == PAIR_SCANNING;
     pair_start_t r = pairing_begin_pair(&s_fsm, now_ms(), allow_legacy, other_keyboard);

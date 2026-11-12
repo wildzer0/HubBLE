@@ -312,6 +312,11 @@ bool hid_norm_is_pointer(const hid_layout_t *layout) {
 #define APPEARANCE_DIGITIZER 0x03C5
 #define APPEARANCE_TOUCHPAD  0x03C9
 
+/** Generic Desktop usages of the top-level collections that tell what a device is. */
+#define USAGE_POINTER_COLLECTION  0x01
+#define USAGE_MOUSE_COLLECTION    0x02
+#define USAGE_KEYBOARD_COLLECTION 0x06
+
 /** First usage of the modifier keys (Left Control). */
 #define USAGE_FIRST_MODIFIER 0xE0
 
@@ -333,9 +338,24 @@ bool hid_norm_is_keyboard(const hid_layout_t *layout) {
             }
         }
     }
-    /* Mice and trackballs often declare a keyboard collection for shortcut keys; those have keys but no modifier
-     * byte. A device that is also a pointer must therefore have both to count as a keyboard. */
-    return has_keys && (!hid_norm_is_pointer(layout) || has_modifiers);
+    if (!has_keys) {
+        return false;
+    }
+    if (!hid_norm_is_pointer(layout)) {
+        return true;
+    }
+    /* Both a keyboard and a pointer collection: mice and trackballs often declare one for shortcut keys (even with
+     * modifiers) and some keyboards declare a mouse. What the device is "mainly" is its first top-level collection;
+     * without that information require a modifier byte as well. */
+    if (layout->primary_page == HID_PAGE_GENERIC_DESKTOP) {
+        if (layout->primary_usage == USAGE_KEYBOARD_COLLECTION) {
+            return true;
+        }
+        if (layout->primary_usage == USAGE_MOUSE_COLLECTION || layout->primary_usage == USAGE_POINTER_COLLECTION) {
+            return false;
+        }
+    }
+    return has_modifiers;
 }
 
 /** @copydoc hid_norm_pairing_is_keyboard */
