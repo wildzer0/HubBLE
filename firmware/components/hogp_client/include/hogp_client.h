@@ -137,6 +137,14 @@ int hogp_write_leds(const hogp_t *h, uint8_t leds);
  */
 bool hogp_is_keyboard(const hogp_t *h);
 
+/**
+ * @brief Does the device have pointer axes (X/Y)? A keyboard+pointer combo reports true for both.
+ *
+ * @param h Client (state HOGP_READY).
+ * @return true if it has an X or Y input field.
+ */
+bool hogp_is_pointer(const hogp_t *h);
+
 #ifdef __cplusplus
 }
 #endif

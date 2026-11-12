@@ -301,7 +301,10 @@ static void hogp_ready(hogp_t *h, void *ctx) {
     bool was_pending = s_dev[slot].pending;
     refresh_link(slot);
     if (was_pending) {
-        pairing_on_hid_ready(&s_fsm, now_ms(), hogp_is_keyboard(&s_dev[slot].hogp), hw_rng);
+        /* A device with pointer axes gets the click challenge even if it also declares a keyboard collection
+         * (trackballs often do): the user cannot type on it. */
+        const bool kbd_challenge = hogp_is_keyboard(&s_dev[slot].hogp) && !hogp_is_pointer(&s_dev[slot].hogp);
+        pairing_on_hid_ready(&s_fsm, now_ms(), kbd_challenge, hw_rng);
     }
     UNLOCK();
     if (was_pending) {

@@ -316,6 +316,22 @@ void test_axis_sum_saturates(void) {
     TEST_ASSERT_EQUAL_INT32(INT32_MIN, ev.dy);
 }
 
+/** Regression: a trackball that also declares a keyboard collection is still a pointer (gets the click challenge). */
+void test_is_pointer_with_keyboard_collection(void) {
+    static const uint8_t desc[] = {
+        0x05, 0x01, 0x09, 0x02, 0xA1, 0x01, 0x85, 0x01, /* Mouse, report ID 1 */
+        0x09, 0x30, 0x09, 0x31, 0x15, 0x81, 0x25, 0x7F, 0x75, 0x08, 0x95, 0x02, 0x81, 0x06, 0xC0, 0x05, 0x01,
+        0x09, 0x06, 0xA1, 0x01, 0x85, 0x02, /* Keyboard, report ID 2 */
+        0x05, 0x07, 0x19, 0xE0, 0x29, 0xE7, 0x15, 0x00, 0x25, 0x01, 0x75, 0x01, 0x95, 0x08, 0x81, 0x02, 0xC0,
+    };
+    hid_layout_t l;
+    TEST_ASSERT_EQUAL(HID_PARSE_OK, hid_parser_parse(desc, sizeof(desc), &l));
+    TEST_ASSERT_TRUE(hid_norm_is_pointer(&l));
+    hid_layout_t kb;
+    hid_norm_boot_keyboard_layout(&kb);
+    TEST_ASSERT_FALSE(hid_norm_is_pointer(&kb));
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_parse_boot_keyboard);
@@ -335,5 +351,6 @@ int main(void) {
     RUN_TEST(test_push_pop);
     RUN_TEST(test_garbage_never_crashes);
     RUN_TEST(test_axis_sum_saturates);
+    RUN_TEST(test_is_pointer_with_keyboard_collection);
     return UNITY_END();
 }

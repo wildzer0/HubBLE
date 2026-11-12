@@ -288,3 +288,20 @@ size_t hid_norm_build_led_report(const hid_layout_t *layout, uint8_t leds, uint8
 void hid_norm_boot_keyboard_layout(hid_layout_t *layout) {
     (void)hid_parser_parse(hid_kbd_report_desc, HID_KBD_REPORT_DESC_LEN, layout);
 }
+
+/** @copydoc hid_norm_is_pointer */
+bool hid_norm_is_pointer(const hid_layout_t *layout) {
+    for (unsigned n = 0; n < layout->nfields; n++) {
+        const hid_field_t *f = &layout->fields[n];
+        if (f->dir != HID_REPORT_IN || f->usage_page != HID_PAGE_GENERIC_DESKTOP) {
+            continue;
+        }
+        for (unsigned i = 0; i < f->count; i++) {
+            const uint16_t usage = hid_field_usage(f, i);
+            if (usage == USAGE_X || usage == USAGE_Y) {
+                return true;
+            }
+        }
+    }
+    return false;
+}

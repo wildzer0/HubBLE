@@ -71,6 +71,17 @@ size_t hid_norm_build_led_report(const hid_layout_t *layout, uint8_t leds, uint8
  */
 void hid_norm_boot_keyboard_layout(hid_layout_t *layout);
 
+/**
+ * @brief Does the layout have relative or absolute pointer axes (Generic Desktop X/Y input)?
+ *
+ * Pairing uses this to pick the quarantine challenge: many trackballs and mice also declare a keyboard collection
+ * (shortcut keys), which must not make them look like keyboards.
+ *
+ * @param layout Parsed layout.
+ * @return true if an input field carries X or Y.
+ */
+bool hid_norm_is_pointer(const hid_layout_t *layout);
+
 #ifdef __cplusplus
 }
 #endif

@@ -540,6 +540,11 @@ bool hogp_is_keyboard(const hogp_t *h) {
     return false;
 }
 
+/** @copydoc hogp_is_pointer */
+bool hogp_is_pointer(const hogp_t *h) {
+    return hid_norm_is_pointer(&h->layout);
+}
+
 /** @copydoc hogp_write_leds */
 int hogp_write_leds(const hogp_t *h, uint8_t leds) {
     if (h->state != HOGP_READY) {

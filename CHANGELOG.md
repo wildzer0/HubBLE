@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Pairing: a trackball or mouse that also declares a keyboard collection in its report map (for shortcut keys) was
+  given the keyboard code challenge, so it could not be paired. Devices with pointer axes now always get the click
+  challenge.
+
 ## [1.0.0] - 2026-11-12
 
 ### Fixed
