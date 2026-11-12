@@ -11,7 +11,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "ble_central.h"
 #include "board.h"
+#include "bridge.h"
 #include "cJSON.h"
 #include "diag.h"
 #include "esp_app_desc.h"
@@ -21,8 +23,14 @@
 #include "http_guard.h"
 #include "log_hook.h"
 #include "ota.h"
+#include "ota_online.h"
+#include "nvs_flash.h"
 #include "settings.h"
+#include "usb_hid.h"
 #include "wifi_ap.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "sdkconfig.h"
 
 static const char *TAG = "api";
 
@@ -30,6 +38,10 @@ static const char *TAG = "api";
 #define MAX_JSON_BODY 512
 /** Upload receive chunk size: a multiple of the flash sector keeps writes efficient. */
 #define UPLOAD_CHUNK 4096
+/** Duration of the pairing scan in ms (CLAUDE.md §3.4: pairing lasts at most 60 s). */
+#define PAIRING_SCAN_MS 30000
+/** Largest report map exported (matches the client's buffer). */
+#define HOGP_MAP_MAX_EXPORT 640
 /** Delay before a deferred action runs, so the HTTP response is flushed first. */
 #define DEFER_MS 1500
 /** Size of the buffer used for the log download. */
@@ -45,6 +57,7 @@ typedef enum {
     DEFER_REBOOT,
     DEFER_REBOOT_DOWNLOAD,
     DEFER_APPLY_PASSWORD,
+    DEFER_FACTORY_RESET,
 } defer_kind_t;
 
 /** Receive buffer for uploads (static: handler stacks are small; only one upload at a time). */
@@ -61,10 +74,18 @@ static void defer_cb(void *arg) {
         esp_restart();
         break;
     case DEFER_REBOOT_DOWNLOAD:
+        usb_hid_shutdown(); /* Release the USB PHY so the ROM downloader can use it after the reset. */
         diag_reboot_to_download();
         break;
     case DEFER_APPLY_PASSWORD:
         wifi_ap_apply_password();
+        break;
+    case DEFER_FACTORY_RESET:
+        /* Erases settings, the Wi-Fi password, the device registry and the NimBLE bonds (all live in NVS), then
+         * restarts into the first-run state. Nothing else touches NVS after this point. */
+        nvs_flash_deinit();
+        nvs_flash_erase();
+        esp_restart();
         break;
     }
 }
@@ -141,6 +162,11 @@ static bool guard(httpd_req_t *req, const char *expected_ct) {
     const guard_result_t g = http_guard_check(
         get_hdr(req, HDR_CSRF, x, sizeof(x)), get_hdr(req, "Content-Type", ct, sizeof(ct)), expected_ct,
         get_hdr(req, "Origin", origin, sizeof(origin)), get_hdr(req, "Host", host, sizeof(host)));
+    /* The Host must name the dongle too (blocks DNS rebinding); a missing Host is a non-browser HTTP/1.0 client. */
+    if (g == GUARD_OK && host[0] != '\0' && !http_guard_host_ours(host)) {
+        send_error(req, "403 Forbidden", "forbidden", "Missing X-HubBLE header or cross-origin request");
+        return false;
+    }
     switch (g) {
     case GUARD_OK:
         return true;
@@ -163,7 +189,7 @@ static esp_err_t status_get(httpd_req_t *req) {
     cJSON_AddStringToObject(r, "version", esp_app_get_description()->version);
     cJSON_AddStringToObject(r, "board", board_get_info()->id);
     cJSON_AddNumberToObject(r, "uptime_s", (double)(esp_timer_get_time() / 1000000LL));
-    cJSON_AddStringToObject(r, "usb_state", "detached"); /* USB device arrives in M2. */
+    cJSON_AddStringToObject(r, "usb_state", usb_hid_state_name(usb_hid_get_state()));
     if (ap.timeout_s >= 0) {
         cJSON_AddNumberToObject(r, "ap_timeout_s", ap.timeout_s);
     } else {
@@ -171,6 +197,51 @@ static esp_err_t status_get(httpd_req_t *req) {
     }
     cJSON_AddBoolToObject(r, "setup_required", !settings_is_setup_done());
     return send_json(req, r);
+}
+
+/**
+ * @brief Describe the online update engine (REST `online` object and `ota.state` event).
+ *
+ * @return New cJSON object (caller owns it).
+ */
+static cJSON *online_json(void) {
+    ou_status_t u;
+    ota_online_get_status(&u);
+    cJSON *o = cJSON_CreateObject();
+    cJSON_AddStringToObject(o, "state", ota_online_state_name(u.state));
+    if (u.state == OU_ERROR) {
+        cJSON_AddStringToObject(o, "error", ota_online_error_name(u.error));
+    }
+    cJSON_AddBoolToObject(o, "wifi_configured", settings_has_sta());
+    cJSON_AddStringToObject(o, "channel", u.prerelease_channel ? "prerelease" : "stable");
+    if (u.have_release) {
+        cJSON *r = cJSON_AddObjectToObject(o, "release");
+        cJSON_AddStringToObject(r, "version", u.release.version);
+        cJSON_AddStringToObject(r, "min_version", u.release.min_version);
+        cJSON_AddStringToObject(r, "notes_url", u.release.notes_url);
+        cJSON_AddNumberToObject(r, "size", u.release.size);
+        cJSON_AddBoolToObject(r, "signed", u.release.signed_image);
+        cJSON_AddBoolToObject(r, "downgrade", u.decision == OTA_DECISION_DOWNGRADE);
+    }
+    if (u.state == OU_DOWNLOADING || u.state == OU_INSTALLED) {
+        cJSON_AddNumberToObject(o, "received", u.received);
+        cJSON_AddNumberToObject(o, "total", u.total);
+    }
+    if (u.state == OU_AWAIT_CONFIRM) {
+        cJSON_AddNumberToObject(o, "confirm_remaining_s", u.confirm_remaining_s);
+    }
+    return o;
+}
+
+/** @copydoc api_ota_events */
+void api_ota_events(void (*emit)(const char *event, const char *json)) {
+    cJSON *o = online_json();
+    char *text = cJSON_PrintUnformatted(o);
+    if (text != NULL) {
+        emit("ota.state", text);
+        cJSON_free(text);
+    }
+    cJSON_Delete(o);
 }
 
 /** GET /api/v1/ota/status. */
@@ -188,6 +259,7 @@ static esp_err_t ota_status_get(httpd_req_t *req) {
     cJSON_AddBoolToObject(r, "rollback_happened", s.rollback_happened);
     cJSON_AddNumberToObject(r, "boot_failures", s.boot_failures);
     cJSON_AddStringToObject(r, "last_result", s.last_result);
+    cJSON_AddItemToObject(r, "online", online_json());
     return send_json(req, r);
 }
 
@@ -219,8 +291,15 @@ static esp_err_t diagnostics_get(httpd_req_t *req) {
     add_partition(parts, "running", &d.running);
     add_partition(parts, "next_update", &d.next_update);
     cJSON_AddNumberToObject(r, "boot_failures", settings_boot_failures());
-    cJSON_AddStringToObject(r, "usb_state", "detached");
-    cJSON_AddNullToObject(r, "ble"); /* BLE arrives in M3. */
+    cJSON_AddStringToObject(r, "usb_state", usb_hid_state_name(usb_hid_get_state()));
+    cJSON_AddNumberToObject(r, "keyboard_leds", usb_hid_get_leds());
+    cJSON *ble = cJSON_AddObjectToObject(r, "ble");
+    cJSON_AddBoolToObject(ble, "ready", ble_central_is_ready());
+    cJSON_AddNumberToObject(ble, "connected", ble_central_connected_count());
+    cJSON_AddNumberToObject(ble, "bonded", ble_central_bonded_count());
+    cJSON *pw = cJSON_AddObjectToObject(r, "power");
+    cJSON_AddStringToObject(pw, "mode", bridge_power_mode() == POWER_LOW ? "low" : "active");
+    cJSON_AddBoolToObject(pw, "remote_wakeup", settings_get_remote_wakeup());
     cJSON *wifi = cJSON_AddObjectToObject(r, "wifi");
     cJSON_AddStringToObject(wifi, "ssid", ap.ssid);
     cJSON_AddNumberToObject(wifi, "clients", ap.clients);
@@ -402,6 +481,748 @@ static esp_err_t reboot_download_post(httpd_req_t *req) {
     return send_json(req, r);
 }
 
+/* ---- Devices and pairing (CLAUDE.md §4.1) --------------------------------------------------------- */
+
+/** URI prefix of the per-device routes. */
+#define DEVICES_PREFIX "/api/v1/devices/"
+/** Longest accepted device id (12 hex digits). */
+#define DEVICE_ID_LEN 12
+
+/** @brief Security badge name for the API (green = passkey/SC, yellow = Just Works verified, red = legacy). */
+static const char *sec_name(sec_level_t s) {
+    switch (s) {
+    case SEC_GREEN:
+        return "green";
+    case SEC_YELLOW:
+        return "yellow";
+    case SEC_RED:
+        return "red";
+    case SEC_UNKNOWN:
+    default:
+        return "unknown";
+    }
+}
+
+/**
+ * @brief Build the JSON object describing a device.
+ *
+ * @param d Device snapshot.
+ * @return New cJSON object (caller owns it).
+ */
+static cJSON *device_json(const ble_device_info_t *d) {
+    cJSON *o = cJSON_CreateObject();
+    cJSON_AddStringToObject(o, "id", d->id);
+    cJSON_AddNumberToObject(o, "slot", d->slot);
+    cJSON_AddStringToObject(o, "name", d->name);
+    cJSON_AddStringToObject(o, "type", !d->ready ? "unknown" : (d->keyboard ? "keyboard" : "pointer"));
+    cJSON_AddBoolToObject(o, "connected", d->connected);
+    cJSON_AddBoolToObject(o, "ready", d->ready);
+    cJSON_AddBoolToObject(o, "boot_fallback", d->boot_fallback);
+    if (d->battery == BLE_BATTERY_UNKNOWN) {
+        cJSON_AddNullToObject(o, "battery");
+    } else {
+        cJSON_AddNumberToObject(o, "battery", d->battery);
+    }
+    if (d->connected) {
+        cJSON_AddNumberToObject(o, "rssi", d->rssi);
+    } else {
+        cJSON_AddNullToObject(o, "rssi");
+    }
+    cJSON *conn = cJSON_AddObjectToObject(o, "connection");
+    cJSON_AddNumberToObject(conn, "interval_ms", d->conn_itvl_125us * 1.25);
+    cJSON_AddNumberToObject(conn, "latency", d->conn_latency);
+    cJSON_AddNumberToObject(conn, "timeout_ms", d->conn_timeout_10ms * 10);
+    cJSON_AddNumberToObject(o, "reconnects", d->reconnects);
+    cJSON_AddNumberToObject(o, "last_seen_s", d->last_seen_s);
+    cJSON *lat = cJSON_AddObjectToObject(o, "latency_us");
+    cJSON_AddNumberToObject(lat, "count", d->latency.count);
+    cJSON_AddNumberToObject(lat, "min", d->latency.min_us);
+    cJSON_AddNumberToObject(lat, "avg", d->latency.avg_us);
+    cJSON_AddNumberToObject(lat, "p95", d->latency.p95_us);
+    cJSON_AddNumberToObject(lat, "max", d->latency.max_us);
+    cJSON_AddStringToObject(o, "security", sec_name(d->security));
+    return o;
+}
+
+/** @copydoc api_device_event_json */
+bool api_device_event_json(int slot, char *out, size_t cap) {
+    ble_device_info_t d;
+    if (slot < 0 || !ble_central_get_device((unsigned)slot, &d)) {
+        return false;
+    }
+    cJSON *o;
+    if (d.in_use) {
+        o = device_json(&d);
+    } else {
+        o = cJSON_CreateObject();
+        cJSON_AddNumberToObject(o, "slot", slot);
+        cJSON_AddBoolToObject(o, "removed", true);
+    }
+    bool ok = cJSON_PrintPreallocated(o, out, (int)cap, false);
+    cJSON_Delete(o);
+    return ok;
+}
+
+/** GET /api/v1/devices. */
+static esp_err_t devices_get(httpd_req_t *req) {
+    cJSON *r = cJSON_CreateObject();
+    cJSON *arr = cJSON_AddArrayToObject(r, "devices");
+    for (unsigned i = 0; i < BLE_CENTRAL_MAX_DEVICES; i++) {
+        ble_device_info_t d;
+        if (ble_central_get_device(i, &d) && d.in_use) {
+            cJSON_AddItemToArray(arr, device_json(&d));
+        }
+    }
+    cJSON_AddNumberToObject(r, "max", BLE_CENTRAL_MAX_DEVICES);
+    return send_json(req, r);
+}
+
+/**
+ * @brief Extract the device id (and the optional sub-path) from a request URI and find its slot.
+ *
+ * @param req        Request.
+ * @param[out] suffix Receives a pointer to the text after the id ("" or "/report-map").
+ * @return Slot, or -1 after sending a 404.
+ */
+static int device_from_uri(httpd_req_t *req, const char **suffix) {
+    const char *p = req->uri + strlen(DEVICES_PREFIX);
+    char id[DEVICE_ID_LEN + 1];
+    size_t n = 0;
+    while (p[n] != '\0' && p[n] != '/' && p[n] != '?' && n < DEVICE_ID_LEN) {
+        id[n] = p[n];
+        n++;
+    }
+    id[n] = '\0';
+    *suffix = p + n;
+    int slot = ble_central_find_by_id(id);
+    if (slot < 0) {
+        send_error(req, "404 Not Found", "not_found", "Unknown device");
+    }
+    return slot;
+}
+
+/** GET /api/v1/devices/{id}/report-map: the raw report map as hex (debugging, test fixtures). */
+static esp_err_t device_item_get(httpd_req_t *req) {
+    const char *suffix;
+    int slot = device_from_uri(req, &suffix);
+    if (slot < 0) {
+        return ESP_OK;
+    }
+    if (strncmp(suffix, "/report-map", 11) != 0) {
+        ble_device_info_t d;
+        ble_central_get_device((unsigned)slot, &d);
+        return send_json(req, device_json(&d));
+    }
+    uint8_t map[HOGP_MAP_MAX_EXPORT];
+    size_t n = ble_central_get_report_map((unsigned)slot, map, sizeof(map));
+    if (n == 0) {
+        return send_error(req, "409 Conflict", "not_ready", "Report map not available (device not connected)");
+    }
+    char *hex = cJSON_malloc(n * 2 + 1);
+    if (hex == NULL) {
+        return send_error(req, "500 Internal Server Error", "no_memory", "Out of memory");
+    }
+    for (size_t i = 0; i < n; i++) {
+        snprintf(&hex[i * 2], 3, "%02x", map[i]);
+    }
+    cJSON *r = cJSON_CreateObject();
+    cJSON_AddStringToObject(r, "hex", hex);
+    cJSON_AddNumberToObject(r, "length", (double)n);
+    cJSON_free(hex);
+    return send_json(req, r);
+}
+
+/** PATCH /api/v1/devices/{id}: rename. */
+static esp_err_t device_item_patch(httpd_req_t *req) {
+    if (!guard(req, CT_JSON)) {
+        return ESP_OK;
+    }
+    const char *suffix;
+    int slot = device_from_uri(req, &suffix);
+    if (slot < 0) {
+        return ESP_OK;
+    }
+    cJSON *j = read_json_body(req);
+    if (j == NULL) {
+        return ESP_OK;
+    }
+    const cJSON *name = cJSON_GetObjectItemCaseSensitive(j, "name");
+    bool ok = cJSON_IsString(name) && name->valuestring[0] != '\0';
+    if (ok) {
+        ble_central_rename((unsigned)slot, name->valuestring);
+    }
+    cJSON_Delete(j);
+    if (!ok) {
+        return send_error(req, "400 Bad Request", "bad_name", "name must be a non-empty string");
+    }
+    ble_device_info_t d;
+    ble_central_get_device((unsigned)slot, &d);
+    return send_json(req, device_json(&d));
+}
+
+/** DELETE /api/v1/devices/{id}: forget the device and delete its bond. */
+static esp_err_t device_item_delete(httpd_req_t *req) {
+    if (!guard(req, CT_JSON)) {
+        return ESP_OK;
+    }
+    const char *suffix;
+    int slot = device_from_uri(req, &suffix);
+    if (slot < 0) {
+        return ESP_OK;
+    }
+    ble_central_forget((unsigned)slot);
+    cJSON *r = cJSON_CreateObject();
+    cJSON_AddBoolToObject(r, "ok", true);
+    return send_json(req, r);
+}
+
+/** @brief Name of a pairing state for the API. */
+static const char *pair_state_name(pair_state_t s) {
+    switch (s) {
+    case PAIR_SCANNING:
+        return "scanning";
+    case PAIR_CONNECTING:
+        return "connecting";
+    case PAIR_PAIRING:
+        return "pairing";
+    case PAIR_QUARANTINE:
+        return "quarantine";
+    case PAIR_CONFIRM:
+        return "confirm";
+    case PAIR_BONDED:
+        return "bonded";
+    case PAIR_FAILED:
+        return "failed";
+    case PAIR_IDLE:
+    default:
+        return "idle";
+    }
+}
+
+/** @brief Failure reason name for the API. */
+static const char *fail_name(pair_fail_t f) {
+    switch (f) {
+    case FAIL_TIMEOUT:
+        return "timeout";
+    case FAIL_CANCELLED:
+        return "cancelled";
+    case FAIL_LEGACY:
+        return "legacy_rejected";
+    case FAIL_SECURITY:
+        return "security_failed";
+    case FAIL_NO_HID:
+        return "no_hid_service";
+    case FAIL_CHALLENGE:
+        return "challenge_failed";
+    case FAIL_NONE:
+    default:
+        return "none";
+    }
+}
+
+/**
+ * @brief Build the pairing status object (shared by REST and WebSocket).
+ *
+ * @return New cJSON object (caller owns it).
+ */
+static cJSON *pairing_json(void) {
+    ble_pairing_status_t s;
+    ble_central_pairing_status(&s);
+    cJSON *o = cJSON_CreateObject();
+    cJSON_AddStringToObject(o, "state", pair_state_name(s.state));
+    if (s.state == PAIR_FAILED) {
+        cJSON_AddStringToObject(o, "reason", fail_name(s.fail));
+    }
+    cJSON_AddStringToObject(o, "level", sec_name(s.level));
+    cJSON_AddStringToObject(o, "device", s.name);
+    cJSON_AddNumberToObject(o, "remaining_s", (s.remaining_ms + 999) / 1000);
+    cJSON_AddNumberToObject(o, "lock_remaining_s", s.lock_remaining_s);
+    cJSON_AddBoolToObject(o, "needs_confirmation", s.need_confirm);
+    if (s.has_passkey) {
+        char pk[PAIR_PASSKEY_DIGITS + 1];
+        snprintf(pk, sizeof(pk), "%06u", (unsigned)s.passkey); /* zero padded: the user types all six digits */
+        cJSON_AddStringToObject(o, "passkey", pk);
+    }
+    if (s.challenge_kind != CHALLENGE_NONE) {
+        cJSON *ch = cJSON_AddObjectToObject(o, "challenge");
+        cJSON_AddStringToObject(ch, "kind", s.challenge_kind == CHALLENGE_MOUSE ? "clicks" : "code");
+        cJSON_AddStringToObject(ch, "value", s.challenge);
+        cJSON_AddNumberToObject(ch, "progress", s.challenge_pos);
+        cJSON_AddNumberToObject(ch, "length", s.challenge_len);
+    }
+    return o;
+}
+
+/** @copydoc api_pairing_events */
+void api_pairing_events(void (*emit)(const char *event, const char *json)) {
+    ble_pairing_status_t s;
+    ble_central_pairing_status(&s);
+    cJSON *o = pairing_json();
+    char *text = cJSON_PrintUnformatted(o);
+    if (text != NULL) {
+        emit("pairing.state", text);
+        if (s.has_passkey) {
+            emit("pairing.passkey", text);
+        }
+        if (s.state == PAIR_QUARANTINE) {
+            emit("pairing.challenge", text);
+        }
+        if (s.state == PAIR_BONDED || s.state == PAIR_FAILED) {
+            emit("pairing.result", text);
+        }
+        cJSON_free(text);
+    }
+    cJSON_Delete(o);
+}
+
+/** GET /api/v1/pairing/scan: pairing state and the scan list. */
+static esp_err_t pairing_scan_get(httpd_req_t *req) {
+    ble_scan_result_t res[BLE_CENTRAL_MAX_SCAN];
+    size_t n = ble_central_scan_results(res);
+    cJSON *r = cJSON_CreateObject();
+    cJSON_AddStringToObject(r, "state", pair_state_name(ble_central_pair_state()));
+    cJSON_AddItemToObject(r, "pairing", pairing_json());
+    cJSON *arr = cJSON_AddArrayToObject(r, "results");
+    for (size_t i = 0; i < n; i++) {
+        cJSON *o = cJSON_CreateObject();
+        char addr[13];
+        for (int b = 0; b < 6; b++) {
+            snprintf(&addr[b * 2], 3, "%02x", res[i].addr[b]);
+        }
+        cJSON_AddStringToObject(o, "address", addr);
+        cJSON_AddNumberToObject(o, "address_type", res[i].addr_type);
+        cJSON_AddStringToObject(o, "name", res[i].name);
+        cJSON_AddNumberToObject(o, "rssi", res[i].rssi);
+        cJSON_AddNumberToObject(o, "appearance", res[i].appearance);
+        cJSON_AddItemToArray(arr, o);
+    }
+    return send_json(req, r);
+}
+
+/** POST /api/v1/pairing/scan: start scanning for HID devices. */
+static esp_err_t pairing_scan_post(httpd_req_t *req) {
+    if (!guard(req, CT_JSON)) {
+        return ESP_OK;
+    }
+    esp_err_t err = ble_central_scan_start(PAIRING_SCAN_MS);
+    if (err == ESP_ERR_NOT_ALLOWED) {
+        return send_error(req, "429 Too Many Requests", "pairing_locked",
+                          "Pairing is locked for 60 s after 3 failed attempts");
+    }
+    if (err == ESP_ERR_NO_MEM) {
+        return send_error(req, "409 Conflict", "no_free_slot", "Four devices are already paired; forget one first");
+    }
+    if (err != ESP_OK) {
+        return send_error(req, "409 Conflict", "busy", "Bluetooth is busy or not ready");
+    }
+    cJSON *r = cJSON_CreateObject();
+    cJSON_AddBoolToObject(r, "ok", true);
+    return send_json(req, r);
+}
+
+/**
+ * @brief Parse 12 hex digits into a 6-byte address (display order).
+ *
+ * @param s   String.
+ * @param out Receives the address.
+ * @return true if valid.
+ */
+static bool parse_address(const char *s, uint8_t out[6]) {
+    if (s == NULL || strlen(s) != 12) {
+        return false;
+    }
+    for (int i = 0; i < 6; i++) {
+        unsigned v;
+        if (sscanf(&s[i * 2], "%2x", &v) != 1) {
+            return false;
+        }
+        out[i] = (uint8_t)v;
+    }
+    return true;
+}
+
+/** POST /api/v1/pairing/start {"address":"aabbccddeeff","address_type":0}. */
+static esp_err_t pairing_start_post(httpd_req_t *req) {
+    if (!guard(req, CT_JSON)) {
+        return ESP_OK;
+    }
+    cJSON *j = read_json_body(req);
+    if (j == NULL) {
+        return ESP_OK;
+    }
+    const cJSON *a = cJSON_GetObjectItemCaseSensitive(j, "address");
+    const cJSON *t = cJSON_GetObjectItemCaseSensitive(j, "address_type");
+    uint8_t addr[6];
+    bool ok = cJSON_IsString(a) && parse_address(a->valuestring, addr);
+    uint8_t type = cJSON_IsNumber(t) ? (uint8_t)t->valueint : 0;
+    const cJSON *lg = cJSON_GetObjectItemCaseSensitive(j, "allow_legacy");
+    bool allow_legacy = cJSON_IsTrue(lg); /* Per-pairing override; results in security level red. */
+    cJSON_Delete(j);
+    if (!ok) {
+        return send_error(req, "400 Bad Request", "bad_address", "address must be 12 hex digits");
+    }
+    esp_err_t err = ble_central_pair(addr, type, allow_legacy);
+    if (err == ESP_ERR_NOT_ALLOWED) {
+        return send_error(req, "429 Too Many Requests", "pairing_locked",
+                          "Pairing is locked for 60 s after 3 failed attempts");
+    }
+    if (err == ESP_ERR_NO_MEM) {
+        return send_error(req, "409 Conflict", "no_free_slot", "Four devices are already paired; forget one first");
+    }
+    if (err != ESP_OK) {
+        return send_error(req, "409 Conflict", "busy", "Pairing already running, or the device is already paired");
+    }
+    cJSON *r = cJSON_CreateObject();
+    cJSON_AddBoolToObject(r, "ok", true);
+    return send_json(req, r);
+}
+
+/** POST /api/v1/pairing/cancel. */
+static esp_err_t pairing_cancel_post(httpd_req_t *req) {
+    if (!guard(req, CT_JSON)) {
+        return ESP_OK;
+    }
+    ble_central_pair_cancel();
+    cJSON *r = cJSON_CreateObject();
+    cJSON_AddBoolToObject(r, "ok", true);
+    return send_json(req, r);
+}
+
+/**
+ * @brief Build the settings object (shared by GET /settings and GET /backup).
+ *
+ * @return New cJSON object (caller owns it).
+ */
+static cJSON *settings_json(void) {
+    cJSON *r = cJSON_CreateObject();
+    cJSON_AddBoolToObject(r, "require_confirmation", settings_get_require_confirm());
+    cJSON_AddNumberToObject(r, "ap_boot_window_s", settings_get_boot_window_s());
+    cJSON_AddNumberToObject(r, "ap_idle_timeout_s", settings_get_idle_timeout_s());
+    cJSON_AddStringToObject(r, "update_channel", settings_get_prerelease_channel() ? "prerelease" : "stable");
+    cJSON_AddBoolToObject(r, "sta_configured", settings_has_sta()); /* Never the credentials themselves. */
+    cJSON_AddBoolToObject(r, "remote_wakeup", settings_get_remote_wakeup());
+    cJSON_AddNumberToObject(r, "led_brightness", settings_get_led_brightness());
+    cJSON_AddBoolToObject(r, "status_led", settings_get_status_led());
+    cJSON_AddNumberToObject(r, "shift_hold_ms", settings_get_shift_hold_ms());
+    return r;
+}
+
+/**
+ * @brief Whether every present field of a settings object is valid. Nothing is stored here.
+ *
+ * @param s Settings object (may lack fields).
+ * @return true if all present fields have the right type and range.
+ */
+static bool settings_object_valid(const cJSON *s) {
+    const cJSON *rc = cJSON_GetObjectItemCaseSensitive(s, "require_confirmation");
+    const cJSON *bw = cJSON_GetObjectItemCaseSensitive(s, "ap_boot_window_s");
+    const cJSON *it = cJSON_GetObjectItemCaseSensitive(s, "ap_idle_timeout_s");
+    const cJSON *ch = cJSON_GetObjectItemCaseSensitive(s, "update_channel");
+    if (rc != NULL && !cJSON_IsBool(rc)) {
+        return false;
+    }
+    const cJSON *rw = cJSON_GetObjectItemCaseSensitive(s, "remote_wakeup");
+    const cJSON *sl = cJSON_GetObjectItemCaseSensitive(s, "status_led");
+    const cJSON *lb = cJSON_GetObjectItemCaseSensitive(s, "led_brightness");
+    const cJSON *sh = cJSON_GetObjectItemCaseSensitive(s, "shift_hold_ms");
+    if ((rw != NULL && !cJSON_IsBool(rw)) || (sl != NULL && !cJSON_IsBool(sl))) {
+        return false;
+    }
+    if (lb != NULL && !(cJSON_IsNumber(lb) && lb->valuedouble == (double)lb->valueint && lb->valueint >= 0 &&
+                        lb->valueint <= SETTINGS_LED_BRIGHTNESS_MAX)) {
+        return false;
+    }
+    if (sh != NULL && !(cJSON_IsNumber(sh) && sh->valuedouble == (double)sh->valueint &&
+                        sh->valueint >= SETTINGS_SHIFT_HOLD_MIN_MS && sh->valueint <= SETTINGS_SHIFT_HOLD_MAX_MS)) {
+        return false;
+    }
+    if (ch != NULL && !(cJSON_IsString(ch) &&
+                        (strcmp(ch->valuestring, "stable") == 0 || strcmp(ch->valuestring, "prerelease") == 0))) {
+        return false;
+    }
+    if (bw != NULL && !(cJSON_IsNumber(bw) && bw->valuedouble == (double)bw->valueint && bw->valueint > 0 &&
+                        settings_window_valid((uint32_t)bw->valueint))) {
+        return false;
+    }
+    if (it != NULL && !(cJSON_IsNumber(it) && it->valuedouble == (double)it->valueint && it->valueint > 0 &&
+                        settings_window_valid((uint32_t)it->valueint))) {
+        return false;
+    }
+    return true;
+}
+
+/**
+ * @brief Apply the present fields of an already validated settings object.
+ *
+ * @param s Settings object.
+ */
+static void settings_object_apply(const cJSON *s) {
+    const cJSON *rc = cJSON_GetObjectItemCaseSensitive(s, "require_confirmation");
+    const cJSON *bw = cJSON_GetObjectItemCaseSensitive(s, "ap_boot_window_s");
+    const cJSON *it = cJSON_GetObjectItemCaseSensitive(s, "ap_idle_timeout_s");
+    if (cJSON_IsBool(rc)) {
+        bool on = cJSON_IsTrue(rc);
+        settings_set_require_confirm(on);
+        ble_central_set_require_confirm(on);
+    }
+    if (cJSON_IsNumber(bw)) {
+        settings_set_boot_window_s((uint32_t)bw->valueint);
+    }
+    if (cJSON_IsNumber(it)) {
+        settings_set_idle_timeout_s((uint32_t)it->valueint);
+    }
+    const cJSON *rw = cJSON_GetObjectItemCaseSensitive(s, "remote_wakeup");
+    const cJSON *sl = cJSON_GetObjectItemCaseSensitive(s, "status_led");
+    const cJSON *lb = cJSON_GetObjectItemCaseSensitive(s, "led_brightness");
+    const cJSON *sh = cJSON_GetObjectItemCaseSensitive(s, "shift_hold_ms");
+    if (cJSON_IsBool(rw)) {
+        settings_set_remote_wakeup(cJSON_IsTrue(rw));
+        usb_hid_set_remote_wakeup_allowed(cJSON_IsTrue(rw)); /* Effective immediately. */
+    }
+    if (cJSON_IsBool(sl)) {
+        settings_set_status_led(cJSON_IsTrue(sl));
+    }
+    if (cJSON_IsNumber(lb)) {
+        settings_set_led_brightness((uint32_t)lb->valueint);
+    }
+    if (cJSON_IsNumber(sh)) {
+        settings_set_shift_hold_ms(
+            (uint32_t)sh->valueint); /* Applies from the next boot (the combo task reads it once). */
+    }
+    const cJSON *ch = cJSON_GetObjectItemCaseSensitive(s, "update_channel");
+    if (cJSON_IsString(ch)) {
+        settings_set_prerelease_channel(strcmp(ch->valuestring, "prerelease") == 0);
+    }
+}
+
+/** GET /api/v1/settings: non-secret settings (the AP windows apply from the next boot). */
+static esp_err_t settings_get(httpd_req_t *req) {
+    return send_json(req, settings_json());
+}
+
+/** PUT /api/v1/settings: update the given fields; all-or-nothing validation. */
+static esp_err_t settings_put(httpd_req_t *req) {
+    if (!guard(req, CT_JSON)) {
+        return ESP_OK;
+    }
+    cJSON *j = read_json_body(req);
+    if (j == NULL) {
+        return ESP_OK;
+    }
+    if (!settings_object_valid(j)) {
+        cJSON_Delete(j);
+        return send_error(req, "400 Bad Request", "invalid_setting", "A setting is missing, mistyped or out of range");
+    }
+    settings_object_apply(j);
+    cJSON_Delete(j);
+    return settings_get(req);
+}
+
+/**
+ * GET /api/v1/backup: settings as a downloadable document. Bonds and the Wi-Fi password are deliberately NOT included:
+ * they are secrets (CLAUDE.md §3.7 page 8, §3.12).
+ */
+static esp_err_t backup_get(httpd_req_t *req) {
+    cJSON *r = cJSON_CreateObject();
+    cJSON_AddStringToObject(r, "format", "hubble-backup");
+    cJSON_AddNumberToObject(r, "version", 1);
+    cJSON_AddItemToObject(r, "settings", settings_json());
+    return send_json(req, r);
+}
+
+/** POST /api/v1/restore: apply a backup document produced by backup_get(). */
+static esp_err_t restore_post(httpd_req_t *req) {
+    if (!guard(req, CT_JSON)) {
+        return ESP_OK;
+    }
+    cJSON *j = read_json_body(req);
+    if (j == NULL) {
+        return ESP_OK;
+    }
+    const cJSON *fmt = cJSON_GetObjectItemCaseSensitive(j, "format");
+    const cJSON *ver = cJSON_GetObjectItemCaseSensitive(j, "version");
+    const cJSON *st = cJSON_GetObjectItemCaseSensitive(j, "settings");
+    const bool ok = cJSON_IsString(fmt) && strcmp(fmt->valuestring, "hubble-backup") == 0 && cJSON_IsNumber(ver) &&
+                    ver->valueint == 1 && cJSON_IsObject(st) && settings_object_valid(st) &&
+                    cJSON_GetObjectItemCaseSensitive(st, "require_confirmation") != NULL &&
+                    cJSON_GetObjectItemCaseSensitive(st, "ap_boot_window_s") != NULL &&
+                    cJSON_GetObjectItemCaseSensitive(st, "ap_idle_timeout_s") != NULL;
+    if (!ok) {
+        cJSON_Delete(j);
+        return send_error(req, "400 Bad Request", "bad_backup", "Not a valid HubBLE backup");
+    }
+    settings_object_apply(st);
+    cJSON_Delete(j);
+    cJSON *r = cJSON_CreateObject();
+    cJSON_AddBoolToObject(r, "ok", true);
+    return send_json(req, r);
+}
+
+/** PUT /api/v1/settings/sta {"ssid","password"}: save (or, with an empty ssid, forget) the update Wi-Fi network. */
+static esp_err_t settings_sta_put(httpd_req_t *req) {
+    if (!guard(req, CT_JSON)) {
+        return ESP_OK;
+    }
+    cJSON *j = read_json_body(req);
+    if (j == NULL) {
+        return ESP_OK;
+    }
+    const cJSON *ssid = cJSON_GetObjectItemCaseSensitive(j, "ssid");
+    const cJSON *pass = cJSON_GetObjectItemCaseSensitive(j, "password");
+    const bool shape = cJSON_IsString(ssid) && (pass == NULL || cJSON_IsString(pass));
+    esp_err_t err = ESP_ERR_INVALID_ARG;
+    if (shape) {
+        err = settings_set_sta(ssid->valuestring, pass != NULL ? pass->valuestring : "");
+    }
+    cJSON_Delete(j);
+    if (err != ESP_OK) {
+        return send_error(req, "400 Bad Request", "invalid_sta",
+                          "SSID must be 1-32 characters; the password empty or 8-63 printable characters");
+    }
+    return settings_get(req); /* Reports sta_configured only. */
+}
+
+/** POST /api/v1/ota/check {"channel":"stable"|"prerelease"}: start looking for an update on GitHub. */
+static esp_err_t ota_check_post(httpd_req_t *req) {
+    if (!guard(req, CT_JSON)) {
+        return ESP_OK;
+    }
+    cJSON *j = read_json_body(req);
+    if (j == NULL) {
+        return ESP_OK;
+    }
+    const cJSON *ch = cJSON_GetObjectItemCaseSensitive(j, "channel");
+    const bool pre =
+        cJSON_IsString(ch) ? strcmp(ch->valuestring, "prerelease") == 0 : settings_get_prerelease_channel();
+    cJSON_Delete(j);
+    const esp_err_t err = ota_online_check(pre);
+    if (err == ESP_ERR_NOT_FOUND) {
+        return send_error(req, "409 Conflict", "no_wifi_credentials", "Save the Wi-Fi network used for updates first");
+    }
+    if (err != ESP_OK) {
+        return send_error(req, "409 Conflict", "busy",
+                          "An update operation is already running, or the Wi-Fi AP is off");
+    }
+    cJSON *r = cJSON_CreateObject();
+    cJSON_AddBoolToObject(r, "ok", true);
+    return send_json(req, r);
+}
+
+/** POST /api/v1/ota/install {"allow_downgrade":bool}: install the release found by the last check. */
+static esp_err_t ota_install_post(httpd_req_t *req) {
+    if (!guard(req, CT_JSON)) {
+        return ESP_OK;
+    }
+    cJSON *j = read_json_body(req);
+    if (j == NULL) {
+        return ESP_OK;
+    }
+    const bool down = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(j, "allow_downgrade"));
+    cJSON_Delete(j);
+    const esp_err_t err = ota_online_install(down);
+    if (err == ESP_ERR_NOT_ALLOWED) {
+        return send_error(req, "409 Conflict", "downgrade_not_confirmed", "This release is older than the running one");
+    }
+    if (err != ESP_OK) {
+        return send_error(req, "409 Conflict", "nothing_to_install",
+                          "Check for updates first, or an install is running");
+    }
+    cJSON *r = cJSON_CreateObject();
+    cJSON_AddBoolToObject(r, "ok", true);
+    return send_json(req, r);
+}
+
+/** POST /api/v1/system/factory-reset: erase everything and restart (the response is sent first). */
+static esp_err_t factory_reset_post(httpd_req_t *req) {
+    if (!guard(req, CT_JSON)) {
+        return ESP_OK;
+    }
+    defer(DEFER_FACTORY_RESET);
+    cJSON *r = cJSON_CreateObject();
+    cJSON_AddBoolToObject(r, "ok", true);
+    return send_json(req, r);
+}
+
+#if CONFIG_HUBBLE_USB_DEBUG_INJECT
+/** Longest time a debug-injected key/button is held, ms (it blocks the HTTP task while held). */
+#define DEBUG_HOLD_MAX_MS 1000
+/** Default hold time of a debug-injected key/button, ms. */
+#define DEBUG_HOLD_DEFAULT_MS 50
+
+/**
+ * @brief Read an optional integer field from a JSON object.
+ *
+ * @param o   Object.
+ * @param key Field name.
+ * @param def Value returned when the field is missing or not a number.
+ * @return The value, truncated to int.
+ */
+static int json_int(const cJSON *o, const char *key, int def) {
+    const cJSON *v = cJSON_GetObjectItemCaseSensitive(o, key);
+    return cJSON_IsNumber(v) ? (int)v->valuedouble : def;
+}
+
+/**
+ * POST /api/v1/debug/input (debug builds only): inject keyboard / mouse / consumer / system input as the
+ * debug source, so the USB side can be verified without any BLE device. Bodies:
+ *  - {"kind":"key","modifiers":0,"keys":[4,5],"hold_ms":50}
+ *  - {"kind":"mouse","buttons":1,"dx":10,"dy":0,"wheel":0,"pan":0,"hold_ms":50}
+ *  - {"kind":"consumer","usage":233,"hold_ms":50}
+ *  - {"kind":"system","bits":1,"hold_ms":50}
+ * The state is applied, held for hold_ms and then released.
+ */
+static esp_err_t debug_input_post(httpd_req_t *req) {
+    if (!guard(req, CT_JSON)) {
+        return ESP_OK;
+    }
+    cJSON *j = read_json_body(req);
+    if (j == NULL) {
+        return ESP_OK;
+    }
+    const cJSON *kind = cJSON_GetObjectItemCaseSensitive(j, "kind");
+    int hold = json_int(j, "hold_ms", DEBUG_HOLD_DEFAULT_MS);
+    hold = hold < 0 ? 0 : (hold > DEBUG_HOLD_MAX_MS ? DEBUG_HOLD_MAX_MS : hold);
+    bool ok = true;
+    if (cJSON_IsString(kind) && strcmp(kind->valuestring, "key") == 0) {
+        uint8_t keys[HID_KBD_MAX_KEYS];
+        size_t n = 0;
+        const cJSON *arr = cJSON_GetObjectItemCaseSensitive(j, "keys");
+        const cJSON *it;
+        cJSON_ArrayForEach(it, arr) {
+            if (cJSON_IsNumber(it) && n < HID_KBD_MAX_KEYS) {
+                keys[n++] = (uint8_t)it->valueint;
+            }
+        }
+        usb_hid_keyboard(HID_SRC_DEBUG, (uint8_t)json_int(j, "modifiers", 0), keys, n);
+        vTaskDelay(pdMS_TO_TICKS(hold));
+        usb_hid_keyboard(HID_SRC_DEBUG, 0, NULL, 0);
+    } else if (cJSON_IsString(kind) && strcmp(kind->valuestring, "mouse") == 0) {
+        const uint8_t buttons = (uint8_t)json_int(j, "buttons", 0);
+        usb_hid_mouse(HID_SRC_DEBUG, buttons, json_int(j, "dx", 0), json_int(j, "dy", 0), json_int(j, "wheel", 0),
+                      json_int(j, "pan", 0));
+        vTaskDelay(pdMS_TO_TICKS(hold));
+        usb_hid_mouse(HID_SRC_DEBUG, 0, 0, 0, 0, 0);
+    } else if (cJSON_IsString(kind) && strcmp(kind->valuestring, "consumer") == 0) {
+        usb_hid_consumer(HID_SRC_DEBUG, (uint16_t)json_int(j, "usage", 0));
+        vTaskDelay(pdMS_TO_TICKS(hold));
+        usb_hid_consumer(HID_SRC_DEBUG, 0);
+    } else if (cJSON_IsString(kind) && strcmp(kind->valuestring, "system") == 0) {
+        usb_hid_system(HID_SRC_DEBUG, (uint8_t)json_int(j, "bits", 0));
+        vTaskDelay(pdMS_TO_TICKS(hold));
+        usb_hid_system(HID_SRC_DEBUG, 0);
+    } else {
+        ok = false;
+    }
+    cJSON_Delete(j);
+    if (!ok) {
+        return send_error(req, "400 Bad Request", "bad_kind", "kind must be key, mouse, consumer or system");
+    }
+    cJSON *r = cJSON_CreateObject();
+    cJSON_AddBoolToObject(r, "ok", true);
+    return send_json(req, r);
+}
+#endif /* CONFIG_HUBBLE_USB_DEBUG_INJECT */
+
 /** @copydoc api_register */
 esp_err_t api_register(httpd_handle_t server) {
     static const httpd_uri_t routes[API_URI_HANDLER_COUNT] = {
@@ -413,6 +1234,25 @@ esp_err_t api_register(httpd_handle_t server) {
         {.uri = "/api/v1/ota/upload", .method = HTTP_POST, .handler = ota_upload_post},
         {.uri = "/api/v1/system/reboot", .method = HTTP_POST, .handler = reboot_post},
         {.uri = "/api/v1/system/reboot-download", .method = HTTP_POST, .handler = reboot_download_post},
+        {.uri = "/api/v1/devices", .method = HTTP_GET, .handler = devices_get},
+        {.uri = "/api/v1/devices/*", .method = HTTP_GET, .handler = device_item_get},
+        {.uri = "/api/v1/devices/*", .method = HTTP_PATCH, .handler = device_item_patch},
+        {.uri = "/api/v1/devices/*", .method = HTTP_DELETE, .handler = device_item_delete},
+        {.uri = "/api/v1/pairing/scan", .method = HTTP_GET, .handler = pairing_scan_get},
+        {.uri = "/api/v1/pairing/scan", .method = HTTP_POST, .handler = pairing_scan_post},
+        {.uri = "/api/v1/pairing/start", .method = HTTP_POST, .handler = pairing_start_post},
+        {.uri = "/api/v1/pairing/cancel", .method = HTTP_POST, .handler = pairing_cancel_post},
+        {.uri = "/api/v1/settings", .method = HTTP_GET, .handler = settings_get},
+        {.uri = "/api/v1/settings", .method = HTTP_PUT, .handler = settings_put},
+        {.uri = "/api/v1/settings/sta", .method = HTTP_PUT, .handler = settings_sta_put},
+        {.uri = "/api/v1/ota/check", .method = HTTP_POST, .handler = ota_check_post},
+        {.uri = "/api/v1/ota/install", .method = HTTP_POST, .handler = ota_install_post},
+        {.uri = "/api/v1/backup", .method = HTTP_GET, .handler = backup_get},
+        {.uri = "/api/v1/restore", .method = HTTP_POST, .handler = restore_post},
+        {.uri = "/api/v1/system/factory-reset", .method = HTTP_POST, .handler = factory_reset_post},
+#if CONFIG_HUBBLE_USB_DEBUG_INJECT
+        {.uri = "/api/v1/debug/input", .method = HTTP_POST, .handler = debug_input_post},
+#endif
     };
     for (size_t i = 0; i < API_URI_HANDLER_COUNT; i++) {
         const esp_err_t err = httpd_register_uri_handler(server, &routes[i]);

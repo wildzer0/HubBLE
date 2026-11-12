@@ -23,6 +23,6 @@ All GPIO numbers live in `firmware/components/board/Kconfig`; no other file may 
 
 ## Console
 
-Logs go to the native USB Serial/JTAG port (`CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG`): the S3-Zero has no USB-UART
+From M2 the native USB port belongs to TinyUSB (no serial console, ADR 10). Until M1 logs went to the USB Serial/JTAG port (`CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG`): the S3-Zero has no USB-UART
 bridge. In M2 TinyUSB takes over the USB PHY, so the console strategy (and release builds without any CDC
 interface, `CLAUDE.md` §3.2) will be revisited then.

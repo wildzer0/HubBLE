@@ -35,6 +35,22 @@ extern "C" {
  */
 bool settings_password_valid(const char *password);
 
+/** Longest Wi-Fi network name (IEEE 802.11 SSID), without the NUL. */
+#define SETTINGS_SSID_MAX_LEN 32
+/** Shortest WPA2 passphrase; an empty password means an open network. */
+#define SETTINGS_STA_PASSWORD_MIN_LEN 8
+
+/**
+ * @brief Validate station (home Wi-Fi / phone hotspot) credentials used only for "check for updates".
+ *
+ * Rules: SSID 1..32 bytes without control characters; password empty (open network) or 8..63 printable ASCII.
+ *
+ * @param ssid     Network name.
+ * @param password Passphrase.
+ * @return true if both are acceptable.
+ */
+bool settings_sta_valid(const char *ssid, const char *password);
+
 #ifdef __cplusplus
 }
 #endif

@@ -1,0 +1,13 @@
+menu "HubBLE online update"
+    config HUBBLE_UPDATE_REPO
+        string "GitHub repository that publishes the releases (owner/name)"
+        default "wildzer0/HubBLE"
+        help
+            "Check for updates" reads the GitHub Releases API of this repository and downloads the
+            release assets from it over HTTPS. The repository must be public.
+
+    config HUBBLE_UPDATE_CONFIRM_TIMEOUT_S
+        int "Seconds to wait for the physical confirmation of an install"
+        default 30
+        range 10 300
+endmenu

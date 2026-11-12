@@ -1,6 +1,6 @@
 # OTA updates and recovery
 
-## How an update works (M1: file upload)
+## How an update works (file upload)
 
 1. Open **Update** in the web app, pick a `hubble-<board>-vX.Y.Z-ota.bin` file and press **Install update**.
 2. The dongle streams the file into the inactive OTA slot. HID forwarding is not touched (there is none yet) and
@@ -12,8 +12,28 @@
     - project name `hubble`.
 4. The dongle selects the new slot and reboots. The page waits for it and shows the new version.
 
-Not yet implemented (M6): signature verification, anti-downgrade, "check GitHub for updates". Until then any image
-that passes the checks above is accepted, so only install files you trust.
+5. **Signature:** the image must carry a valid RSA-3072 signature from the release key (`docs/key-management.md`);
+   an unsigned or wrongly signed file is rejected when the upload ends and never becomes bootable.
+
+## Check for updates (GitHub)
+
+1. **Settings:** save the Wi-Fi network (home Wi-Fi or a phone hotspot) the dongle may use. The credentials are stored in
+   the dongle, never shown again and not included in backups. Optionally pick the **Stable** or **Pre-release** channel.
+2. **Update, Check for updates:** the dongle keeps its own access point on, joins your network (APSTA), asks the GitHub
+   Releases API for the newest release of the channel, reads its `manifest.json` and leaves your network again.
+3. The page shows the version, size, whether it is signed, and a link to the release notes.
+4. **Install:** if *Require physical confirmation* is on and a keyboard is paired, hold both Shifts for 3 s on it
+   (30 s allowed). The dongle then downloads the image over HTTPS (certificate bundle), checks its SHA-256 against the
+   manifest while writing it to the inactive slot, and only then lets the bootloader API verify the signature and
+   select the slot. HID forwarding keeps working during the download.
+
+Refusals, each with its own message: no Wi-Fi saved, cannot join, GitHub unreachable, no image for this board, release not
+signed, running version below the release's `min_version` (update in steps), hash mismatch, signature rejected.
+**Anti-downgrade:** an older release is offered but cannot be installed unless you tick the explicit confirmation.
+
+Limits: joining your Wi-Fi makes the radio follow your router's channel, so the dongle's own access point can move and
+a phone may drop for a few seconds (reconnect if the page stops responding). The physical confirmation applies to the
+online install, not to the file upload (which already needs the Wi-Fi password).
 
 ## Rollback and self-test
 

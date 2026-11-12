@@ -43,6 +43,24 @@ bool web_server_is_running(void);
  */
 void web_server_broadcast(const char *event, const char *data_json);
 
+/**
+ * @brief Whether at least one web client currently subscribes to `input.event` (input tester).
+ *
+ * Cheap (one timestamp compare), safe to call from any task including the BLE host task. Subscriptions expire 15 s
+ * after the last `input.subscribe` frame, so a closed page stops the stream by itself; the web app renews the
+ * subscription with every heartbeat.
+ *
+ * @return true while the stream is wanted.
+ */
+bool web_server_input_active(void);
+
+/**
+ * @brief Send an `input.event` to the subscribed WebSocket clients only.
+ *
+ * @param data_json JSON object for the `data` field. Never stored (CLAUDE.md §3.12).
+ */
+void web_server_broadcast_input(const char *data_json);
+
 #ifdef __cplusplus
 }
 #endif

@@ -17,10 +17,39 @@ CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH=y
 # 160 MHz is plenty and saves power; raise only if profiling demands it.
 CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_160=y
 
-# Console on the native USB Serial/JTAG port: the S3-Zero has no UART bridge chip, so this is the only way to
-# see logs. (M2 gives the USB PHY to TinyUSB; the console strategy is revisited then.)
-CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
 
 # Web server: WebSocket support for /api/v1/ws, more sockets (HTTP + DNS + WebSocket clients).
 CONFIG_HTTPD_WS_SUPPORT=y
 CONFIG_LWIP_MAX_SOCKETS=16
+
+# USB: TinyUSB owns the native USB PHY (M2), so the USB Serial/JTAG console is unavailable. Logs go to the
+# RAM log buffer shown in the web app; there is no CDC interface in release builds (CLAUDE.md §3.2).
+# Interface 0 = boot keyboard, interface 1 = mouse + consumer + system.
+CONFIG_ESP_CONSOLE_NONE=y
+CONFIG_TINYUSB_HID_COUNT=2
+
+# BLE: NimBLE as central only, up to 4 HID peripherals + 1 pairing candidate (CLAUDE.md §3.3).
+CONFIG_BT_ENABLED=y
+CONFIG_BT_NIMBLE_ENABLED=y
+CONFIG_BT_NIMBLE_ROLE_CENTRAL=y
+CONFIG_BT_NIMBLE_ROLE_PERIPHERAL=n
+CONFIG_BT_NIMBLE_ROLE_BROADCASTER=n
+CONFIG_BT_NIMBLE_ROLE_OBSERVER=y
+CONFIG_BT_NIMBLE_MAX_CONNECTIONS=5
+CONFIG_BT_NIMBLE_MAX_BONDS=8
+CONFIG_BT_NIMBLE_NVS_PERSIST=y
+CONFIG_BT_NIMBLE_SM_LEGACY=y
+CONFIG_BT_NIMBLE_SM_SC=y
+CONFIG_BT_NIMBLE_WHITELIST_SIZE=4
+
+# Signed OTA images (M6, ADR 6). Hardware secure boot stays OFF: only the app verifies the signature when an update is
+# written (esp_ota_end), which stops spoofed updates but is not protection against physical access. The signing key
+# path is injected by firmware/CMakeLists.txt (HUBBLE_SIGNING_KEY).
+CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT=y
+CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME=y
+CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT=y
+
+# HTTPS for "check for updates" (certificate bundle with the common root CAs).
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=n
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_CMN=y

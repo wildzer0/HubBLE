@@ -6,6 +6,7 @@
 import { useRef, useState } from 'preact/hooks';
 import { ApiError, getOtaStatus, getStatus, uploadFirmware } from '../api/client';
 import { useT } from '../i18n/context';
+import { OnlineUpdateSection } from '../components/OnlineUpdate';
 import { useApi } from '../lib/useApi';
 
 /** Interval between "is the dongle back?" polls after an install. */
@@ -46,7 +47,7 @@ async function waitForDongle(): Promise<string | null> {
  */
 export function Update() {
   const t = useT();
-  const { data: ota } = useApi(getOtaStatus, 0);
+  const { data: ota, reload } = useApi(getOtaStatus, 0);
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
   const [file, setFile] = useState<File | null>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -94,6 +95,9 @@ export function Update() {
         </>
       )}
 
+      {ota && <OnlineUpdateSection online={ota.online} refresh={reload} />}
+
+      <h3>{t('update.manual')}</h3>
       <form
         onSubmit={(e) => {
           e.preventDefault();

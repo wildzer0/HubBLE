@@ -67,3 +67,13 @@ export function subscribeState(l: StateListener): () => void {
     stateListeners.delete(l);
   };
 }
+
+/**
+ * Send a client event over the shared socket (`input.subscribe` / `input.unsubscribe`).
+ *
+ * @param event Event name.
+ * @returns True if it was sent; false if the socket is not open.
+ */
+export function sendLive(event: string): boolean {
+  return connected && socket !== null && socket.sendEvent(event);
+}

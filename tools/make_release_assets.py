@@ -2,7 +2,7 @@
 """Create the release assets for every built board (CLAUDE.md §6.2).
 
 For each board it writes, into <out-dir>:
-  hubble-<board>-v<ver>-ota.bin      app image for OTA (signing is STUBBED until M6: plain app image)
+  hubble-<board>-v<ver>-ota.bin      signed app image for OTA (RSA-3072 signature block, checked here with espsecure)
   hubble-<board>-v<ver>-factory.bin  bootloader + partition table + otadata + app merged for the first USB flash
 plus manifest.json (version, boards, sizes, SHA-256) and SHA256SUMS.
 
@@ -10,6 +10,7 @@ Usage: make_release_assets.py <version> <firmware-dir> <out-dir> <board> [<board
 Requires an activated ESP-IDF environment (esptool) and builds in <firmware-dir>/build-<board>/.
 """
 import hashlib
+import os
 import json
 import shutil
 import subprocess
@@ -29,6 +30,15 @@ def describe(path: Path) -> dict:
     return {"file": path.name, "size": path.stat().st_size, "sha256": sha256(path)}
 
 
+def verify_signature(image: Path) -> None:
+    """Fail the release if the image is not signed with the configured key (HUBBLE_SIGNING_KEY or the dev key)."""
+    key = Path(os.environ.get("HUBBLE_SIGNING_KEY") or Path(__file__).resolve().parent.parent / "firmware/keys/dev_signing_key.pem")
+    subprocess.run(
+        ["python3", "-m", "espsecure", "verify_signature", "--version", "2", "--keyfile", str(key), str(image)],
+        check=True,
+    )
+
+
 def main() -> int:
     if len(sys.argv) < 5:
         print(__doc__, file=sys.stderr)
@@ -40,7 +50,7 @@ def main() -> int:
         "version": version,
         "min_version": "0.1.0",
         "release_notes_url": f"{REPO_URL}/releases/tag/v{version}",
-        "signed": False,  # flips to true in M6 when image signing is enabled
+        "signed": True,  # every OTA image carries an RSA-3072 signature block (verified below)
         "boards": {},
     }
     for board in boards:
@@ -48,6 +58,7 @@ def main() -> int:
         ota = out / f"hubble-{board}-v{version}-ota.bin"
         factory = out / f"hubble-{board}-v{version}-factory.bin"
         shutil.copyfile(build / "hubble.bin", ota)
+        verify_signature(ota)
         # `@flash_args` lists every (offset, file) pair of the build, relative to the build directory.
         subprocess.run(
             ["python3", "-m", "esptool", "--chip", "esp32s3", "merge_bin", "-o", str(factory.resolve()), "@flash_args"],

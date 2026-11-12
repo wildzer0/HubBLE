@@ -35,6 +35,29 @@ typedef enum {
 guard_result_t http_guard_check(const char *x_hubble, const char *content_type, const char *expected_ct,
                                 const char *origin, const char *host);
 
+/**
+ * @brief Whether a `Host` header names this dongle: the SoftAP address or `hubble.local`, optionally with a port.
+ *
+ * Strict (exact match, unlike the captive-portal redirect), so a page served under another name cannot talk to the API
+ * even if an attacker makes that name resolve to the dongle (DNS rebinding).
+ *
+ * @param host Value of the `Host` header, or NULL.
+ * @return true only for "192.168.4.1" or "hubble.local" (case-insensitive) with an optional ":port".
+ */
+bool http_guard_host_ours(const char *host);
+
+/**
+ * @brief Check the WebSocket handshake against cross-site WebSocket hijacking.
+ *
+ * Browsers do not apply the same-origin policy to WebSockets, so any web page could otherwise open the event stream
+ * (pairing passkeys, logs, the input tester) from the visitor's browser.
+ *
+ * @param origin Value of `Origin`, or NULL (non-browser clients).
+ * @param host   Value of `Host`, or NULL.
+ * @return true if the Host names this dongle and the Origin (when present) is the same host.
+ */
+bool http_guard_ws_ok(const char *origin, const char *host);
+
 #ifdef __cplusplus
 }
 #endif

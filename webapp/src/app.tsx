@@ -1,20 +1,37 @@
 /**
  * @file app.tsx
- * @description Root component: header, hash-based navigation (Dashboard, Update, System), language
- * switch and the live-connection indicator.
+ * @description Root component: header, hash-based navigation, the first-run redirect to the setup
+ * wizard and the live-connection indicator.
  */
 import { useEffect, useState } from 'preact/hooks';
+import { getStatus } from './api/client';
 import { subscribeState } from './api/live';
 import { LocaleContext, useT } from './i18n/context';
 import { pickLocale } from './i18n';
 import type { Locale } from './i18n';
 import { Dashboard } from './pages/Dashboard';
+import { DeviceDetail } from './pages/DeviceDetail';
+import { Pair } from './pages/Pair';
+import { Settings } from './pages/Settings';
+import { Setup } from './pages/Setup';
 import { System } from './pages/System';
+import { Tester } from './pages/Tester';
 import { Update } from './pages/Update';
 
-/** Routes of the app, as `#/name` hashes. */
-const ROUTES = ['dashboard', 'update', 'system'] as const;
+/** Routes of the app, as `#/name` hashes (`device` takes an id: `#/device/<id>`). */
+const ROUTES = [
+  'dashboard',
+  'pair',
+  'device',
+  'tester',
+  'settings',
+  'update',
+  'system',
+  'setup',
+] as const;
 type Route = (typeof ROUTES)[number];
+/** Routes shown in the navigation bar. */
+const NAV_ROUTES = ['dashboard', 'tester', 'settings', 'update', 'system'] as const;
 
 /**
  * Parse the location hash into a route.
@@ -23,8 +40,40 @@ type Route = (typeof ROUTES)[number];
  * @returns A known route (the dashboard if unknown).
  */
 export function parseRoute(hash: string): Route {
-  const name = hash.replace(/^#\/?/, '');
+  const name = hash.replace(/^#\/?/, '').split('/')[0];
   return ROUTES.find((r) => r === name) ?? 'dashboard';
+}
+
+/**
+ * Parameter of a route, e.g. the device id of `#/device/aabbccddeeff`.
+ *
+ * @param hash Value of `location.hash`.
+ * @returns The part after the route name, or an empty string.
+ */
+export function routeParam(hash: string): string {
+  return hash.replace(/^#\/?/, '').split('/')[1] ?? '';
+}
+
+/**
+ * "Skip to content" link for keyboard and screen-reader users. It moves focus with script instead of
+ * changing the hash, because the hash is the router.
+ *
+ * @returns The link element.
+ */
+function SkipLink() {
+  const t = useT();
+  return (
+    <a
+      class="skip"
+      href="#/"
+      onClick={(e) => {
+        e.preventDefault();
+        document.getElementById('main')?.focus();
+      }}
+    >
+      {t('common.skip')}
+    </a>
+  );
 }
 
 /**
@@ -40,7 +89,7 @@ function Nav({ route }: { route: Route }) {
 
   return (
     <nav aria-label={t('nav.label')}>
-      {ROUTES.map((r) => (
+      {NAV_ROUTES.map((r) => (
         <a key={r} href={`#/${r}`} aria-current={r === route ? 'page' : undefined}>
           {t(`nav.${r}`)}
         </a>
@@ -59,11 +108,12 @@ function Nav({ route }: { route: Route }) {
  */
 export function App() {
   const [locale, setLocale] = useState<Locale>(pickLocale(navigator.language));
-  const [route, setRoute] = useState<Route>(parseRoute(location.hash));
+  const [hash, setHash] = useState(location.hash);
+  const route = parseRoute(hash);
 
   useEffect(() => {
     const onHash = () => {
-      setRoute(parseRoute(location.hash));
+      setHash(location.hash);
     };
     window.addEventListener('hashchange', onHash);
     return () => {
@@ -71,47 +121,38 @@ export function App() {
     };
   }, []);
 
+  // Until a Wi-Fi password has been chosen, everything but the wizard is off limits (CLAUDE.md §3.5).
+  useEffect(() => {
+    if (route === 'setup') return;
+    getStatus().then(
+      (st) => {
+        if (st.setup_required) location.hash = '#/setup';
+      },
+      () => undefined, // an unreachable dongle is reported by the pages themselves
+    );
+  }, [route]);
+
   useEffect(() => {
     document.documentElement.lang = locale;
   }, [locale]);
 
   return (
     <LocaleContext.Provider value={locale}>
-      <main>
-        <Header locale={locale} onLocale={setLocale} />
+      <SkipLink />
+      <main id="main" tabIndex={-1}>
+        <header>
+          <h1>{'HubBLE'}</h1>
+        </header>
         <Nav route={route} />
+        {route === 'setup' && <Setup />}
         {route === 'dashboard' && <Dashboard />}
+        {route === 'pair' && <Pair />}
+        {route === 'device' && <DeviceDetail id={routeParam(hash)} />}
+        {route === 'tester' && <Tester />}
+        {route === 'settings' && <Settings locale={locale} onLocale={setLocale} />}
         {route === 'update' && <Update />}
         {route === 'system' && <System />}
       </main>
     </LocaleContext.Provider>
-  );
-}
-
-/**
- * Title row with the language selector.
- *
- * @param props.locale Active locale.
- * @param props.onLocale Called when the user picks another language.
- * @returns The header element.
- */
-function Header({ locale, onLocale }: { locale: Locale; onLocale: (l: Locale) => void }) {
-  const t = useT();
-  return (
-    <header>
-      <h1>{t('app.title')}</h1>
-      <label>
-        {t('lang.label')}{' '}
-        <select
-          value={locale}
-          onChange={(e) => {
-            onLocale(pickLocale(e.currentTarget.value));
-          }}
-        >
-          <option value="en">English</option>
-          <option value="it">Italiano</option>
-        </select>
-      </label>
-    </header>
   );
 }

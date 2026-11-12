@@ -35,12 +35,12 @@ jobs:
             -I firmware/components/semver/include -I firmware/components/web_assets/include \
             -I firmware/components/log_buffer/include -I firmware/components/wifi_ap/include \
             -I firmware/components/captive_portal/include -I firmware/components/settings/include \
-            -I firmware/components/api/include -I firmware/components/ota/include \
+            -I firmware/components/api/include -I firmware/components/ota/include -I firmware/components/hid_report/include -I firmware/components/hid_parser/include -I firmware/components/hid_normalizer/include -I firmware/components/combo/include -I firmware/components/lat_stats/include -I firmware/components/pairing/include -I firmware/components/ota_manifest/include -I firmware/components/power/include -I firmware/components/led/include \
             firmware/components/semver/semver.c firmware/components/web_assets/web_bundle.c \
             firmware/components/log_buffer/log_buffer.c firmware/components/wifi_ap/ap_policy.c \
             firmware/components/captive_portal/dns_reply.c firmware/components/settings/settings_model.c \
-            firmware/components/api/http_guard.c firmware/components/ota/board_marker.c \
-            firmware/components/ota/boot_guard.c
+            firmware/components/api/http_guard.c firmware/components/hid_report/hid_report.c firmware/components/hid_parser/hid_parser.c firmware/components/hid_normalizer/hid_normalizer.c firmware/components/combo/combo.c firmware/components/lat_stats/lat_stats.c firmware/components/pairing/pairing.c firmware/components/ota/board_marker.c \
+            firmware/components/ota/boot_guard.c firmware/components/ota_manifest/ota_manifest.c firmware/components/power/power_policy.c firmware/components/led/led_pattern.c
       - name: markdownlint
         run: npx --yes markdownlint-cli2@0.18.1 "**/*.md"
       - name: actionlint
@@ -81,6 +81,26 @@ jobs:
           cmake -S firmware/test -B firmware/test/build -G Ninja
           cmake --build firmware/test/build
           ctest --test-dir firmware/test/build --output-on-failure
+      - name: Host tests under ASan/LSan/UBSan
+        run: |
+          cmake -S firmware/test -B firmware/test/build-asan -G Ninja -DHUBBLE_SANITIZE=ON
+          cmake --build firmware/test/build-asan
+          ctest --test-dir firmware/test/build-asan --output-on-failure
+      - name: Fuzzing (libFuzzer, bounded)
+        env:
+          CC: clang
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq clang
+          tools/fuzz.sh "${FUZZ_SECONDS:-60}"
+      - name: Upload fuzz findings
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fuzz-findings
+          path: |
+            firmware/test/build-fuzz/crash-*
+            firmware/test/build-fuzz/work-*
+          if-no-files-found: ignore
 
   firmware:
     needs: webapp

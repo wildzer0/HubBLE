@@ -60,6 +60,31 @@ paths:
         '409': { $ref: '#/components/responses/Error' }
         '413': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
+  /api/v1/ota/check:
+    post:
+      summary: Check GitHub for an update (`{ channel?: "stable" | "prerelease" }`)
+      description: >
+        Starts the background check (joins the saved Wi-Fi network as a station). Poll `GET /ota/status` (`online`) or listen
+        to the `ota.state` event. 409 `no_wifi_credentials` when no network is saved; 409 `busy`.
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/ota/install:
+    post:
+      summary: Install the release found by the last check (`{ allow_downgrade?: bool }`)
+      description: >
+        Waits for the physical confirmation when required, downloads over HTTPS, verifies SHA-256 and signature, reboots.
+        409 `downgrade_not_confirmed` for an older release without `allow_downgrade`; 409 `nothing_to_install`.
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/settings/sta:
+    put:
+      summary: Save (or forget, with an empty `ssid`) the Wi-Fi network used for updates (`{ ssid, password }`)
+      description: Write-only. The response is the settings object, which only says `sta_configured`.
+      responses:
+        '200': { description: Settings }
+        '400': { $ref: '#/components/responses/Error' }
   /api/v1/diagnostics:
     get:
       summary: System diagnostics
@@ -116,6 +141,98 @@ paths:
             schema: { type: object }
       responses:
         '200': { $ref: '#/components/responses/Ok' }
+        '403': { $ref: '#/components/responses/Error' }
+  /api/v1/devices:
+    get:
+      summary: Registered (bonded) devices with live state
+      responses:
+        '200': { description: "{ devices: [...], max: 4 }" }
+  /api/v1/devices/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, description: "12 hex digits (the address)" } }
+    get:
+      summary: One device
+      responses:
+        '200': { description: Device }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      summary: Rename (`{ "name": "..." }`)
+      responses:
+        '200': { description: Device }
+        '400': { $ref: '#/components/responses/Error' }
+    delete:
+      summary: Forget the device and delete its bond
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+  /api/v1/devices/{id}/report-map:
+    get:
+      summary: Raw report map as hex (`{ hex, length }`); 409 if the device is not connected
+      responses:
+        '200': { description: Report map }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/pairing/scan:
+    get:
+      summary: Pairing state and the scan list (HID-looking advertisers)
+      responses:
+        '200': { description: "{ state, results: [{ address, address_type, name, rssi, appearance }] }" }
+    post:
+      summary: Start a 30 s scan (409 when busy or all four slots are used, 429 when locked)
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/pairing/start:
+    post:
+      summary: Pair with `{ address, address_type, allow_legacy? }`; 429 `pairing_locked` after 3 failures
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/pairing/cancel:
+    post:
+      summary: Cancel scanning / pairing
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+  /api/v1/settings:
+    get:
+      summary: Settings (`require_confirmation`, `ap_boot_window_s`, `ap_idle_timeout_s`, `update_channel`, `sta_configured`, `remote_wakeup`, `led_brightness` 0-100, `status_led`, `shift_hold_ms` 1000-10000; never secrets)
+      description: The AP times (30..86400 s) apply from the next restart.
+      responses:
+        '200': { description: Settings }
+    put:
+      summary: Update the given settings fields (all-or-nothing validation)
+      responses:
+        '200': { description: Settings after the update }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/backup:
+    get:
+      summary: Settings backup `{ format: "hubble-backup", version: 1, settings }`; never contains bonds or secrets
+      responses:
+        '200': { description: Backup document }
+  /api/v1/restore:
+    post:
+      summary: Restore a backup document (400 `bad_backup` if it is not one)
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/system/factory-reset:
+    post:
+      summary: Erase settings, Wi-Fi password, device registry and bonds, then restart (first-run state)
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '403': { $ref: '#/components/responses/Error' }
+  /api/v1/debug/input:
+    post:
+      summary: Inject test input (only in builds with the debug_usb overlay)
+      description: >
+        Presses/moves as the debug source for `hold_ms` (default 50, max 1000), then releases. `kind` is one of
+        `key` (modifiers, keys[]), `mouse` (buttons, dx, dy, wheel, pan), `consumer` (usage), `system` (bits).
+        Absent (404) in release builds.
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, required: [kind] }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '400': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
 components:
   responses:

@@ -6,9 +6,20 @@ standard, wired USB HID device. The host needs no Bluetooth, no drivers and no
 software. A built-in web app (served over the dongle's own Wi-Fi access point)
 handles pairing, settings, diagnostics and over-the-air updates.
 
-> **Status:** pre-release, milestone M1 (Wi-Fi AP, web app and OTA updates). BLE and
-> USB HID forwarding are not implemented yet. See [CHANGELOG.md](CHANGELOG.md) and the roadmap in
-> [CLAUDE.md](CLAUDE.md).
+## Features
+
+- Up to **4 BLE keyboards, mice and trackballs at once**, merged into one USB composite HID device (boot keyboard,
+  mouse with wheel and pan, media and system keys). Works in BIOS/UEFI. Keyboard LEDs follow the host.
+- **Secure pairing from the web app:** passkey entry, quarantine challenges for Just Works devices, legacy pairing refused
+  by default, optional physical confirmation, rate limiting.
+- **Web app** on the dongle's own Wi-Fi: setup wizard with QR sticker, dashboard, device details, input tester,
+  settings, backup/restore, updates, diagnostics, live logs. English and Italian.
+- **Over-the-air updates** with automatic rollback, from a file or from GitHub, signed images (RSA-3072), SHA-256,
+  board and downgrade checks.
+- **Follows the host:** low-power Bluetooth parameters and Wi-Fi/LED off while the computer sleeps, remote wakeup.
+
+> **Status:** feature complete for 1.0. Hardware validation checklists are in `docs/testing/`. See
+> [CHANGELOG.md](CHANGELOG.md).
 
 ## Supported boards
 

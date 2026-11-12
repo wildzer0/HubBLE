@@ -3,6 +3,7 @@ name: Docs
 # Deploys the documentation site from main (the github-pages environment only
 # accepts deployments from the main branch, not from tags).
 on:
+  workflow_call:
   push:
     branches: [main]
     paths: ["docs/**", "mkdocs.yml", "Doxyfile", "firmware/**/*.[ch]", "webapp/src/**", "webapp/typedoc.json", ".github/workflows/docs.yml"]
@@ -40,6 +41,17 @@ jobs:
       - run: npm ci && npm run docs
         working-directory: webapp
       - run: mkdocs build
+      - name: Web installer (latest stable release images, if any)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # ESP Web Tools needs the images on the same origin as the page (release downloads send no CORS headers).
+          mkdir -p release-assets
+          if gh release download --repo "$GITHUB_REPOSITORY" --pattern '*-factory.bin' --dir release-assets 2>/dev/null; then
+            python3 tools/make_web_installer.py release-assets site
+          else
+            echo "no stable release yet: the installer page will say so"
+          fi
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: site

@@ -68,12 +68,19 @@ jobs:
         shell: bash
         env:
           HUBBLE_VERSION_TAG: ${{ github.ref_name }}
+          SIGNING_KEY_PEM: ${{ secrets.HUBBLE_SIGNING_KEY }}
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           . "$IDF_PATH/export.sh"
           export HUBBLE_VERSION="${HUBBLE_VERSION_TAG#v}"
+          # The release key lives only in the HUBBLE_SIGNING_KEY secret (docs/key-management.md). The build signs the
+          # OTA image with it; a release without the secret must fail instead of falling back to a development key.
+          [ -n "$SIGNING_KEY_PEM" ] || { echo "secret HUBBLE_SIGNING_KEY is not set"; exit 1; }
+          umask 077
+          printf '%s\n' "$SIGNING_KEY_PEM" > "$RUNNER_TEMP/signing_key.pem"
+          export HUBBLE_SIGNING_KEY="$RUNNER_TEMP/signing_key.pem"
           tools/build-firmware.sh ${{ matrix.board }}
-      # TODO(M6): sign the OTA image here with the key from secrets.
+          rm -f "$RUNNER_TEMP/signing_key.pem"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: build-${{ matrix.board }}
@@ -90,6 +97,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
@@ -105,12 +113,19 @@ jobs:
           name: release-notes
           path: art-notes
       - name: Assemble assets
+        env:
+          SIGNING_KEY_PEM: ${{ secrets.HUBBLE_SIGNING_KEY }}
         run: |
+          # make_release_assets.py re-verifies every OTA image against the release key before it is published.
+          umask 077
+          printf '%s\n' "$SIGNING_KEY_PEM" > "$RUNNER_TEMP/signing_key.pem"
+          export HUBBLE_SIGNING_KEY="$RUNNER_TEMP/signing_key.pem"
           # Artifacts keep the firmware/build-<board>/ prefix as their common root is stripped;
           # rebuild the layout expected by make_release_assets.py.
           mkdir -p fw
           for b in s3_zero xiao_s3; do mv "art/build-$b" "fw/build-$b"; done
           python3 tools/make_release_assets.py "${GITHUB_REF_NAME#v}" fw release s3_zero xiao_s3
+          rm -f "$RUNNER_TEMP/signing_key.pem"
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -120,3 +135,7 @@ jobs:
           case "$VERSION" in 0.*|*-rc.*) PRE="--prerelease" ;; esac
           # shellcheck disable=SC2086
           gh release create "$GITHUB_REF_NAME" release/* --title "$GITHUB_REF_NAME" --notes-file art-notes/release-notes.md $PRE --verify-tag
+      - name: Redeploy the docs site (web installer picks up the new images)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run docs.yml --ref main

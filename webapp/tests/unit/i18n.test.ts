@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { en } from '../../src/i18n/en';
 import { it as itTable } from '../../src/i18n/it';
 import { pickLocale, translate } from '../../src/i18n';
-import { parseRoute } from '../../src/app';
+import { parseRoute, routeParam } from '../../src/app';
 
 describe('i18n', () => {
   it('has the same keys in English and Italian', () => {
@@ -32,5 +32,8 @@ describe('routing', () => {
     expect(parseRoute('#system')).toBe('system');
     expect(parseRoute('#/nope')).toBe('dashboard');
     expect(parseRoute('')).toBe('dashboard');
+    expect(parseRoute('#/device/aabbccddeeff')).toBe('device');
+    expect(routeParam('#/device/aabbccddeeff')).toBe('aabbccddeeff');
+    expect(routeParam('#/system')).toBe('');
   });
 });

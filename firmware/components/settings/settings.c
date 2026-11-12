@@ -17,11 +17,19 @@ static const char *TAG = "settings";
 /** NVS namespace for all HubBLE settings. */
 #define NS "hubble"
 /** NVS key names (max 15 chars). */
-#define KEY_AP_PASS    "ap_pass"
-#define KEY_BOOT_WIN   "boot_win_s"
-#define KEY_IDLE_TMO   "idle_tmo_s"
-#define KEY_BOOT_FAIL  "boot_fail"
-#define KEY_OTA_RESULT "ota_result"
+#define KEY_AP_PASS     "ap_pass"
+#define KEY_REQ_CONFIRM "req_conf"
+#define KEY_STA_SSID    "sta_ssid"
+#define KEY_STA_PASS    "sta_pass"
+#define KEY_CHANNEL     "upd_pre"
+#define KEY_REM_WAKE    "rem_wake"
+#define KEY_LED_BRIGHT  "led_pct"
+#define KEY_STATUS_LED  "led_status"
+#define KEY_SHIFT_HOLD  "shift_ms"
+#define KEY_BOOT_WIN    "boot_win_s"
+#define KEY_IDLE_TMO    "idle_tmo_s"
+#define KEY_BOOT_FAIL   "boot_fail"
+#define KEY_OTA_RESULT  "ota_result"
 
 /** Open namespace handle; 0 until settings_init() succeeds. */
 static nvs_handle_t s_nvs;
@@ -77,6 +85,39 @@ esp_err_t settings_set_ap_password(const char *password) {
     return err;
 }
 
+/** @copydoc settings_reset_ap_password */
+esp_err_t settings_reset_ap_password(void) {
+    if (!s_ready) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    esp_err_t err = nvs_erase_key(s_nvs, KEY_AP_PASS);
+    if (err == ESP_ERR_NVS_NOT_FOUND) {
+        return ESP_OK; /* Already at the default. */
+    }
+    if (err == ESP_OK) {
+        err = nvs_commit(s_nvs);
+    }
+    return err;
+}
+
+/** @copydoc settings_get_require_confirm */
+bool settings_get_require_confirm(void) {
+    uint8_t v = 1; /* Default ON (CLAUDE.md §3.4.3). */
+    if (s_ready && nvs_get_u8(s_nvs, KEY_REQ_CONFIRM, &v) != ESP_OK) {
+        v = 1;
+    }
+    return v != 0;
+}
+
+/** @copydoc settings_set_require_confirm */
+esp_err_t settings_set_require_confirm(bool enabled) {
+    if (!s_ready) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    esp_err_t err = nvs_set_u8(s_nvs, KEY_REQ_CONFIRM, enabled ? 1 : 0);
+    return err == ESP_OK ? nvs_commit(s_nvs) : err;
+}
+
 /** @copydoc settings_is_setup_done */
 bool settings_is_setup_done(void) {
     size_t len = 0;
@@ -100,6 +141,162 @@ uint32_t settings_get_boot_window_s(void) {
 /** @copydoc settings_get_idle_timeout_s */
 uint32_t settings_get_idle_timeout_s(void) {
     return get_u32(KEY_IDLE_TMO, SETTINGS_DEFAULT_IDLE_TIMEOUT_S);
+}
+
+/** @copydoc settings_window_valid */
+bool settings_window_valid(uint32_t seconds) {
+    return seconds >= SETTINGS_WINDOW_MIN_S && seconds <= SETTINGS_WINDOW_MAX_S;
+}
+
+/** @brief Validate and store a u32 setting (helper). */
+static esp_err_t set_window(const char *key, uint32_t seconds) {
+    if (!settings_window_valid(seconds)) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!s_ready) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    esp_err_t err = nvs_set_u32(s_nvs, key, seconds);
+    return err == ESP_OK ? nvs_commit(s_nvs) : err;
+}
+
+/** @copydoc settings_set_boot_window_s */
+esp_err_t settings_set_boot_window_s(uint32_t seconds) {
+    return set_window(KEY_BOOT_WIN, seconds);
+}
+
+/** @copydoc settings_set_idle_timeout_s */
+esp_err_t settings_set_idle_timeout_s(uint32_t seconds) {
+    return set_window(KEY_IDLE_TMO, seconds);
+}
+
+/** @copydoc settings_has_sta */
+bool settings_has_sta(void) {
+    size_t len = 0;
+    return s_ready && nvs_get_str(s_nvs, KEY_STA_SSID, NULL, &len) == ESP_OK && len > 1;
+}
+
+/** @copydoc settings_get_sta */
+esp_err_t settings_get_sta(char *ssid, size_t ssid_cap, char *pass, size_t pass_cap) {
+    if (!settings_has_sta()) {
+        return ESP_ERR_NOT_FOUND;
+    }
+    size_t sl = ssid_cap;
+    size_t pl = pass_cap;
+    pass[0] = '\0';
+    esp_err_t err = nvs_get_str(s_nvs, KEY_STA_SSID, ssid, &sl);
+    if (err != ESP_OK) {
+        return err;
+    }
+    err = nvs_get_str(s_nvs, KEY_STA_PASS, pass, &pl);
+    return err == ESP_ERR_NVS_NOT_FOUND ? ESP_OK : err; /* No password = open network. */
+}
+
+/** @copydoc settings_set_sta */
+esp_err_t settings_set_sta(const char *ssid, const char *password) {
+    if (!s_ready) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (ssid != NULL && ssid[0] == '\0') {
+        nvs_erase_key(s_nvs, KEY_STA_SSID);
+        nvs_erase_key(s_nvs, KEY_STA_PASS);
+        return nvs_commit(s_nvs);
+    }
+    if (!settings_sta_valid(ssid, password)) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    esp_err_t err = nvs_set_str(s_nvs, KEY_STA_SSID, ssid);
+    if (err == ESP_OK) {
+        err = nvs_set_str(s_nvs, KEY_STA_PASS, password);
+    }
+    return err == ESP_OK ? nvs_commit(s_nvs) : err;
+}
+
+/** @copydoc settings_get_prerelease_channel */
+bool settings_get_prerelease_channel(void) {
+    uint8_t v = 0;
+    return s_ready && nvs_get_u8(s_nvs, KEY_CHANNEL, &v) == ESP_OK && v != 0;
+}
+
+/** @copydoc settings_set_prerelease_channel */
+esp_err_t settings_set_prerelease_channel(bool prerelease) {
+    if (!s_ready) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    esp_err_t err = nvs_set_u8(s_nvs, KEY_CHANNEL, prerelease ? 1 : 0);
+    return err == ESP_OK ? nvs_commit(s_nvs) : err;
+}
+
+/** @brief Read a boolean setting stored as u8. */
+static bool get_flag(const char *key, bool def) {
+    uint8_t v = def ? 1 : 0;
+    if (s_ready && nvs_get_u8(s_nvs, key, &v) != ESP_OK) {
+        v = def ? 1 : 0;
+    }
+    return v != 0;
+}
+
+/** @brief Store a boolean setting as u8. */
+static esp_err_t set_flag(const char *key, bool value) {
+    if (!s_ready) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    esp_err_t err = nvs_set_u8(s_nvs, key, value ? 1 : 0);
+    return err == ESP_OK ? nvs_commit(s_nvs) : err;
+}
+
+/** @copydoc settings_get_remote_wakeup */
+bool settings_get_remote_wakeup(void) {
+    return get_flag(KEY_REM_WAKE, true);
+}
+
+/** @copydoc settings_set_remote_wakeup */
+esp_err_t settings_set_remote_wakeup(bool enabled) {
+    return set_flag(KEY_REM_WAKE, enabled);
+}
+
+/** @copydoc settings_get_status_led */
+bool settings_get_status_led(void) {
+    return get_flag(KEY_STATUS_LED, false);
+}
+
+/** @copydoc settings_set_status_led */
+esp_err_t settings_set_status_led(bool enabled) {
+    return set_flag(KEY_STATUS_LED, enabled);
+}
+
+/** @copydoc settings_get_led_brightness */
+uint8_t settings_get_led_brightness(void) {
+    return (uint8_t)get_u32(KEY_LED_BRIGHT, SETTINGS_LED_BRIGHTNESS_DEFAULT);
+}
+
+/** @copydoc settings_set_led_brightness */
+esp_err_t settings_set_led_brightness(uint32_t percent) {
+    if (percent > SETTINGS_LED_BRIGHTNESS_MAX) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!s_ready) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    esp_err_t err = nvs_set_u32(s_nvs, KEY_LED_BRIGHT, percent);
+    return err == ESP_OK ? nvs_commit(s_nvs) : err;
+}
+
+/** @copydoc settings_get_shift_hold_ms */
+uint32_t settings_get_shift_hold_ms(void) {
+    return get_u32(KEY_SHIFT_HOLD, SETTINGS_SHIFT_HOLD_DEFAULT_MS);
+}
+
+/** @copydoc settings_set_shift_hold_ms */
+esp_err_t settings_set_shift_hold_ms(uint32_t ms) {
+    if (ms < SETTINGS_SHIFT_HOLD_MIN_MS || ms > SETTINGS_SHIFT_HOLD_MAX_MS) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!s_ready) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    esp_err_t err = nvs_set_u32(s_nvs, KEY_SHIFT_HOLD, ms);
+    return err == ESP_OK ? nvs_commit(s_nvs) : err;
 }
 
 /** @copydoc settings_boot_failures */

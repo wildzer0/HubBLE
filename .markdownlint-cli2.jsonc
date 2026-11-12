@@ -8,5 +8,5 @@
     "MD046": false
   },
   // CLAUDE.md is the owner's brief; .agent/ is the agent's scratch progress file.
-  "ignores": ["CLAUDE.md", ".agent/**", "**/node_modules/**", "firmware/managed_components/**", "docs/api/generated/**", "firmware/test/build/**", "site/**"]
+  "ignores": ["CLAUDE.md", ".agent/**", "**/node_modules/**", "firmware/managed_components/**", "docs/api/generated/**", "firmware/test/build*/**", "site/**"]
 }

@@ -1,0 +1,24 @@
+menu "HubBLE power management"
+    config HUBBLE_POWER_LOW_ITVL_UNITS
+        int "Connection interval while the host is suspended (1.25 ms units)"
+        default 32
+        range 24 80
+        help
+            32 units = 40 ms. Longer intervals save more peripheral battery but wake-up input takes longer to be
+            noticed (up to (1 + latency) intervals).
+
+    config HUBBLE_POWER_LOW_LATENCY
+        int "Peripheral latency while the host is suspended"
+        default 10
+        range 0 30
+        help
+            Number of connection events a peripheral may skip when it has nothing to send. The supervision
+            timeout is derived automatically (power_low_profile()).
+
+    config HUBBLE_POWER_SUSPEND_DELAY_MS
+        int "Debounce before low-power mode starts (ms)"
+        default 2000
+        range 0 30000
+        help
+            The USB bus must stay suspended this long. Resuming is never delayed.
+endmenu

@@ -10,7 +10,11 @@
  */
 #pragma once
 
+#include <stdbool.h>
+#include <stddef.h>
+
 #include "esp_err.h"
+#include "sdkconfig.h"
 #include "esp_http_server.h"
 
 #ifdef __cplusplus
@@ -18,7 +22,45 @@ extern "C" {
 #endif
 
 /** Number of URI handlers api_register() adds (so the server can size max_uri_handlers). */
-#define API_URI_HANDLER_COUNT 8
+#if CONFIG_HUBBLE_USB_DEBUG_INJECT
+#define API_URI_HANDLER_COUNT 25
+#else
+#define API_URI_HANDLER_COUNT 24
+#endif
+
+/**
+ * @brief Build the JSON payload of a `device.updated` / `device.removed` WebSocket event.
+ *
+ * @param slot Device slot.
+ * @param out  Output buffer.
+ * @param cap  Buffer size.
+ * @return true if the JSON was produced (false for an invalid slot or a too small buffer).
+ */
+bool api_device_event_json(int slot, char *out, size_t cap);
+
+/**
+ * @brief Emit the WebSocket events describing the current pairing state: `pairing.state` always, plus
+ *        `pairing.passkey`, `pairing.challenge` or `pairing.result` when applicable (all carry the status object).
+ *
+ * @param emit Called once per event with the event name and its JSON payload.
+ */
+void api_pairing_events(void (*emit)(const char *event, const char *json));
+
+/**
+ * @brief Emit the `ota.state` WebSocket event (online update engine state, same object as `online` in
+ *        `GET /api/v1/ota/status`).
+ *
+ * @param emit Function receiving the event name and the JSON `data` object.
+ */
+void api_ota_events(void (*emit)(const char *event, const char *json));
+
+/**
+ * @brief Emit the `ota.state` WebSocket event (online update engine state, same object as `online` in
+ *        `GET /api/v1/ota/status`).
+ *
+ * @param emit Function receiving the event name and the JSON `data` object.
+ */
+void api_ota_events(void (*emit)(const char *event, const char *json));
 
 /**
  * @brief Register all REST handlers.

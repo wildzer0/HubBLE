@@ -16,6 +16,9 @@ components exist:
 | `web_server` | HTTP server: embedded web app, WebSocket `/api/v1/ws`, portal redirects | – |
 | `api` | REST handlers `/api/v1/*` and the CSRF guard | CSRF guard |
 | `ota` | Streaming install, board check, rollback self-test, boot-failure guard | board marker, boot guard |
+| `ota_manifest` | Release manifest parsing, tag search, install decision (newer / downgrade / minimum version / signed) | yes |
+| `ota_online` | GitHub check and HTTPS install (APSTA, SHA-256, physical confirmation) | – |
+| `power` | Suspend debounce, low-power BLE profile (follows the USB host) | yes |
 | `diag` | Diagnostics snapshot, reboot to download mode | – |
 
 Pure-logic code never includes ESP-IDF headers so it runs in the Unity host
