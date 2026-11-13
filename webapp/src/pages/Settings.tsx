@@ -20,6 +20,9 @@ const WINDOW_MAX_S = 86400;
 /** Allowed hold time of the Ctrl+Alt gesture, ms. */
 const SHIFT_MIN_MS = 1000;
 const SHIFT_MAX_MS = 10000;
+/** Limits of the typing filter times, ms (match the firmware). */
+const FILTER_BOUNCE_MAX_MS = 500;
+const FILTER_HOLD_MAX_MS = 1000;
 /** Milliseconds per second (the API stores the gesture time in ms, the UI shows seconds). */
 const MS_PER_S = 1000;
 
@@ -65,8 +68,19 @@ export function Settings({ locale, onLocale }: { locale: Locale; onLocale: (l: L
     Number.isInteger(form.shift_hold_ms) &&
     form.shift_hold_ms >= SHIFT_MIN_MS &&
     form.shift_hold_ms <= SHIFT_MAX_MS;
+  const filterOk =
+    Number.isInteger(form.filter_bounce_ms) &&
+    form.filter_bounce_ms >= 0 &&
+    form.filter_bounce_ms <= FILTER_BOUNCE_MAX_MS &&
+    Number.isInteger(form.filter_hold_ms) &&
+    form.filter_hold_ms >= 0 &&
+    form.filter_hold_ms <= FILTER_HOLD_MAX_MS;
   const ok =
-    windowOk(form.ap_boot_window_s) && windowOk(form.ap_idle_timeout_s) && ledOk && shiftOk;
+    windowOk(form.ap_boot_window_s) &&
+    windowOk(form.ap_idle_timeout_s) &&
+    ledOk &&
+    shiftOk &&
+    filterOk;
   // The Wi-Fi network is saved by its own picker, so it does not count as an unsaved change.
   const dirty =
     JSON.stringify({ ...form, sta_configured: 0 }) !==
@@ -187,6 +201,48 @@ export function Settings({ locale, onLocale }: { locale: Locale; onLocale: (l: L
             set({ shift_hold_ms: Math.round(v * MS_PER_S) });
           }}
         />
+      </section>
+
+      <section class="card" aria-labelledby="set-filter">
+        <h3 class="card-title" id="set-filter">
+          {t('settings.filter')}
+        </h3>
+        <SwitchRow
+          label={t('settings.filter_enabled')}
+          hint={t('settings.filter_hint')}
+          checked={form.filter_enabled}
+          onChange={(v) => {
+            set({ filter_enabled: v });
+          }}
+        />
+        {form.filter_enabled && (
+          <>
+            <NumberField
+              id="filter-bounce"
+              label={t('settings.filter_bounce')}
+              unit="ms"
+              min={0}
+              max={FILTER_BOUNCE_MAX_MS}
+              value={form.filter_bounce_ms}
+              hint={t('settings.filter_bounce_hint')}
+              onChange={(v) => {
+                set({ filter_bounce_ms: v });
+              }}
+            />
+            <NumberField
+              id="filter-hold"
+              label={t('settings.filter_hold')}
+              unit="ms"
+              min={0}
+              max={FILTER_HOLD_MAX_MS}
+              value={form.filter_hold_ms}
+              hint={t('settings.filter_hold_hint')}
+              onChange={(v) => {
+                set({ filter_hold_ms: v });
+              }}
+            />
+          </>
+        )}
       </section>
 
       <section class="card" aria-labelledby="set-upd">

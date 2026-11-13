@@ -11,6 +11,7 @@ import { pickLocale } from './i18n';
 import type { Locale } from './i18n';
 import { Icon } from './components/ui';
 import { PairingBanner } from './components/PairingBanner';
+import { Check } from './pages/Check';
 import { Dashboard } from './pages/Dashboard';
 import { DeviceDetail } from './pages/DeviceDetail';
 import { Pair } from './pages/Pair';
@@ -26,6 +27,7 @@ const ROUTES = [
   'pair',
   'device',
   'tester',
+  'check',
   'settings',
   'update',
   'system',
@@ -116,7 +118,12 @@ function TopBar() {
 function TabBar({ route }: { route: Route }) {
   const t = useT();
   // Sub-pages keep their parent tab highlighted.
-  const active = route === 'pair' || route === 'device' || route === 'tester' ? 'dashboard' : route;
+  const active =
+    route === 'pair' || route === 'device' || route === 'tester'
+      ? 'dashboard'
+      : route === 'check'
+        ? 'system'
+        : route;
   return (
     <nav class="tabbar" aria-label={t('nav.label')}>
       <div class="tabbar-in">
@@ -177,6 +184,7 @@ export function App() {
         {route === 'pair' && <Pair />}
         {route === 'device' && <DeviceDetail id={routeParam(hash)} />}
         {route === 'tester' && <Tester />}
+        {route === 'check' && <Check />}
         {route === 'settings' && <Settings locale={locale} onLocale={setLocale} />}
         {route === 'update' && <Update />}
         {route === 'system' && <System />}

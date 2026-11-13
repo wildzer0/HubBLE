@@ -214,6 +214,8 @@ void app_main(void) {
         ESP_LOGE(TAG, "BLE bridge init failed: %s", esp_err_to_name(err));
     }
 
+    bridge_set_input_filter(settings_get_filter_enabled(), settings_get_filter_bounce_ms(),
+                            settings_get_filter_hold_ms()); /* Typing filter, off unless the user turned it on. */
     led_status_start(led_sample); /* Status patterns (CLAUDE.md §3.6); off while the host sleeps. */
     ota_set_progress_cb(on_ota_progress);
     ota_online_set_changed_cb(on_ota_online_changed);

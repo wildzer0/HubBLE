@@ -231,7 +231,7 @@ paths:
         '200': { $ref: '#/components/responses/Ok' }
   /api/v1/settings:
     get:
-      summary: Settings (`require_confirmation`, `ap_boot_window_s`, `ap_idle_timeout_s`, `update_channel`, `sta_configured`, `remote_wakeup`, `led_brightness` 0-100, `status_led`, `shift_hold_ms` 1000-10000; never secrets)
+      summary: Settings (`require_confirmation`, `ap_boot_window_s`, `ap_idle_timeout_s`, `update_channel`, `sta_configured`, `remote_wakeup`, `led_brightness` 0-100, `status_led`, `shift_hold_ms` 1000-10000, `portal_auto`, `filter_enabled`, `filter_bounce_ms` 0-500, `filter_hold_ms` 0-1000; never secrets)
       description: The AP times (30..86400 s) apply from the next restart.
       responses:
         '200': { description: Settings }
@@ -295,7 +295,7 @@ components:
         version: { type: string, example: 0.2.0 }
         board: { type: string, example: s3_zero }
         uptime_s: { type: integer }
-        usb_state: { type: string, enum: [detached, suspended, active] }
+        usb_state: { type: string, enum: [detached, suspended, configured] }
         ap_timeout_s: { type: integer, nullable: true, description: Seconds until the AP switches off; null when no countdown runs }
         setup_required: { type: boolean, description: True until the Wi-Fi password was changed }
     OtaSlot:

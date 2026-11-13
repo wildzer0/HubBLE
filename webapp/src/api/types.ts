@@ -4,7 +4,7 @@
  */
 
 /** State of the USB link to the host PC. */
-export type UsbState = 'detached' | 'suspended' | 'active';
+export type UsbState = 'detached' | 'suspended' | 'configured';
 
 /** Response of `GET /api/v1/status`. */
 export interface Status {
@@ -304,6 +304,12 @@ export interface Settings {
   status_led: boolean;
   /** Hold time of the Ctrl+Alt gesture in ms (applies from the next boot). */
   shift_hold_ms: number;
+  /** Typing filter (bounce keys / slow keys) for keys and mouse buttons. Off by default. */
+  filter_enabled: boolean;
+  /** Ignore a key or button pressed again this soon (ms) after its release; 0 = off. */
+  filter_bounce_ms: number;
+  /** A key or button counts only after being held this long (ms); 0 = off. */
+  filter_hold_ms: number;
 }
 
 /** Response of `GET /api/v1/devices/{id}/report-map`. */

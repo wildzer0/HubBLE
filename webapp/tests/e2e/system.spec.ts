@@ -35,3 +35,11 @@ test('password form validates before sending and then succeeds', async ({ page }
   await save.click();
   await expect(page.getByRole('status').filter({ hasText: 'Password changed' })).toBeVisible();
 });
+
+test('the health check lists what is fine and what to look at', async ({ page }) => {
+  await page.goto('/#/system');
+  await page.getByRole('link', { name: 'Run the check' }).click();
+  await expect(page.getByRole('heading', { name: 'Check the dongle', level: 2 })).toBeVisible();
+  await expect(page.getByTestId('check-summary')).toBeVisible();
+  await expect(page.getByTestId('checks')).toContainText('The computer');
+});

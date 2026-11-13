@@ -53,6 +53,18 @@ void bridge_set_input_tap(bool (*active)(void), void (*emit)(const char *json));
  */
 power_mode_t bridge_power_mode(void);
 
+/**
+ * @brief Configure the typing filter (bounce keys / slow keys) applied to keys and mouse buttons before the USB report.
+ *
+ * Effective immediately; thread-safe. When disabled the reports pass through untouched and with no added latency. When
+ * enabled a hold time adds that much delay to every press (that is its purpose).
+ *
+ * @param enabled   Master switch.
+ * @param bounce_ms Ignore a key or button pressed again this soon after its release (0 = off).
+ * @param hold_ms   A key or button counts only after being held this long (0 = off).
+ */
+void bridge_set_input_filter(bool enabled, uint32_t bounce_ms, uint32_t hold_ms);
+
 #ifdef __cplusplus
 }
 #endif

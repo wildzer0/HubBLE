@@ -148,3 +148,21 @@ On a device's page, **Prepare a report** builds a compatibility report (the devi
 connection values). You see exactly what it contains before anything is shared. It never includes what you type, the
 Bluetooth address, the name you gave the device or any Wi-Fi data. You can download it, and when the project's collection
 service is configured you can send it from the page. See [Compatibility](compatibility.md).
+
+## Typing filter (off by default)
+
+For a keyboard that types twice (worn switches) or hands that brush keys by accident, **Settings → Typing filter** can clean
+up the keys and mouse buttons before they reach the computer. It is **off** until you turn it on, and it applies at once.
+
+- **Ignore a repeated press within N ms:** a key or button pressed again that soon after it was released is ignored (it stops
+  double letters and double clicks). 30 to 80 ms is typical.
+- **A press counts after being held for N ms:** a brief touch is dropped. It delays every key by that long, so keep it small.
+  Zero turns each part off.
+
+## Check the dongle
+
+**System → Run the check** looks at what the dongle reports and lists what is fine and what to look at: whether the
+computer sees it, each device (connected, battery, added latency, connection interval), memory, temperature and the reason of
+the last restart. **Copy the result** puts the list on the clipboard, ready to paste into a message or an issue.
+
+![Health check](img/check.png)

@@ -751,3 +751,19 @@ progress {
   display: grid;
   gap: 0.75rem;
 }
+.checks {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+.check {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+}
+.check span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

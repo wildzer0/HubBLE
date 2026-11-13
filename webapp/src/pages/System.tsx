@@ -215,6 +215,16 @@ export function System() {
         )}
       </section>
 
+      <section class="card" aria-labelledby="chk-h">
+        <h3 class="card-title" id="chk-h">
+          {t('check.heading')}
+        </h3>
+        <p class="hint">{t('check.intro')}</p>
+        <a class="btn" href="#/check">
+          {t('check.run')}
+        </a>
+      </section>
+
       <LiveLog />
       <PasswordForm />
       <BackupSection />

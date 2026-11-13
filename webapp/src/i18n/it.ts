@@ -158,6 +158,63 @@ export const it: Record<MessageKey, string> = {
   'report.learn_more': 'Informazioni sui rapporti',
   'report.offline': 'Collega prima il dispositivo: il rapporto richiede che sia connesso.',
   'report.failed': 'Impossibile creare il rapporto.',
+  'settings.filter': 'Filtro di digitazione',
+  'settings.filter_enabled': 'Filtra tasti e pulsanti del mouse',
+  'settings.filter_hint':
+    'Spento di default. Per tastiere che scrivono doppio (interruttori consumati) o mani che sfiorano i tasti per errore. Cambia il modo in cui ogni tasto e pulsante arriva al computer.',
+  'settings.filter_bounce': 'Ignora una ripetizione entro',
+  'settings.filter_bounce_hint':
+    'Evita lettere e clic doppi. 30–80 ms è un valore tipico; 0 lo disattiva.',
+  'settings.filter_hold': 'Una pressione vale dopo essere stata tenuta per',
+  'settings.filter_hold_hint':
+    'Ignora i tocchi brevi. Ritarda ogni tasto di questo tempo, quindi tienilo basso; 0 lo disattiva.',
+  'check.heading': 'Controlla il dongle',
+  'check.intro':
+    'Guarda ciò che il dongle riporta e ti dice cosa va bene e cosa controllare: USB, dispositivi, latenza, batteria, memoria, temperatura e riavvii.',
+  'check.run': 'Esegui il controllo',
+  'check.copy': 'Copia il risultato',
+  'check.copied': 'Copiato',
+  'check.summary_ok': 'Tutto sembra a posto.',
+  'check.summary_issues': '{n} cosa/e da controllare.',
+  'check.level.ok': 'OK',
+  'check.level.warn': 'Controlla',
+  'check.level.bad': 'Problema',
+  'check.usb.ok': 'Il computer vede il dongle (USB configurata).',
+  'check.usb.warn': 'Il computer ha sospeso la porta USB (è in sospensione o risparmia energia).',
+  'check.usb.bad': 'Il computer non vede il dongle. Controlla il cavo e prova un’altra porta.',
+  'check.nodevices.warn':
+    'Nessun dispositivo è ancora associato. Usa «Aggiungi dispositivo» nella pagina Dispositivi.',
+  'check.connected.ok': '{name}: connesso.',
+  'check.connected.warn': '{name}: non connesso. Accendilo o premi un tasto per svegliarlo.',
+  'check.ready.warn': '{name}: connesso, ma il dongle non ha ancora finito di leggerlo.',
+  'check.fallback.warn':
+    '{name}: la sua report map non è utilizzabile, quindi funziona solo l’input base da tastiera.',
+  'check.security.warn':
+    '{name}: associato con sicurezza legacy. Associalo di nuovo se supporta il passkey.',
+  'check.latency.ok': '{name}: latenza aggiunta {ms} ms (95° percentile).',
+  'check.latency.warn':
+    '{name}: la latenza aggiunta di {ms} ms supera l’obiettivo di 15 ms. Spegnere il Wi-Fi di solito aiuta.',
+  'check.interval.ok': '{name}: intervallo di connessione {ms} ms.',
+  'check.interval.warn':
+    '{name}: il dispositivo ha accettato un intervallo lento di {ms} ms, quindi può sembrare meno reattivo.',
+  'check.battery.ok': '{name}: batteria {pct} %.',
+  'check.battery.warn':
+    '{name}: la batteria è scarica ({pct} %). Ricaricala o sostituiscila presto.',
+  'check.memory.ok': 'Memoria libera: {kb} KB.',
+  'check.memory.warn':
+    'La memoria libera è bassa ({kb} KB). Di solito basta un riavvio; dicci se si ripete.',
+  'check.temp.ok': 'Temperatura del chip {c} °C.',
+  'check.temp.warn': 'Il chip è caldo ({c} °C). Spegni il Wi-Fi quando non ti serve.',
+  'check.temp.bad': 'Il chip è molto caldo ({c} °C). Scollega il dongle e lascialo raffreddare.',
+  'check.reset.ok': 'Ultimo riavvio: {reason}.',
+  'check.reset.panic.warn':
+    'Il dongle si è riavviato dopo un errore. Scarica il log dalla pagina Sistema e mandacelo.',
+  'check.reset.brownout.warn':
+    'Il dongle si è riavviato per un calo di tensione. Prova un’altra porta USB o un cavo più corto.',
+  'check.firmware.rollback.warn':
+    'Un aggiornamento precedente non è riuscito e il dongle è tornato al firmware più vecchio.',
+  'check.firmware.pending.warn': 'Il nuovo firmware è ancora in verifica.',
+  'check.bootfail.warn': 'Avvii falliti contati: {n}.',
   'pair.pair_with': 'Associa {name}',
   'pair.connecting': 'Connessione a {name}…',
   'pair.waiting_device': 'In attesa del dispositivo…',

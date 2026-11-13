@@ -144,6 +144,9 @@ function initialState(opts: MockOptions = {}) {
       led_brightness: 25,
       status_led: false,
       shift_hold_ms: 3000,
+      filter_enabled: false,
+      filter_bounce_ms: 50,
+      filter_hold_ms: 0,
     } as Settings,
     online: { state: 'idle', channel: 'stable', wifi_configured: false } as OnlineUpdate,
     scenario: 'available' as OtaScenario,
@@ -553,7 +556,7 @@ export function mockStatus(): Status {
     version: state.version,
     board: 's3_zero',
     uptime_s: 1234,
-    usb_state: 'detached',
+    usb_state: 'configured',
     ap_timeout_s: 180,
     setup_required: !state.setupDone,
   };
@@ -585,7 +588,7 @@ function mockDiagnostics(): Diagnostics {
     },
     boot_failures: 0,
     chip_temp_c: 61.5,
-    usb_state: 'detached',
+    usb_state: 'configured',
     power: { mode: 'active', remote_wakeup: state.settings.remote_wakeup },
     ble: {
       ready: true,

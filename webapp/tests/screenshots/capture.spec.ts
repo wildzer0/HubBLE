@@ -81,6 +81,11 @@ test('capture the user guide screenshots', async ({ page, request }) => {
   await page.getByTestId('release').waitFor();
   await shot(page, 'update');
 
+  // Health check.
+  await page.goto('/#/check');
+  await page.getByTestId('checks').waitFor();
+  await shot(page, 'check');
+
   // System.
   await page.goto('/#/system');
   await page.getByTestId('heap').waitFor();

@@ -24,6 +24,9 @@ static const char *TAG = "settings";
 #define KEY_CHANNEL     "upd_pre"
 #define KEY_REM_WAKE    "rem_wake"
 #define KEY_PORTAL_AUTO "portal_auto"
+#define KEY_FLT_ON      "flt_on"
+#define KEY_FLT_BOUNCE  "flt_bounce"
+#define KEY_FLT_HOLD    "flt_hold"
 #define KEY_LED_BRIGHT  "led_pct"
 #define KEY_STATUS_LED  "led_status"
 #define KEY_SHIFT_HOLD  "shift_ms"
@@ -290,6 +293,50 @@ esp_err_t settings_set_led_brightness(uint32_t percent) {
         return ESP_ERR_INVALID_STATE;
     }
     esp_err_t err = nvs_set_u32(s_nvs, KEY_LED_BRIGHT, percent);
+    return err == ESP_OK ? nvs_commit(s_nvs) : err;
+}
+
+/** @copydoc settings_get_filter_enabled */
+bool settings_get_filter_enabled(void) {
+    return get_flag(KEY_FLT_ON, false);
+}
+
+/** @copydoc settings_set_filter_enabled */
+esp_err_t settings_set_filter_enabled(bool enabled) {
+    return set_flag(KEY_FLT_ON, enabled);
+}
+
+/** @copydoc settings_get_filter_bounce_ms */
+uint32_t settings_get_filter_bounce_ms(void) {
+    return get_u32(KEY_FLT_BOUNCE, SETTINGS_FILTER_BOUNCE_DEFAULT_MS);
+}
+
+/** @copydoc settings_set_filter_bounce_ms */
+esp_err_t settings_set_filter_bounce_ms(uint32_t ms) {
+    if (ms > SETTINGS_FILTER_BOUNCE_MAX_MS) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!s_ready) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    esp_err_t err = nvs_set_u32(s_nvs, KEY_FLT_BOUNCE, ms);
+    return err == ESP_OK ? nvs_commit(s_nvs) : err;
+}
+
+/** @copydoc settings_get_filter_hold_ms */
+uint32_t settings_get_filter_hold_ms(void) {
+    return get_u32(KEY_FLT_HOLD, 0);
+}
+
+/** @copydoc settings_set_filter_hold_ms */
+esp_err_t settings_set_filter_hold_ms(uint32_t ms) {
+    if (ms > SETTINGS_FILTER_HOLD_MAX_MS) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!s_ready) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    esp_err_t err = nvs_set_u32(s_nvs, KEY_FLT_HOLD, ms);
     return err == ESP_OK ? nvs_commit(s_nvs) : err;
 }
 

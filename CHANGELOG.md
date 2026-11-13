@@ -8,9 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Typing filter (off by default): ignore a key or mouse button pressed again within N ms of its release (bounce keys) and/or
+  require a press to be held for N ms (slow keys). Applied to every paired keyboard and mouse before the USB report, effective
+  at once. New settings `filter_enabled`, `filter_bounce_ms`, `filter_hold_ms`; pure `input_filter` component with host tests.
+- Health check page (System → Run the check): USB, each device (connection, battery, latency, interval), memory, temperature
+  and the last restart, with a copyable summary.
 - Ways to switch the Wi-Fi on and to confirm a pairing or an update **without a keyboard**: a short press of the BOOT button
   on the dongle, or holding the left and right mouse buttons together for 3 s on a paired mouse or trackball. Until now a
   dongle without a connected keyboard could only be reached by replugging it.
+
+### Fixed
+
+- The web app's USB state values now match the firmware (`configured` instead of `active`).
 
 ## [1.2.2] - 2026-11-13
 

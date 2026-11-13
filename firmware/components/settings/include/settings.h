@@ -211,6 +211,26 @@ bool settings_get_portal_auto(void);
 /** @brief Store the captive-portal popup flag. @param enabled New value. @return ESP_OK or an NVS error. */
 esp_err_t settings_set_portal_auto(bool enabled);
 
+/** Typing-filter limits and defaults, ms. The filter is off unless the user turns it on. */
+#define SETTINGS_FILTER_BOUNCE_MAX_MS     500
+#define SETTINGS_FILTER_BOUNCE_DEFAULT_MS 50
+#define SETTINGS_FILTER_HOLD_MAX_MS       1000
+
+/** @brief Whether the typing filter (bounce keys / slow keys) is on. Default false. */
+bool settings_get_filter_enabled(void);
+/** @brief Store the typing-filter switch. @param enabled New value. @return ESP_OK or an NVS error. */
+esp_err_t settings_set_filter_enabled(bool enabled);
+/** @brief Bounce window in ms: a key or button pressed again this soon after its release is ignored (0 = off). */
+uint32_t settings_get_filter_bounce_ms(void);
+/** @brief Store the bounce window. @param ms 0..SETTINGS_FILTER_BOUNCE_MAX_MS. @return ESP_OK, ESP_ERR_INVALID_ARG or
+ * an NVS error. */
+esp_err_t settings_set_filter_bounce_ms(uint32_t ms);
+/** @brief Hold time in ms: a key or button counts only after being held this long (0 = off). */
+uint32_t settings_get_filter_hold_ms(void);
+/** @brief Store the hold time. @param ms 0..SETTINGS_FILTER_HOLD_MAX_MS. @return ESP_OK, ESP_ERR_INVALID_ARG or an NVS
+ * error. */
+esp_err_t settings_set_filter_hold_ms(uint32_t ms);
+
 /** @brief Whether a peripheral event may wake the suspended host (default true, CLAUDE.md §3.9). */
 bool settings_get_remote_wakeup(void);
 /** @brief Store the remote-wakeup setting. @param enabled New value. @return ESP_OK or an NVS error. */

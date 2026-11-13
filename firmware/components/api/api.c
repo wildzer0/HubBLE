@@ -1011,6 +1011,9 @@ static cJSON *settings_json(void) {
     cJSON_AddNumberToObject(r, "led_brightness", settings_get_led_brightness());
     cJSON_AddBoolToObject(r, "status_led", settings_get_status_led());
     cJSON_AddNumberToObject(r, "shift_hold_ms", settings_get_shift_hold_ms());
+    cJSON_AddBoolToObject(r, "filter_enabled", settings_get_filter_enabled());
+    cJSON_AddNumberToObject(r, "filter_bounce_ms", settings_get_filter_bounce_ms());
+    cJSON_AddNumberToObject(r, "filter_hold_ms", settings_get_filter_hold_ms());
     return r;
 }
 
@@ -1032,6 +1035,16 @@ static bool settings_object_valid(const cJSON *s) {
     const cJSON *sl = cJSON_GetObjectItemCaseSensitive(s, "status_led");
     const cJSON *lb = cJSON_GetObjectItemCaseSensitive(s, "led_brightness");
     const cJSON *sh = cJSON_GetObjectItemCaseSensitive(s, "shift_hold_ms");
+    const cJSON *fe = cJSON_GetObjectItemCaseSensitive(s, "filter_enabled");
+    const cJSON *fb = cJSON_GetObjectItemCaseSensitive(s, "filter_bounce_ms");
+    const cJSON *fh = cJSON_GetObjectItemCaseSensitive(s, "filter_hold_ms");
+    if ((fe != NULL && !cJSON_IsBool(fe)) ||
+        (fb != NULL && !(cJSON_IsNumber(fb) && fb->valuedouble == (double)fb->valueint && fb->valueint >= 0 &&
+                         fb->valueint <= SETTINGS_FILTER_BOUNCE_MAX_MS)) ||
+        (fh != NULL && !(cJSON_IsNumber(fh) && fh->valuedouble == (double)fh->valueint && fh->valueint >= 0 &&
+                         fh->valueint <= SETTINGS_FILTER_HOLD_MAX_MS))) {
+        return false;
+    }
     const cJSON *pa = cJSON_GetObjectItemCaseSensitive(s, "portal_auto");
     if ((rw != NULL && !cJSON_IsBool(rw)) || (sl != NULL && !cJSON_IsBool(sl)) || (pa != NULL && !cJSON_IsBool(pa))) {
         return false;
@@ -1100,6 +1113,22 @@ static void settings_object_apply(const cJSON *s) {
     if (cJSON_IsNumber(sh)) {
         settings_set_shift_hold_ms(
             (uint32_t)sh->valueint); /* Applies from the next boot (the combo task reads it once). */
+    }
+    const cJSON *fe = cJSON_GetObjectItemCaseSensitive(s, "filter_enabled");
+    const cJSON *fb = cJSON_GetObjectItemCaseSensitive(s, "filter_bounce_ms");
+    const cJSON *fh = cJSON_GetObjectItemCaseSensitive(s, "filter_hold_ms");
+    if (cJSON_IsBool(fe)) {
+        settings_set_filter_enabled(cJSON_IsTrue(fe));
+    }
+    if (cJSON_IsNumber(fb)) {
+        settings_set_filter_bounce_ms((uint32_t)fb->valueint);
+    }
+    if (cJSON_IsNumber(fh)) {
+        settings_set_filter_hold_ms((uint32_t)fh->valueint);
+    }
+    if (fe != NULL || fb != NULL || fh != NULL) { /* Effective immediately. */
+        bridge_set_input_filter(settings_get_filter_enabled(), settings_get_filter_bounce_ms(),
+                                settings_get_filter_hold_ms());
     }
     const cJSON *ch = cJSON_GetObjectItemCaseSensitive(s, "update_channel");
     if (cJSON_IsString(ch)) {

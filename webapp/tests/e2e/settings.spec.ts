@@ -76,3 +76,20 @@ test('power and LED settings validate and persist', async ({ page }) => {
   await expect(page.getByLabel('Hold Ctrl and Alt for')).toHaveValue('5');
   await expect(page.getByLabel('Show dim green while a device is connected')).toBeChecked();
 });
+
+test('the typing filter is off by default and its times appear when it is turned on', async ({
+  page,
+}) => {
+  await page.goto('/#/settings');
+  const sw = page.getByLabel('Filter keys and mouse buttons');
+  await expect(sw).not.toBeChecked();
+  await expect(page.locator('#filter-bounce')).toHaveCount(0);
+  await sw.check();
+  await expect(page.locator('#filter-bounce')).toHaveValue('50');
+  await page.locator('#filter-hold').fill('120');
+  await page.getByRole('button', { name: 'Save settings' }).click();
+  await expect(page.getByText('Settings saved.')).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel('Filter keys and mouse buttons')).toBeChecked();
+  await expect(page.locator('#filter-hold')).toHaveValue('120');
+});

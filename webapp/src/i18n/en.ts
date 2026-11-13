@@ -150,6 +150,61 @@ export const en = {
   'report.learn_more': 'About the reports',
   'report.offline': 'Connect the device first: the report needs it to be connected.',
   'report.failed': 'Could not build the report.',
+  'settings.filter': 'Typing filter',
+  'settings.filter_enabled': 'Filter keys and mouse buttons',
+  'settings.filter_hint':
+    'Off by default. For keyboards that type twice (worn switches) or hands that brush keys by accident. It changes how every key and button is passed to the computer.',
+  'settings.filter_bounce': 'Ignore a repeated press within',
+  'settings.filter_bounce_hint':
+    'Stops double letters and double clicks. 30 to 80 ms is typical; 0 turns it off.',
+  'settings.filter_hold': 'A press counts after being held for',
+  'settings.filter_hold_hint':
+    'Ignores brief touches. It delays every key by this long, so keep it small; 0 turns it off.',
+  'check.heading': 'Check the dongle',
+  'check.intro':
+    'Looks at what the dongle reports and tells you what is fine and what to look at: USB, your devices, latency, battery, memory, temperature and restarts.',
+  'check.run': 'Run the check',
+  'check.copy': 'Copy the result',
+  'check.copied': 'Copied',
+  'check.summary_ok': 'Everything looks fine.',
+  'check.summary_issues': '{n} thing(s) to look at.',
+  'check.level.ok': 'OK',
+  'check.level.warn': 'Look',
+  'check.level.bad': 'Problem',
+  'check.usb.ok': 'The computer sees the dongle (USB is configured).',
+  'check.usb.warn': 'The computer has suspended the USB port (it is asleep or saving power).',
+  'check.usb.bad': 'The computer does not see the dongle. Check the cable and try another port.',
+  'check.nodevices.warn': 'No device is paired yet. Use “Add device” on the Devices page.',
+  'check.connected.ok': '{name}: connected.',
+  'check.connected.warn': '{name}: not connected. Switch it on or press a key to wake it.',
+  'check.ready.warn': '{name}: connected, but the dongle has not finished reading it yet.',
+  'check.fallback.warn':
+    '{name}: its report map could not be used, so only basic keyboard input works.',
+  'check.security.warn':
+    '{name}: paired with legacy security. Pair it again if it supports a passkey.',
+  'check.latency.ok': '{name}: added latency {ms} ms (95th percentile).',
+  'check.latency.warn':
+    '{name}: added latency {ms} ms is above the 15 ms target. Switching the Wi-Fi off usually helps.',
+  'check.interval.ok': '{name}: connection interval {ms} ms.',
+  'check.interval.warn':
+    '{name}: the device accepted a slow {ms} ms interval, so it may feel less responsive.',
+  'check.battery.ok': '{name}: battery {pct} %.',
+  'check.battery.warn': '{name}: battery is low ({pct} %). Charge or replace it soon.',
+  'check.memory.ok': 'Free memory: {kb} KB.',
+  'check.memory.warn':
+    'Free memory is low ({kb} KB). A restart usually fixes it; tell us if it keeps happening.',
+  'check.temp.ok': 'Chip temperature {c} °C.',
+  'check.temp.warn': 'The chip is hot ({c} °C). Switch the Wi-Fi off when you do not need it.',
+  'check.temp.bad': 'The chip is very hot ({c} °C). Unplug the dongle and let it cool down.',
+  'check.reset.ok': 'Last restart: {reason}.',
+  'check.reset.panic.warn':
+    'The dongle restarted after a crash. Download the log from the System page and send it to us.',
+  'check.reset.brownout.warn':
+    'The dongle restarted because the power dipped. Try another USB port or a shorter cable.',
+  'check.firmware.rollback.warn':
+    'A previous update failed and the dongle went back to the older firmware.',
+  'check.firmware.pending.warn': 'The new firmware is still being verified.',
+  'check.bootfail.warn': 'Failed starts counted: {n}.',
   'pair.pair_with': 'Pair with {name}',
   'pair.connecting': 'Connecting to {name}…',
   'pair.waiting_device': 'Waiting for the device…',

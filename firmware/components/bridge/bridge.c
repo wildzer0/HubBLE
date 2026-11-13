@@ -16,11 +16,14 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 #include <stdio.h>
+#include <string.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
 #include "hid_normalizer.h"
+#include "input_filter.h"
 #include "settings.h"
 #include "usb_hid.h"
 #include "wifi_ap.h"
@@ -61,12 +64,194 @@ typedef struct {
 
 static void (*s_on_changed)(int slot);
 static TaskHandle_t s_power_task;
+/** Poll period of the filter task while an element waits for its hold time, ms. */
+#define FILTER_TICK_MS 5
+/** Stack and priority of the filter task (it only moves a few bytes around). */
+#define FILTER_TASK_STACK 3072
+#define FILTER_TASK_PRIO  7
+/** Number of mouse buttons the filter tracks (the buttons byte has five). */
+#define FILTER_BUTTONS 5
+
+/** Output last sent to USB for one source, to notice changes made by the filter's clock. */
+typedef struct {
+    uint8_t mods;                   /**< Modifier byte. */
+    uint8_t keys[HID_KBD_MAX_KEYS]; /**< Key array. */
+    uint8_t buttons;                /**< Mouse buttons. */
+} filter_out_t;
+
+static SemaphoreHandle_t s_filter_mu;                /**< Protects everything below. */
+static volatile bool s_filter_on;                    /**< The typing filter is enabled. */
+static input_filter_t s_kf[BLE_CENTRAL_MAX_DEVICES]; /**< Per source: keys and modifiers. */
+static input_filter_t s_bf[BLE_CENTRAL_MAX_DEVICES]; /**< Per source: mouse buttons. */
+static filter_out_t s_out[BLE_CENTRAL_MAX_DEVICES];  /**< Per source: what was last sent. */
+static TaskHandle_t s_filter_task;                   /**< Ticks the filters while something waits for its hold time. */
+
 /** Last buttons byte of each pointing device (for the keyboard-less gesture); written by the BLE host task. */
 static volatile uint8_t s_mouse_buttons[BLE_CENTRAL_MAX_DEVICES];
 static volatile power_mode_t s_power_mode = POWER_ACTIVE;
 static bool (*s_tap_active)(void);
 static void (*s_tap_emit)(const char *json);
 static QueueHandle_t s_tap_queue;
+
+/**
+ * @brief Compose the keyboard report of a source from its filter. Caller holds s_filter_mu.
+ *
+ * @param slot Source.
+ * @param[out] mods Receives the modifier byte.
+ * @param[out] keys Receives the key array.
+ */
+static void filter_compose_keyboard(unsigned slot, uint8_t *mods, uint8_t keys[HID_KBD_MAX_KEYS]) {
+    uint8_t ids[INPUT_FILTER_MAX];
+    const size_t n = input_filter_active(&s_kf[slot], ids, sizeof(ids));
+    *mods = 0;
+    memset(keys, 0, HID_KBD_MAX_KEYS);
+    size_t nk = 0;
+    for (size_t i = 0; i < n; i++) {
+        if (ids[i] >= INPUT_FILTER_MOD_BASE && ids[i] < INPUT_FILTER_MOD_BASE + 8) {
+            *mods = (uint8_t)(*mods | (1u << (ids[i] - INPUT_FILTER_MOD_BASE)));
+        } else if (nk < HID_KBD_MAX_KEYS) {
+            keys[nk++] = ids[i];
+        }
+    }
+}
+
+/** @brief Compose the mouse-button byte of a source from its filter. Caller holds s_filter_mu. */
+static uint8_t filter_compose_buttons(unsigned slot) {
+    uint8_t ids[INPUT_FILTER_MAX];
+    const size_t n = input_filter_active(&s_bf[slot], ids, sizeof(ids));
+    uint8_t b = 0;
+    for (size_t i = 0; i < n; i++) {
+        b = (uint8_t)(b | (1u << (ids[i] - 1)));
+    }
+    return b;
+}
+
+/**
+ * @brief Run a keyboard report through the filter and send the result to USB.
+ *
+ * @param slot Source.
+ * @param modifiers Modifier byte of the report.
+ * @param keys Key array of the report.
+ */
+static void filter_keyboard(unsigned slot, uint8_t modifiers, const uint8_t *keys) {
+    uint8_t ids[8 + HID_KBD_MAX_KEYS];
+    size_t n = 0;
+    for (unsigned b = 0; b < 8; b++) {
+        if (modifiers & (1u << b)) {
+            ids[n++] = (uint8_t)(INPUT_FILTER_MOD_BASE + b);
+        }
+    }
+    for (unsigned i = 0; i < HID_KBD_MAX_KEYS; i++) {
+        if (keys[i] != 0) {
+            ids[n++] = keys[i];
+        }
+    }
+    uint8_t out_mods;
+    uint8_t out_keys[HID_KBD_MAX_KEYS];
+    bool pending;
+    xSemaphoreTake(s_filter_mu, portMAX_DELAY);
+    input_filter_update(&s_kf[slot], (uint32_t)(esp_timer_get_time() / 1000), ids, n);
+    filter_compose_keyboard(slot, &out_mods, out_keys);
+    s_out[slot].mods = out_mods;
+    memcpy(s_out[slot].keys, out_keys, sizeof(out_keys));
+    pending = input_filter_pending(&s_kf[slot]);
+    xSemaphoreGive(s_filter_mu);
+    usb_hid_keyboard(slot, out_mods, out_keys, HID_KBD_MAX_KEYS);
+    if (pending && s_filter_task != NULL) {
+        xTaskNotifyGive(s_filter_task);
+    }
+}
+
+/**
+ * @brief Run the mouse buttons through the filter.
+ *
+ * @param slot Source.
+ * @param buttons Buttons byte of the report.
+ * @return The filtered buttons byte.
+ */
+static uint8_t filter_buttons(unsigned slot, uint8_t buttons) {
+    uint8_t ids[FILTER_BUTTONS];
+    size_t n = 0;
+    for (unsigned b = 0; b < FILTER_BUTTONS; b++) {
+        if (buttons & (1u << b)) {
+            ids[n++] = (uint8_t)(b + 1);
+        }
+    }
+    xSemaphoreTake(s_filter_mu, portMAX_DELAY);
+    input_filter_update(&s_bf[slot], (uint32_t)(esp_timer_get_time() / 1000), ids, n);
+    const uint8_t out = filter_compose_buttons(slot);
+    s_out[slot].buttons = out;
+    const bool pending = input_filter_pending(&s_bf[slot]);
+    xSemaphoreGive(s_filter_mu);
+    if (pending && s_filter_task != NULL) {
+        xTaskNotifyGive(s_filter_task);
+    }
+    return out;
+}
+
+/**
+ * @brief Filter task: while an element waits for its hold time, tick the filters and send what became active.
+ *
+ * @param arg Unused.
+ */
+static void filter_task(void *arg) {
+    (void)arg;
+    bool pending = false;
+    for (;;) {
+        ulTaskNotifyTake(pdTRUE, pending ? pdMS_TO_TICKS(FILTER_TICK_MS) : portMAX_DELAY);
+        pending = false;
+        if (!s_filter_on) {
+            continue;
+        }
+        for (unsigned slot = 0; slot < BLE_CENTRAL_MAX_DEVICES; slot++) {
+            uint8_t mods;
+            uint8_t keys[HID_KBD_MAX_KEYS];
+            uint8_t buttons;
+            bool kbd_changed;
+            bool btn_changed;
+            xSemaphoreTake(s_filter_mu, portMAX_DELAY);
+            const uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
+            input_filter_tick(&s_kf[slot], now);
+            input_filter_tick(&s_bf[slot], now);
+            filter_compose_keyboard(slot, &mods, keys);
+            buttons = filter_compose_buttons(slot);
+            kbd_changed = mods != s_out[slot].mods || memcmp(keys, s_out[slot].keys, sizeof(keys)) != 0;
+            btn_changed = buttons != s_out[slot].buttons;
+            s_out[slot].mods = mods;
+            memcpy(s_out[slot].keys, keys, sizeof(keys));
+            s_out[slot].buttons = buttons;
+            pending = pending || input_filter_pending(&s_kf[slot]) || input_filter_pending(&s_bf[slot]);
+            xSemaphoreGive(s_filter_mu);
+            if (kbd_changed) {
+                usb_hid_keyboard(slot, mods, keys, HID_KBD_MAX_KEYS);
+            }
+            if (btn_changed) {
+                usb_hid_mouse(slot, buttons, 0, 0, 0, 0); /* A button that became active; no motion. */
+            }
+        }
+    }
+}
+
+/** @copydoc bridge_set_input_filter */
+void bridge_set_input_filter(bool enabled, uint32_t bounce_ms, uint32_t hold_ms) {
+    if (s_filter_mu == NULL) {
+        s_filter_mu = xSemaphoreCreateMutex();
+        if (s_filter_mu == NULL) {
+            return;
+        }
+    }
+    xSemaphoreTake(s_filter_mu, portMAX_DELAY);
+    for (unsigned i = 0; i < BLE_CENTRAL_MAX_DEVICES; i++) {
+        input_filter_init(&s_kf[i], bounce_ms, hold_ms);
+        input_filter_init(&s_bf[i], bounce_ms, hold_ms);
+        memset(&s_out[i], 0, sizeof(s_out[i]));
+    }
+    s_filter_on = enabled;
+    if (enabled && s_filter_task == NULL) {
+        xTaskCreate(filter_task, "in_filter", FILTER_TASK_STACK, NULL, FILTER_TASK_PRIO, &s_filter_task);
+    }
+    xSemaphoreGive(s_filter_mu);
+}
 
 /**
  * @brief Forward one decoded report to USB as source @p slot.
@@ -111,7 +296,11 @@ static void on_report(unsigned slot, const hid_layout_t *layout, uint8_t report_
         xQueueSend(s_tap_queue, &item, 0); /* Never blocks: drop when full. */
     }
     if (ev.has_keyboard) {
-        usb_hid_keyboard(slot, ev.modifiers, ev.keys, HID_KBD_MAX_KEYS);
+        if (s_filter_on) {
+            filter_keyboard(slot, ev.modifiers, ev.keys);
+        } else {
+            usb_hid_keyboard(slot, ev.modifiers, ev.keys, HID_KBD_MAX_KEYS);
+        }
     }
     if (ev.has_consumer) {
         usb_hid_consumer(slot, ev.consumer);
@@ -120,7 +309,8 @@ static void on_report(unsigned slot, const hid_layout_t *layout, uint8_t report_
         usb_hid_system(slot, ev.system);
     }
     if (ev.has_mouse) {
-        usb_hid_mouse(slot, ev.buttons, ev.dx, ev.dy, ev.wheel, ev.pan);
+        usb_hid_mouse(slot, s_filter_on ? filter_buttons(slot, ev.buttons) : ev.buttons, ev.dx, ev.dy, ev.wheel,
+                      ev.pan);
     }
     int64_t us = esp_timer_get_time() - rx_us;
     ble_central_record_latency(slot, us < 0 ? 0 : (uint32_t)us);
@@ -137,6 +327,13 @@ static void on_link(unsigned slot, bool connected) {
     if (!connected) {
         usb_hid_release_source(slot);
         s_mouse_buttons[slot] = 0; /* A vanished mouse holds no button. */
+        if (s_filter_mu != NULL) {
+            xSemaphoreTake(s_filter_mu, portMAX_DELAY);
+            input_filter_init(&s_kf[slot], s_kf[slot].bounce_ms, s_kf[slot].hold_ms);
+            input_filter_init(&s_bf[slot], s_bf[slot].bounce_ms, s_bf[slot].hold_ms);
+            memset(&s_out[slot], 0, sizeof(s_out[slot]));
+            xSemaphoreGive(s_filter_mu);
+        }
     }
 }
 

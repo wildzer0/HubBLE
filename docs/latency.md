@@ -42,3 +42,8 @@ No hardware measurements exist yet: they require the board and the real peripher
 |---|---|---|---|---|
 | YUNZII B68 | | | | |
 | ProtoArc EM06 | | | | |
+
+## Typing filter
+
+With **Settings → Typing filter** on, a *hold time* delays every key and button by that long (that is its purpose), and the
+*bounce window* does not delay presses. With the filter off, which is the default, nothing is added to the numbers above.
