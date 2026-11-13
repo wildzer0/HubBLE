@@ -51,6 +51,9 @@ CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME=y
 CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT=y
 
 # HTTPS for "check for updates" (certificate bundle with the common root CAs).
+# TLS needs about 45 KB for its buffers and handshake; with Wi-Fi, Bluetooth and USB running only about 46-52 KB of
+# internal RAM is free (largest block about 31 KB), so GitHub connections failed at random. Keep them in PSRAM.
+CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y
 CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y
 # The full Mozilla list: the common subset lacks the USERTrust/Sectigo roots that github.com and api.github.com use,
 # which made every HTTPS request to GitHub fail the certificate check.

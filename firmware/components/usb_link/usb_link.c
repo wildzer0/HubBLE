@@ -31,8 +31,8 @@ static const char *TAG = "usb_link";
 /** Stack and priority of the link task (below the HID report task, above the idle work). */
 #define LINK_TASK_STACK 7168
 #define LINK_TASK_PRIO  5
-/** Reports buffered between the TinyUSB callback and the link task (8 reports). */
-#define RX_BUFFER_BYTES (8 * (ULINK_REPORT_SIZE + 4))
+/** Reports buffered between the TinyUSB callback and the link task (32 reports: a slow API call loses nothing). */
+#define RX_BUFFER_BYTES (32 * (ULINK_REPORT_SIZE + 4))
 /** How long the task waits for a report before looking at the event queue, ms. */
 #define RX_WAIT_MS 20
 /** Events waiting to be sent, and the longest event JSON kept. */

@@ -180,11 +180,22 @@ static esp_http_client_handle_t http_open(const char *url) {
     }
     esp_http_client_set_header(c, "Accept", "application/vnd.github+json, application/json, application/octet-stream");
     for (int hop = 0; hop <= MAX_REDIRECTS; hop++) {
-        const esp_err_t open_err = esp_http_client_open(c, 0);
+        esp_err_t open_err = esp_http_client_open(c, 0);
+        if (open_err == ESP_ERR_HTTP_CONNECT) {
+            /* One more try: a TLS handshake can fail for lack of memory at a bad moment, and the next one succeeds. */
+            esp_http_client_close(c);
+            vTaskDelay(pdMS_TO_TICKS(500));
+            open_err = esp_http_client_open(c, 0);
+        }
         if (open_err != ESP_OK) {
             /* esp-tls logs the TLS detail just before this line (certificate verification, handshake, DNS). */
-            snprintf(s_http_err, sizeof(s_http_err), "cannot open: %s (errno %d)", esp_err_to_name(open_err),
-                     esp_http_client_get_errno(c));
+            char cur[128] = "";
+            esp_http_client_get_url(c, cur, sizeof(cur));
+            const char *host = strstr(cur, "://") != NULL ? strstr(cur, "://") + 3 : cur;
+            char host_only[40];
+            snprintf(host_only, sizeof(host_only), "%.*s", (int)strcspn(host, "/?"), host);
+            snprintf(s_http_err, sizeof(s_http_err), "hop %d %.30s: cannot open: %s (errno %d)", hop, host_only,
+                     esp_err_to_name(open_err), esp_http_client_get_errno(c));
             ESP_LOGW(TAG, "%.40s: %s", url, s_http_err);
             break;
         }

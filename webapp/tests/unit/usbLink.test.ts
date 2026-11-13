@@ -185,6 +185,41 @@ describe('UsbLink against a fake dongle', () => {
   });
 });
 
+describe('transmission', () => {
+  it('never interleaves the reports of two frames sent at the same time', async () => {
+    const sent: Uint8Array[] = [];
+    const hid: HidLike = {
+      opened: true,
+      open: () => Promise.resolve(),
+      close: () => Promise.resolve(),
+      // A slow device: every report takes a turn of the event loop, so concurrent senders would interleave.
+      sendReport: async (_id, data) => {
+        await new Promise((r) => setTimeout(r, 1));
+        sent.push(data);
+      },
+      onReport: () => () => undefined,
+      onDisconnect: () => () => undefined,
+    };
+    const link = new UsbLink(hid);
+    const body = new Uint8Array(BODY_CHUNK).fill(7);
+    // A request body chunk and a heartbeat, started together.
+    const a = (link as unknown as { sendFrame(t: number, p: Uint8Array): Promise<void> }).sendFrame(
+      T.REQ_BODY,
+      body,
+    );
+    const b = (link as unknown as { sendFrame(t: number, p: Uint8Array): Promise<void> }).sendFrame(
+      T.HELLO,
+      enc.encode('{"proto":1}'),
+    );
+    await Promise.all([a, b]);
+    const p = new FrameParser();
+    const frames = sent.flatMap((r) => p.feedReport(r));
+    expect(frames.map((f) => f.type)).toEqual([T.REQ_BODY, T.HELLO]);
+    expect(frames[0]?.payload.length).toBe(BODY_CHUNK);
+    expect(p.errors).toBe(0);
+  });
+});
+
 describe('chunk size', () => {
   it('is within one frame', () => {
     expect(BODY_CHUNK).toBeLessThanOrEqual(1100);

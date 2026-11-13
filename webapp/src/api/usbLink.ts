@@ -167,6 +167,8 @@ export class LinkError extends Error {}
 const enc = new TextEncoder();
 const dec = new TextDecoder();
 
+/** How long to wait for the dongle to acknowledge a request head or a body chunk (flash writes can be slow), ms. */
+const ACK_TIMEOUT_MS = 30000;
 /** Heartbeat period; the dongle treats the host as gone after 15 s of silence. */
 export const HEARTBEAT_MS = 5000;
 
@@ -271,10 +273,24 @@ export class UsbLink {
     });
   }
 
-  private async sendFrame(type: number, payload?: Uint8Array): Promise<void> {
-    for (const r of toReports(encodeFrame(type, payload))) {
-      await this.hid.sendReport(0, r);
-    }
+  private tx: Promise<void> = Promise.resolve();
+
+  /**
+   * Send one frame. Frames are sent one at a time: a frame is several reports and `sendReport` is asynchronous, so two
+   * concurrent senders (a heartbeat in the middle of a firmware chunk) would interleave their reports and corrupt the stream.
+   *
+   * @param type Frame type.
+   * @param payload Payload.
+   */
+  private sendFrame(type: number, payload?: Uint8Array): Promise<void> {
+    const run = async () => {
+      for (const r of toReports(encodeFrame(type, payload))) {
+        await this.hid.sendReport(0, r);
+      }
+    };
+    const p = this.tx.then(run, run);
+    this.tx = p.catch(() => undefined);
+    return p;
   }
 
   /**
@@ -311,7 +327,7 @@ export class UsbLink {
     const bytes = typeof body === 'string' ? enc.encode(body) : (body ?? new Uint8Array(0));
     const res = this.collectResponse(id);
     const head = { id, method, path, ct: contentType, len: bytes.length };
-    const ack = bytes.length > 0 ? this.waitFor((f) => f.type === T.ACK, 10000) : null;
+    const ack = bytes.length > 0 ? this.waitFor((f) => f.type === T.ACK, ACK_TIMEOUT_MS) : null;
     await this.sendFrame(T.REQ_HEAD, enc.encode(JSON.stringify(head)));
     if (ack) await ack;
     for (let off = 0; off < bytes.length; off += BODY_CHUNK) {
@@ -319,7 +335,7 @@ export class UsbLink {
       const last = off + BODY_CHUNK >= bytes.length;
       // Wait for the acknowledgement before the next chunk (the dongle's window is one chunk); after the last
       // chunk the answer is the response itself.
-      const next = last ? null : this.waitFor((f) => f.type === T.ACK, 10000);
+      const next = last ? null : this.waitFor((f) => f.type === T.ACK, ACK_TIMEOUT_MS);
       await this.sendFrame(T.REQ_BODY, chunk);
       if (next) await next;
       onProgress?.(Math.min(1, (off + chunk.length) / bytes.length));

@@ -6,6 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.3.0-rc.6] - 2026-11-13
+
+### Fixed
+
+- USB link (web app): frames are now sent one at a time. A heartbeat could be interleaved inside a firmware chunk and
+  corrupt the stream, which broke OTA over USB. Acknowledgement timeout raised from 10 s to 30 s (flash erase and first
+  write are slow); the dongle's receive buffer holds 32 reports instead of 8.
+- Online update check: TLS buffers now live in PSRAM. With Wi-Fi, Bluetooth and USB running only about 46-52 KB of
+  internal RAM was free, so GitHub connections failed at random with `ESP_ERR_HTTP_CONNECT`. A failed connection is
+  retried once, and the error detail now names the hop and the host.
+
 ## [1.3.0-rc.5] - 2026-11-13
 
 ### Fixed
