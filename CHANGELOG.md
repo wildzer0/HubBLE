@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.3.0-rc.3] - 2026-11-13
+
 ### Fixed
 
 - "Check for updates" failed with "GitHub not reachable or download interrupted": the certificate bundle held only the common
