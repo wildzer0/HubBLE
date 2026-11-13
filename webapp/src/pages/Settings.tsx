@@ -203,6 +203,20 @@ export function Settings({ locale, onLocale }: { locale: Locale; onLocale: (l: L
         />
       </section>
 
+      <section class="card" aria-labelledby="set-usb">
+        <h3 class="card-title" id="set-usb">
+          {t('settings.usb_link')}
+        </h3>
+        <SwitchRow
+          label={t('settings.usb_link_enabled')}
+          hint={t('settings.usb_link_hint')}
+          checked={form.usb_link}
+          onChange={(v) => {
+            set({ usb_link: v });
+          }}
+        />
+      </section>
+
       <section class="card" aria-labelledby="set-filter">
         <h3 class="card-title" id="set-filter">
           {t('settings.filter')}

@@ -35,6 +35,7 @@ describe('backup parsing', () => {
       led_brightness: 25,
       status_led: false,
       shift_hold_ms: 3000,
+      usb_link: false,
       filter_enabled: false,
       filter_bounce_ms: 50,
       filter_hold_ms: 0,

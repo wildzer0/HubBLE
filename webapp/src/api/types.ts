@@ -304,6 +304,8 @@ export interface Settings {
   status_led: boolean;
   /** Hold time of the Ctrl+Alt gesture in ms (applies from the next boot). */
   shift_hold_ms: number;
+  /** Present the USB configuration interface (WebHID) after the next restart. Off by default. */
+  usb_link: boolean;
   /** Typing filter (bounce keys / slow keys) for keys and mouse buttons. Off by default. */
   filter_enabled: boolean;
   /** Ignore a key or button pressed again this soon (ms) after its release; 0 = off. */

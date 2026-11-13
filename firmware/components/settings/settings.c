@@ -24,6 +24,7 @@ static const char *TAG = "settings";
 #define KEY_CHANNEL     "upd_pre"
 #define KEY_REM_WAKE    "rem_wake"
 #define KEY_PORTAL_AUTO "portal_auto"
+#define KEY_USB_LINK    "usb_link"
 #define KEY_FLT_ON      "flt_on"
 #define KEY_FLT_BOUNCE  "flt_bounce"
 #define KEY_FLT_HOLD    "flt_hold"
@@ -294,6 +295,16 @@ esp_err_t settings_set_led_brightness(uint32_t percent) {
     }
     esp_err_t err = nvs_set_u32(s_nvs, KEY_LED_BRIGHT, percent);
     return err == ESP_OK ? nvs_commit(s_nvs) : err;
+}
+
+/** @copydoc settings_get_usb_link */
+bool settings_get_usb_link(void) {
+    return get_flag(KEY_USB_LINK, false);
+}
+
+/** @copydoc settings_set_usb_link */
+esp_err_t settings_set_usb_link(bool enabled) {
+    return set_flag(KEY_USB_LINK, enabled);
 }
 
 /** @copydoc settings_get_filter_enabled */

@@ -5,6 +5,12 @@ site and talks to the dongle with **WebHID**, a browser feature for USB devices.
 
 **Open the app: <https://wildzer0.github.io/HubBLE/app/>**
 
+## First: turn it on
+
+The USB configuration is **off by default** while it is being validated, because it adds an extra interface to the dongle's USB
+identity. Turn on **Settings → Configure over USB** (from the phone over Wi-Fi, or from a computer over Wi-Fi) and **restart
+the dongle**; after the restart the computer sees the extra interface. Turn it off the same way to go back to the original two.
+
 ## What you need
 
 - A computer with **Chrome or Edge** (Firefox, Safari and phone browsers do not support WebHID).

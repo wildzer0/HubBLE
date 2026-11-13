@@ -20,6 +20,7 @@
 #include "freertos/queue.h"
 #include "freertos/task.h"
 #include "sdkconfig.h"
+#include "settings.h"
 #include "tinyusb.h"
 #include "tinyusb_default_config.h"
 
@@ -53,8 +54,9 @@ enum { STR_LANG = 0, STR_MANUFACTURER, STR_PRODUCT, STR_SERIAL, STR_COUNT };
 /** Minimum spacing between remote-wakeup attempts, to avoid hammering a host that ignores them. */
 #define WAKEUP_MIN_INTERVAL_MS 500
 
-/** Total length of the configuration descriptor. */
-#define CONFIG_TOTAL_LEN (TUD_CONFIG_DESC_LEN + 2 * TUD_HID_DESC_LEN + TUD_HID_INOUT_DESC_LEN)
+/** Total length of the configuration descriptor without and with the configuration link. */
+#define CONFIG_LEN_BASE (TUD_CONFIG_DESC_LEN + 2 * TUD_HID_DESC_LEN)
+#define CONFIG_LEN_LINK (CONFIG_LEN_BASE + TUD_HID_INOUT_DESC_LEN)
 
 /**
  * Report descriptor of the configuration link: one vendor-defined application collection (usage page 0xFF00, usage 1)
@@ -112,11 +114,21 @@ static const char *s_strings[STR_COUNT] = {
 };
 
 /**
- * Configuration descriptor. Remote wakeup is advertised (CLAUDE.md §3.2). Interface 0 is a boot-protocol
- * keyboard (subclass 1 / protocol 1) so BIOS/UEFI accept it; interface 1 is a plain HID interface.
+ * Configuration descriptor without the configuration link: the two interfaces the dongle has always had (CLAUDE.md
+ * §3.2). Remote wakeup is advertised. Interface 0 is a boot-protocol keyboard (subclass 1 / protocol 1) so BIOS/UEFI
+ * accept it; interface 1 is a plain HID interface. This is the default.
  */
-static const uint8_t s_config_desc[] = {
-    TUD_CONFIG_DESCRIPTOR(1, ITF_COUNT, 0, CONFIG_TOTAL_LEN, TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, USB_MAX_POWER_MA),
+static const uint8_t s_config_desc_base[] = {
+    TUD_CONFIG_DESCRIPTOR(1, 2, 0, CONFIG_LEN_BASE, TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, USB_MAX_POWER_MA),
+    TUD_HID_DESCRIPTOR(ITF_KEYBOARD, 0, HID_ITF_PROTOCOL_KEYBOARD, HID_KBD_REPORT_DESC_LEN, EP_KEYBOARD_IN, EP_SIZE,
+                       POLL_INTERVAL_MS),
+    TUD_HID_DESCRIPTOR(ITF_CONTROL, 0, HID_ITF_PROTOCOL_NONE, HID_CTRL_REPORT_DESC_LEN, EP_CONTROL_IN, EP_SIZE,
+                       POLL_INTERVAL_MS),
+};
+
+/** Same plus the vendor HID interface of the configuration link (USB configuration enabled in the settings). */
+static const uint8_t s_config_desc_link[] = {
+    TUD_CONFIG_DESCRIPTOR(1, ITF_COUNT, 0, CONFIG_LEN_LINK, TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, USB_MAX_POWER_MA),
     TUD_HID_DESCRIPTOR(ITF_KEYBOARD, 0, HID_ITF_PROTOCOL_KEYBOARD, HID_KBD_REPORT_DESC_LEN, EP_KEYBOARD_IN, EP_SIZE,
                        POLL_INTERVAL_MS),
     TUD_HID_DESCRIPTOR(ITF_CONTROL, 0, HID_ITF_PROTOCOL_NONE, HID_CTRL_REPORT_DESC_LEN, EP_CONTROL_IN, EP_SIZE,
@@ -124,6 +136,9 @@ static const uint8_t s_config_desc[] = {
     TUD_HID_INOUT_DESCRIPTOR(ITF_LINK, 0, HID_ITF_PROTOCOL_NONE, sizeof(s_link_report_desc), EP_LINK_OUT, EP_LINK_IN,
                              LINK_REPORT_SIZE, POLL_INTERVAL_MS),
 };
+
+/** Whether the descriptor in use includes the configuration link. */
+static bool s_link_enabled;
 
 /** Which reports have changed since they were last sent (bit mask). */
 enum {
@@ -391,7 +406,8 @@ esp_err_t usb_hid_init(void) {
     cfg.descriptor.device = &s_device_desc;
     cfg.descriptor.string = s_strings;
     cfg.descriptor.string_count = STR_COUNT;
-    cfg.descriptor.full_speed_config = s_config_desc;
+    s_link_enabled = settings_get_usb_link();
+    cfg.descriptor.full_speed_config = s_link_enabled ? s_config_desc_link : s_config_desc_base;
     esp_err_t err = tinyusb_driver_install(&cfg);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "tinyusb_driver_install failed: %s", esp_err_to_name(err));
@@ -503,6 +519,11 @@ void usb_hid_set_leds_callback(usb_hid_leds_cb_t cb) {
 /** @copydoc usb_hid_set_remote_wakeup_allowed */
 void usb_hid_set_remote_wakeup_allowed(bool enabled) {
     s_wakeup_allowed = enabled;
+}
+
+/** @copydoc usb_hid_link_enabled */
+bool usb_hid_link_enabled(void) {
+    return s_link_enabled;
 }
 
 /** @copydoc usb_hid_link_set_rx */

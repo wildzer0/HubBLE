@@ -209,17 +209,19 @@ void app_main(void) {
         ESP_LOGE(TAG, "web server start failed: %s", esp_err_to_name(err));
     }
 
-    err = usb_link_start(); /* Configuration over USB (WebHID), open only while the configuration window is. */
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "USB link start failed: %s", esp_err_to_name(err));
-    }
-
     bridge_set_input_tap(web_server_input_active, web_server_broadcast_input); /* Input tester (M5). */
     err = bridge_init(on_ble_changed);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "BLE bridge init failed: %s", esp_err_to_name(err));
     }
 
+    if (usb_hid_link_enabled()) {
+        /* After BLE, so the radio gets its memory first. Open only while the configuration window is. */
+        err = usb_link_start();
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "USB link start failed: %s", esp_err_to_name(err));
+        }
+    }
     bridge_set_input_filter(settings_get_filter_enabled(), settings_get_filter_bounce_ms(),
                             settings_get_filter_hold_ms()); /* Typing filter, off unless the user turned it on. */
     led_status_start(led_sample); /* Status patterns (CLAUDE.md §3.6); off while the host sleeps. */

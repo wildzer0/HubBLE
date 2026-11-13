@@ -1011,6 +1011,7 @@ static cJSON *settings_json(void) {
     cJSON_AddNumberToObject(r, "led_brightness", settings_get_led_brightness());
     cJSON_AddBoolToObject(r, "status_led", settings_get_status_led());
     cJSON_AddNumberToObject(r, "shift_hold_ms", settings_get_shift_hold_ms());
+    cJSON_AddBoolToObject(r, "usb_link", settings_get_usb_link());
     cJSON_AddBoolToObject(r, "filter_enabled", settings_get_filter_enabled());
     cJSON_AddNumberToObject(r, "filter_bounce_ms", settings_get_filter_bounce_ms());
     cJSON_AddNumberToObject(r, "filter_hold_ms", settings_get_filter_hold_ms());
@@ -1038,7 +1039,8 @@ static bool settings_object_valid(const cJSON *s) {
     const cJSON *fe = cJSON_GetObjectItemCaseSensitive(s, "filter_enabled");
     const cJSON *fb = cJSON_GetObjectItemCaseSensitive(s, "filter_bounce_ms");
     const cJSON *fh = cJSON_GetObjectItemCaseSensitive(s, "filter_hold_ms");
-    if ((fe != NULL && !cJSON_IsBool(fe)) ||
+    const cJSON *ul = cJSON_GetObjectItemCaseSensitive(s, "usb_link");
+    if ((ul != NULL && !cJSON_IsBool(ul)) || (fe != NULL && !cJSON_IsBool(fe)) ||
         (fb != NULL && !(cJSON_IsNumber(fb) && fb->valuedouble == (double)fb->valueint && fb->valueint >= 0 &&
                          fb->valueint <= SETTINGS_FILTER_BOUNCE_MAX_MS)) ||
         (fh != NULL && !(cJSON_IsNumber(fh) && fh->valuedouble == (double)fh->valueint && fh->valueint >= 0 &&
@@ -1117,6 +1119,11 @@ static void settings_object_apply(const cJSON *s) {
     const cJSON *fe = cJSON_GetObjectItemCaseSensitive(s, "filter_enabled");
     const cJSON *fb = cJSON_GetObjectItemCaseSensitive(s, "filter_bounce_ms");
     const cJSON *fh = cJSON_GetObjectItemCaseSensitive(s, "filter_hold_ms");
+    const cJSON *ul = cJSON_GetObjectItemCaseSensitive(s, "usb_link");
+    if (cJSON_IsBool(ul)) {
+        settings_set_usb_link(
+            cJSON_IsTrue(ul)); /* Applies from the next restart (the USB descriptor is fixed at boot). */
+    }
     if (cJSON_IsBool(fe)) {
         settings_set_filter_enabled(cJSON_IsTrue(fe));
     }

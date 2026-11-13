@@ -163,6 +163,14 @@ void usb_hid_set_state_callback(void (*cb)(usb_state_t state));
 typedef void (*usb_hid_link_rx_cb_t)(const uint8_t *report, size_t len);
 
 /**
+ * @brief Whether this boot presents the configuration link (the vendor HID interface). Chosen at start-up from the
+ *        "USB configuration" setting, off by default; a change needs a restart.
+ *
+ * @return true if the USB descriptor includes the link.
+ */
+bool usb_hid_link_enabled(void);
+
+/**
  * @brief Set the receiver of the configuration link's OUT reports (the vendor HID interface, see usb_link).
  *
  * @param cb Receiver, or NULL to ignore the data.

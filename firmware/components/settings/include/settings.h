@@ -216,6 +216,14 @@ esp_err_t settings_set_portal_auto(bool enabled);
 #define SETTINGS_FILTER_BOUNCE_DEFAULT_MS 50
 #define SETTINGS_FILTER_HOLD_MAX_MS       1000
 
+/**
+ * @brief Whether the dongle presents the USB configuration interface (WebHID) after the next restart. Default false:
+ * the USB descriptor then has the two interfaces the dongle has always had.
+ */
+bool settings_get_usb_link(void);
+/** @brief Store the USB configuration switch. @param enabled New value. @return ESP_OK or an NVS error. */
+esp_err_t settings_set_usb_link(bool enabled);
+
 /** @brief Whether the typing filter (bounce keys / slow keys) is on. Default false. */
 bool settings_get_filter_enabled(void);
 /** @brief Store the typing-filter switch. @param enabled New value. @return ESP_OK or an NVS error. */

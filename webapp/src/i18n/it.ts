@@ -221,7 +221,7 @@ export const it: Record<MessageKey, string> = {
   'usb.connect': 'Collega il dongle',
   'usb.connecting': 'Collegamento…',
   'usb.steps':
-    'Il browser mostrerà un elenco: scegli «HubBLE» e premi Connetti. Il dongle risponde solo durante la sua finestra di configurazione: i primi minuti dopo averlo collegato, oppure dopo Ctrl + Alt, il pulsante BOOT o il gesto del mouse.',
+    'Prima accendi «Configura via USB» nelle Impostazioni (via Wi-Fi) e riavvia il dongle. Poi il browser mostrerà un elenco: scegli «HubBLE» e premi Connetti. Il dongle risponde solo durante la sua finestra di configurazione: i primi minuti dopo averlo collegato, oppure dopo Ctrl + Alt, il pulsante BOOT o il gesto del mouse.',
   'usb.unsupported':
     'Questo browser non può parlare con i dispositivi USB. Apri la pagina in Chrome o Edge su un computer (Firefox, Safari e i telefoni non sono supportati).',
   'usb.none': 'Nessun dongle scelto. Premi di nuovo il pulsante e scegli «HubBLE».',
@@ -236,6 +236,10 @@ export const it: Record<MessageKey, string> = {
   'usb.disconnect': 'Scollega',
   'update.limited_browser':
     'Questa finestra è il piccolo browser di «accesso alla rete», che non può scegliere né salvare file. Apri la pagina nel browser normale (Chrome, Safari): vai su http://192.168.4.1 e, su Android, spegni prima i dati mobili. Da un computer puoi usare anche la pagina di configurazione via USB.',
+  'settings.usb_link': 'Configurazione via USB (sperimentale)',
+  'settings.usb_link_enabled': 'Configura via USB',
+  'settings.usb_link_hint':
+    "Permette di usare questa app da un computer attraverso il cavo USB (Chrome o Edge, senza Wi-Fi). Aggiunge un'interfaccia in più all'identità USB del dongle, quindi è spenta di default finché non è validata. Riavvia il dongle dopo averla cambiata.",
   'pair.pair_with': 'Associa {name}',
   'pair.connecting': 'Connessione a {name}…',
   'pair.waiting_device': 'In attesa del dispositivo…',

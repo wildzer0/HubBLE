@@ -43,6 +43,7 @@ export function parseBackup(text: string): Backup | null {
       led_brightness: num(s.led_brightness, 25),
       status_led: s.status_led === true,
       shift_hold_ms: num(s.shift_hold_ms, 3000),
+      usb_link: s.usb_link === true,
       filter_enabled: s.filter_enabled === true,
       filter_bounce_ms: num(s.filter_bounce_ms, 50),
       filter_hold_ms: num(s.filter_hold_ms, 0),

@@ -211,7 +211,7 @@ export const en = {
   'usb.connect': 'Connect the dongle',
   'usb.connecting': 'Connecting…',
   'usb.steps':
-    'Your browser will show a list: choose “HubBLE” and press Connect. The dongle answers only during its configuration window: the first minutes after you plug it in, or after Ctrl + Alt, the BOOT button or the mouse gesture.',
+    'First turn on “Configure over USB” in Settings (over Wi-Fi) and restart the dongle. Then your browser will show a list: choose “HubBLE” and press Connect. The dongle answers only during its configuration window: the first minutes after you plug it in, or after Ctrl + Alt, the BOOT button or the mouse gesture.',
   'usb.unsupported':
     'This browser cannot talk to USB devices. Open this page in Chrome or Edge on a computer (Firefox, Safari and phones are not supported).',
   'usb.none': 'No dongle was chosen. Press the button again and pick “HubBLE”.',
@@ -226,6 +226,10 @@ export const en = {
   'usb.disconnect': 'Disconnect',
   'update.limited_browser':
     'This window is the small “sign in to the network” browser, which cannot choose or save files. Open the page in your normal browser (Chrome, Safari): go to http://192.168.4.1 and, on Android, turn mobile data off first. On a computer you can also use the USB configuration page.',
+  'settings.usb_link': 'USB configuration (experimental)',
+  'settings.usb_link_enabled': 'Configure over USB',
+  'settings.usb_link_hint':
+    "Lets you use this app from a computer over the USB cable (Chrome or Edge, no Wi-Fi). It adds an extra interface to the dongle's USB identity, so it is off by default while it is being validated. Restart the dongle after changing it.",
   'pair.pair_with': 'Pair with {name}',
   'pair.connecting': 'Connecting to {name}…',
   'pair.waiting_device': 'Waiting for the device…',
