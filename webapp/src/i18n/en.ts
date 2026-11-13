@@ -230,6 +230,7 @@ export const en = {
   'settings.usb_link_enabled': 'Configure over USB',
   'settings.usb_link_hint':
     "Lets you use this app from a computer over the USB cable (Chrome or Edge, no Wi-Fi). It adds an extra interface to the dongle's USB identity, so it is off by default while it is being validated. Restart the dongle after changing it.",
+  'online.detail': 'Technical detail (send it if you ask for help):',
   'pair.pair_with': 'Pair with {name}',
   'pair.connecting': 'Connecting to {name}…',
   'pair.waiting_device': 'Waiting for the device…',

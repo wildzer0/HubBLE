@@ -15,7 +15,11 @@
 #include "board.h"
 #include "esp_app_desc.h"
 #include "esp_crt_bundle.h"
+#include "esp_heap_caps.h"
 #include "esp_http_client.h"
+#include "esp_netif.h"
+#include "lwip/dns.h"
+#include "lwip/netdb.h"
 #include "esp_log.h"
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
@@ -89,6 +93,25 @@ static void set_state(ou_state_t state, ou_error_t err) {
     notify();
 }
 
+/** Reason of the last failed HTTP request (stage and error), appended to the published detail. */
+static char s_http_err[80];
+
+/**
+ * @brief Publish the technical detail of a failure: what went wrong, plus the internal heap state (a TLS handshake
+ * needs two 16 KB buffers, so low or fragmented memory is a prime suspect).
+ *
+ * @param what Short description of the failed stage.
+ */
+static void set_detail(const char *what) {
+    char d[sizeof(((ou_status_t *)0)->detail)];
+    snprintf(d, sizeof(d), "%s | heap %u largest %u", what, (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
+             (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
+    ESP_LOGW(TAG, "detail: %s", d);
+    portENTER_CRITICAL(&s_lock);
+    strlcpy(s_st.detail, d, sizeof(s_st.detail));
+    portEXIT_CRITICAL(&s_lock);
+}
+
 /** @brief Fail the operation: leave the station network, release the AP hold, publish the error. */
 static void finish_error(ou_error_t err) {
     ESP_LOGW(TAG, "failed: %s", ota_online_error_name(err));
@@ -160,7 +183,9 @@ static esp_http_client_handle_t http_open(const char *url) {
         const esp_err_t open_err = esp_http_client_open(c, 0);
         if (open_err != ESP_OK) {
             /* esp-tls logs the TLS detail just before this line (certificate verification, handshake, DNS). */
-            ESP_LOGW(TAG, "cannot open %.60s: %s", url, esp_err_to_name(open_err));
+            snprintf(s_http_err, sizeof(s_http_err), "cannot open: %s (errno %d)", esp_err_to_name(open_err),
+                     esp_http_client_get_errno(c));
+            ESP_LOGW(TAG, "%.40s: %s", url, s_http_err);
             break;
         }
         esp_http_client_fetch_headers(c);
@@ -176,6 +201,7 @@ static esp_http_client_handle_t http_open(const char *url) {
             continue;
         }
         ESP_LOGW(TAG, "HTTP status %d", status);
+        snprintf(s_http_err, sizeof(s_http_err), "HTTP status %d", status);
         break;
     }
     esp_http_client_cleanup(c);
@@ -232,6 +258,49 @@ static ou_error_t join_wifi(void) {
 }
 
 /**
+ * @brief Make the resolver use the station's DNS server.
+ *
+ * With the access point and the station up at once, the dongle's own lookups could end up asking the access point's DNS
+ * responder (the captive portal), which answers every name with the dongle's own address: api.github.com would then
+ * "resolve" to the dongle itself. Use the router's DNS, with a public one as the second choice.
+ */
+static void use_station_dns(void) {
+    esp_netif_t *sta = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+    esp_netif_dns_info_t d = {0};
+    if (sta != NULL && esp_netif_get_dns_info(sta, ESP_NETIF_DNS_MAIN, &d) == ESP_OK && d.ip.u_addr.ip4.addr != 0) {
+        ip_addr_t main_dns;
+        ip_addr_set_ip4_u32_val(main_dns, d.ip.u_addr.ip4.addr);
+        dns_setserver(0, &main_dns);
+        ESP_LOGI(TAG, "DNS server 0: the station's (" IPSTR ")", IP2STR(&d.ip.u_addr.ip4));
+    }
+    ip_addr_t fallback;
+    IP_ADDR4(&fallback, 1, 1, 1, 1);
+    dns_setserver(1, &fallback);
+}
+
+/**
+ * @brief Resolve a name and say what came back, so a DNS problem is visible instead of "network error".
+ *
+ * @param host Name to resolve.
+ * @param[out] out Receives the address text or the failure.
+ * @return true if it resolved to an address that is not the dongle's own.
+ */
+static bool resolve_check(const char *host, char *out, size_t cap) {
+    struct addrinfo hints = {.ai_family = AF_INET, .ai_socktype = SOCK_STREAM};
+    struct addrinfo *res = NULL;
+    const int rc = getaddrinfo(host, "443", &hints, &res);
+    if (rc != 0 || res == NULL) {
+        snprintf(out, cap, "dns %s failed (%d)", host, rc);
+        return false;
+    }
+    const uint32_t ip = ((struct sockaddr_in *)res->ai_addr)->sin_addr.s_addr;
+    freeaddrinfo(res);
+    snprintf(out, cap, "dns %s -> %u.%u.%u.%u", host, (unsigned)(ip & 0xFF), (unsigned)((ip >> 8) & 0xFF),
+             (unsigned)((ip >> 16) & 0xFF), (unsigned)((ip >> 24) & 0xFF));
+    return (ip & 0xFF) != 192 || ((ip >> 8) & 0xFF) != 168 || ((ip >> 16) & 0xFF) != 4; /* not our own 192.168.4.x */
+}
+
+/**
  * @brief Worker: find the newest release, read and evaluate its manifest.
  *
  * @param arg Unused.
@@ -246,6 +315,17 @@ static void check_task(void *arg) {
         vTaskDelete(NULL);
     }
     set_state(OU_CHECKING, OUE_NONE);
+    s_http_err[0] = '\0';
+    use_station_dns();
+    char dns[80];
+    const bool dns_ok = resolve_check("api.github.com", dns, sizeof(dns));
+    ESP_LOGI(TAG, "%s", dns);
+    if (!dns_ok) {
+        finish_error(OUE_NETWORK);
+        set_detail(dns);
+        s_busy = false;
+        vTaskDelete(NULL);
+    }
 
     char url[200];
     const bool pre = s_st.prerelease_channel;
@@ -254,7 +334,10 @@ static void check_task(void *arg) {
     char *api = http_get_small(url, API_READ_MAX, &len);
     char tag[OTA_TAG_MAX];
     if (api == NULL) {
+        char what[100];
+        snprintf(what, sizeof(what), "api.github.com: %s", s_http_err[0] ? s_http_err : "no answer");
         finish_error(OUE_NETWORK);
+        set_detail(what);
         s_busy = false;
         vTaskDelete(NULL);
     }
@@ -269,7 +352,10 @@ static void check_task(void *arg) {
     snprintf(url, sizeof(url), "https://github.com/%s/releases/download/%s/manifest.json", REPO, tag);
     char *mf = http_get_small(url, MANIFEST_MAX, &len);
     if (mf == NULL) {
+        char what[100];
+        snprintf(what, sizeof(what), "manifest.json: %s", s_http_err[0] ? s_http_err : "no answer");
         finish_error(OUE_BAD_MANIFEST);
+        set_detail(what);
         s_busy = false;
         vTaskDelete(NULL);
     }

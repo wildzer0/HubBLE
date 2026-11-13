@@ -211,6 +211,9 @@ static cJSON *online_json(void) {
     cJSON_AddStringToObject(o, "state", ota_online_state_name(u.state));
     if (u.state == OU_ERROR) {
         cJSON_AddStringToObject(o, "error", ota_online_error_name(u.error));
+        if (u.detail[0] != '\0') {
+            cJSON_AddStringToObject(o, "detail", u.detail);
+        }
     }
     cJSON_AddBoolToObject(o, "wifi_configured", settings_has_sta());
     cJSON_AddStringToObject(o, "channel", u.prerelease_channel ? "prerelease" : "stable");

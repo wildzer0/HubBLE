@@ -124,6 +124,11 @@ export function OnlineUpdateSection({
         {online.state === 'error' && online.error && (
           <Alert kind="bad" role="alert">
             {t(`online.error.${online.error}`)}
+            {online.detail && (
+              <p class="hint" data-testid="online-detail">
+                {t('online.detail')} <code>{online.detail}</code>
+              </p>
+            )}
           </Alert>
         )}
         {online.state === 'confirm' && (

@@ -68,6 +68,7 @@ typedef struct {
     uint32_t received;            /**< Bytes downloaded so far. */
     uint32_t total;               /**< Bytes to download. */
     uint32_t confirm_remaining_s; /**< Seconds left to confirm while OU_AWAIT_CONFIRM. */
+    char detail[120]; /**< Technical reason of the last failure (stage, error, DNS answer, heap); "" if none. */
 } ou_status_t;
 
 /**

@@ -6,6 +6,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.3.0-rc.5] - 2026-11-13
+
+### Fixed
+
+- "Check for updates": the dongle now makes its own lookups use the router's DNS server (with the access point and the
+  station up at once they could be answered by the captive-portal responder, which maps every name to the dongle itself),
+  and checks that api.github.com resolves to a real address before connecting.
+
+### Added
+
+- When a check fails, the update page shows a technical detail (the stage, the error code, the DNS answer, free internal memory
+  and the largest free block), and the log carries the same lines, so a failure no longer ends in a generic "network error".
+
 ## [1.3.0-rc.4] - 2026-11-13
 
 ### Fixed

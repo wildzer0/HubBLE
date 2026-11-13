@@ -98,6 +98,8 @@ export interface OnlineUpdate {
   state: OnlineState;
   /** Error, when `state` is `error`. */
   error?: OnlineError;
+  /** Technical reason of the failure (stage, error code, DNS answer, free memory), for support. */
+  detail?: string;
   /** True when Wi-Fi credentials for updates are saved. */
   wifi_configured: boolean;
   /** Channel used by the last check. */

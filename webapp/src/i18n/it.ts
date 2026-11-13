@@ -240,6 +240,7 @@ export const it: Record<MessageKey, string> = {
   'settings.usb_link_enabled': 'Configura via USB',
   'settings.usb_link_hint':
     "Permette di usare questa app da un computer attraverso il cavo USB (Chrome o Edge, senza Wi-Fi). Aggiunge un'interfaccia in più all'identità USB del dongle, quindi è spenta di default finché non è validata. Riavvia il dongle dopo averla cambiata.",
+  'online.detail': 'Dettaglio tecnico (mandalo se chiedi aiuto):',
   'pair.pair_with': 'Associa {name}',
   'pair.connecting': 'Connessione a {name}…',
   'pair.waiting_device': 'In attesa del dispositivo…',
