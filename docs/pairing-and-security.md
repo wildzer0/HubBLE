@@ -24,7 +24,9 @@ supports them. At most four devices can be paired; forget one to add another.
 
     Wrong inputs restart the sequence; after 3 mistakes or at the timeout the bond is deleted. On success: 🟡.
 4. **Physical confirmation** (setting "Require physical confirmation", default ON): the new pairing must be confirmed
-   by holding **Ctrl and Alt together for 3 s on an already paired keyboard** (within 30 s). It is skipped when no other
+   by holding **Ctrl and Alt together for 3 s on an already paired keyboard** (or holding the left and right buttons of a paired
+   mouse for 3 s, or pressing the **BOOT** button on the dongle: pressing a button on the device itself is the strongest proof
+   of physical presence) (within 30 s). It is skipped when no other
    keyboard is paired yet (first run). The gesture also switches the Wi-Fi AP on, which is harmless.
 5. **Legacy pairing** is rejected by default (the bond is deleted and the pairing fails with `legacy_rejected`). If you
    accept the risk, start the pairing with "allow legacy"; the device is 🔴.

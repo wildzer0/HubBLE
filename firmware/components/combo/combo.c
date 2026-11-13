@@ -81,3 +81,53 @@ combo_event_t combo_update(combo_t *c, uint32_t now_ms, uint8_t modifiers, const
     }
     return COMBO_NONE;
 }
+
+/** @copydoc combo_mouse_init */
+void combo_mouse_init(combo_mouse_t *c, uint32_t hold_ms) {
+    c->hold_ms = hold_ms ? hold_ms : COMBO_DEFAULT_AP_HOLD_MS;
+    c->since_ms = 0;
+    c->active = false;
+    c->fired = false;
+}
+
+/** @copydoc combo_mouse_update */
+bool combo_mouse_update(combo_mouse_t *c, uint32_t now_ms, uint8_t buttons) {
+    const bool both_only = buttons == (COMBO_BTN_LEFT | COMBO_BTN_RIGHT);
+    if (!both_only) {
+        c->active = false;
+        c->fired = false;
+        return false;
+    }
+    if (!c->active) {
+        c->active = true;
+        c->since_ms = now_ms;
+    }
+    if (!c->fired && now_ms - c->since_ms >= c->hold_ms) {
+        c->fired = true;
+        return true;
+    }
+    return false;
+}
+
+/** @copydoc combo_button_init */
+void combo_button_init(combo_button_t *c) {
+    c->since_ms = 0;
+    c->down = false;
+}
+
+/** @copydoc combo_button_update */
+bool combo_button_update(combo_button_t *c, uint32_t now_ms, bool pressed) {
+    if (pressed) {
+        if (!c->down) {
+            c->down = true;
+            c->since_ms = now_ms;
+        }
+        return false;
+    }
+    if (!c->down) {
+        return false;
+    }
+    c->down = false;
+    const uint32_t held = now_ms - c->since_ms;
+    return held >= COMBO_BUTTON_MIN_MS && held <= COMBO_BUTTON_MAX_MS;
+}

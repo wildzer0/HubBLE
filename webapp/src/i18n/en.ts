@@ -123,9 +123,9 @@ export const en = {
   'pair.banner_open': 'Open',
   'wifi_off.button': 'Switch Wi-Fi off now',
   'wifi_off.hint':
-    'The Wi-Fi turns off within a second and this page loses the connection. Hold Ctrl and Alt together for 3 seconds on a paired keyboard to turn it on again.',
+    'The Wi-Fi turns off within a second and this page loses the connection. Hold Ctrl and Alt together for 3 seconds on a paired keyboard to turn it on again, or press the small BOOT button on the dongle.',
   'wifi_off.done':
-    'The Wi-Fi is switching off. Hold Ctrl and Alt together for 3 seconds on a paired keyboard to turn it on again.',
+    'The Wi-Fi is switching off. Hold Ctrl and Alt together for 3 seconds on a paired keyboard to turn it on again, or press the small BOOT button on the dongle.',
   'wifi_off.no_devices': 'Pair a device first: the Wi-Fi stays on while none is paired.',
   'settings.portal_auto': 'Open this page when joining the Wi-Fi',
   'settings.portal_auto_hint':
@@ -163,7 +163,7 @@ export const en = {
   'pair.click_middle': 'Middle',
   'pair.progress': '{n} of {total}',
   'pair.confirm':
-    'Hold Ctrl and Alt together for 3 seconds on an already paired keyboard to confirm.',
+    'Hold Ctrl and Alt together for 3 seconds on an already paired keyboard to confirm. No keyboard at hand? Press the small BOOT button on the dongle, or hold the left and right mouse buttons together for 3 seconds.',
   'pair.remaining': '{s} s left',
   'pair.bonded': '{name} is paired.',
   'pair.done': 'Back to the dashboard',
@@ -191,7 +191,7 @@ export const en = {
   'settings.security': 'Security',
   'settings.require_confirmation': 'Require physical confirmation',
   'settings.require_confirmation_hint':
-    'A new pairing must be confirmed by holding Ctrl and Alt together for 3 seconds on an already paired keyboard.',
+    'A new pairing must be confirmed by holding Ctrl and Alt together for 3 seconds on an already paired keyboard (or press the BOOT button on the dongle).',
   'settings.wifi': 'Wi-Fi access point',
   'settings.boot_window': 'On after power-up',
   'settings.idle_timeout': 'Switch off after last client',
@@ -262,7 +262,7 @@ export const en = {
   'online.confirm_hint':
     'If physical confirmation is on, you will be asked to hold Ctrl and Alt together for 3 seconds on a paired keyboard.',
   'online.confirm':
-    'Hold Ctrl and Alt together for 3 seconds on a paired keyboard to start the installation ({s} s left).',
+    'Hold Ctrl and Alt together for 3 seconds on a paired keyboard, or press the BOOT button on the dongle, to start the installation ({s} s left).',
   'online.installed': 'Installed. The dongle is restarting…',
   'online.error.no_wifi_credentials': 'No Wi-Fi network saved for updates.',
   'online.error.wifi_failed': 'Could not join the Wi-Fi network. Check its name and password.',

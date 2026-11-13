@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Ways to switch the Wi-Fi on and to confirm a pairing or an update **without a keyboard**: a short press of the BOOT button
+  on the dongle, or holding the left and right mouse buttons together for 3 s on a paired mouse or trackball. Until now a
+  dongle without a connected keyboard could only be reached by replugging it.
+
 ## [1.2.2] - 2026-11-13
 
 ### Fixed

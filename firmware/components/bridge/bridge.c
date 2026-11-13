@@ -11,6 +11,8 @@
 #include "ota_online.h"
 #include "power_policy.h"
 #include "combo.h"
+#include "board.h"
+#include "driver/gpio.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include <stdio.h>
@@ -59,6 +61,8 @@ typedef struct {
 
 static void (*s_on_changed)(int slot);
 static TaskHandle_t s_power_task;
+/** Last buttons byte of each pointing device (for the keyboard-less gesture); written by the BLE host task. */
+static volatile uint8_t s_mouse_buttons[BLE_CENTRAL_MAX_DEVICES];
 static volatile power_mode_t s_power_mode = POWER_ACTIVE;
 static bool (*s_tap_active)(void);
 static void (*s_tap_emit)(const char *json);
@@ -99,6 +103,9 @@ static void on_report(unsigned slot, const hid_layout_t *layout, uint8_t report_
         }
         return;
     }
+    if (ev.has_mouse && slot < BLE_CENTRAL_MAX_DEVICES) {
+        s_mouse_buttons[slot] = ev.buttons; /* For the keyboard-less gesture (left + right held). */
+    }
     if (s_tap_active != NULL && s_tap_queue != NULL && s_tap_active()) {
         const tap_item_t item = {.slot = (uint8_t)slot, .ev = ev};
         xQueueSend(s_tap_queue, &item, 0); /* Never blocks: drop when full. */
@@ -129,6 +136,7 @@ static void on_report(unsigned slot, const hid_layout_t *layout, uint8_t report_
 static void on_link(unsigned slot, bool connected) {
     if (!connected) {
         usb_hid_release_source(slot);
+        s_mouse_buttons[slot] = 0; /* A vanished mouse holds no button. */
     }
 }
 
@@ -161,12 +169,34 @@ static void on_changed(int slot) {
 static void combo_task(void *arg) {
     (void)arg;
     combo_t combo;
+    combo_mouse_t mouse_combo;
+    combo_button_t button;
     combo_init(&combo, settings_get_shift_hold_ms()); /* Setting; applies from the next boot. */
+    combo_mouse_init(&mouse_combo, settings_get_shift_hold_ms());
+    combo_button_init(&button);
+    const int button_gpio = board_get_info()->button_gpio;
+    gpio_config_t io = {.pin_bit_mask = 1ULL << button_gpio, .mode = GPIO_MODE_INPUT, .pull_up_en = GPIO_PULLUP_ENABLE};
+    const bool have_button = gpio_config(&io) == ESP_OK;
     for (;;) {
         vTaskDelay(pdMS_TO_TICKS(COMBO_POLL_MS));
         hid_kbd_report_t k;
         usb_hid_get_keyboard_state(&k);
         uint32_t now_ms = (uint32_t)(esp_timer_get_time() / 1000);
+        /* Ways to ask for the Wi-Fi / to confirm a pairing that need no keyboard: a short press of the BOOT button
+         * on the dongle (physical presence in the strongest sense) and left + right mouse buttons held together. */
+        uint8_t buttons = 0;
+        for (unsigned i = 0; i < BLE_CENTRAL_MAX_DEVICES; i++) {
+            buttons |= s_mouse_buttons[i];
+        }
+        const bool boot_pressed = have_button && gpio_get_level(button_gpio) == 0;
+        const bool by_button = combo_button_update(&button, now_ms, boot_pressed);
+        const bool by_mouse = combo_mouse_update(&mouse_combo, now_ms, buttons);
+        if (by_button || by_mouse) {
+            ESP_LOGI(TAG, "%s: Wi-Fi AP on", by_button ? "BOOT button pressed" : "mouse buttons held");
+            wifi_ap_request_on();
+            ble_central_physical_confirm();
+            ota_online_physical_confirm();
+        }
         switch (combo_update(&combo, now_ms, k.modifiers, k.keys, HID_KBD_MAX_KEYS)) {
         case COMBO_AP_ON:
             ESP_LOGI(TAG, "Ctrl + Alt held: Wi-Fi AP on");

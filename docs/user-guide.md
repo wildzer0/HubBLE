@@ -29,6 +29,14 @@ data off while you configure the dongle, or choose "Stay connected" when Android
 In Settings, *Open this page when joining the Wi-Fi* can be turned off: nothing pops up then, which suits iPhones and PCs
 but makes the Android problem above permanent.
 
+## Turning the Wi-Fi on without a keyboard
+
+The Wi-Fi is off during normal use. Any of these switches it on, so you are never locked out when the keyboard is off or
+its battery is flat: hold **Ctrl and Alt** for 3 seconds on a paired keyboard; hold the **left and right mouse buttons**
+together for 3 seconds on a paired mouse or trackball; or press the small **BOOT** button on the dongle once. The same three
+gestures confirm a pairing or an update when *Require physical confirmation* is on. Replugging the dongle also gives you the
+boot window (5 minutes by default).
+
 ## 2. Devices
 
 The app has four tabs along the bottom: **Devices**, **Update**, **Settings** and **System**. The Devices tab shows one card per paired device (tap it for the details): type, connection state, battery, signal, the **security badge** (see below) and the measured

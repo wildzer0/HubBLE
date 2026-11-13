@@ -69,6 +69,65 @@ void combo_init(combo_t *c, uint32_t ap_hold_ms);
  */
 combo_event_t combo_update(combo_t *c, uint32_t now_ms, uint8_t modifiers, const uint8_t *keys, unsigned nkeys);
 
+/* ---- Gestures that need no keyboard ------------------------------------------------------------------ */
+
+/** Mouse buttons of the pointer gesture (bits of the merged buttons byte). */
+#define COMBO_BTN_LEFT  0x01
+#define COMBO_BTN_RIGHT 0x02
+/** A press of the board button counts as "short" when it lasts from this... */
+#define COMBO_BUTTON_MIN_MS 30
+/** ... up to this: longer presses are ignored (holding BOOT while plugging in selects the ROM downloader). */
+#define COMBO_BUTTON_MAX_MS 2000
+
+/** Detector of "left and right mouse button held together", for setups without a keyboard. */
+typedef struct {
+    uint32_t hold_ms;  /**< Hold time (the same setting as the keyboard gesture). */
+    uint32_t since_ms; /**< When the buttons went down together. */
+    bool active;       /**< Exactly the two buttons are down. */
+    bool fired;        /**< Already reported for this hold. */
+} combo_mouse_t;
+
+/**
+ * @brief Initialise the pointer-gesture detector.
+ *
+ * @param c       Detector.
+ * @param hold_ms Hold time in ms (0 selects COMBO_DEFAULT_AP_HOLD_MS).
+ */
+void combo_mouse_init(combo_mouse_t *c, uint32_t hold_ms);
+
+/**
+ * @brief Feed the merged mouse buttons.
+ *
+ * @param c       Detector.
+ * @param now_ms  Monotonic time in ms (wrap-around safe).
+ * @param buttons Merged buttons byte of all paired pointing devices.
+ * @return true once per hold, when exactly Left + Right have been held for the hold time and nothing else is down.
+ */
+bool combo_mouse_update(combo_mouse_t *c, uint32_t now_ms, uint8_t buttons);
+
+/** Detector of a short press of the board's button (BOOT). */
+typedef struct {
+    uint32_t since_ms; /**< When the button went down. */
+    bool down;         /**< The button is currently down. */
+} combo_button_t;
+
+/**
+ * @brief Initialise the button detector.
+ *
+ * @param c Detector.
+ */
+void combo_button_init(combo_button_t *c);
+
+/**
+ * @brief Feed the button level.
+ *
+ * @param c       Detector.
+ * @param now_ms  Monotonic time in ms (wrap-around safe).
+ * @param pressed true while the button is pressed.
+ * @return true on the release of a press that lasted COMBO_BUTTON_MIN_MS..COMBO_BUTTON_MAX_MS.
+ */
+bool combo_button_update(combo_button_t *c, uint32_t now_ms, bool pressed);
+
 #ifdef __cplusplus
 }
 #endif

@@ -250,7 +250,8 @@ pairs **one device at a time**.
 ### 3.5 Wi-Fi access point
 > **Gesture changed (user decision after v1.1.3):** the keyboard gesture is **Ctrl + Alt** (either side) held for 3 s, and
 > **Ctrl + Alt + Esc** for 10 s for the password reset, instead of the two Shift keys. The web app can also switch the AP
-> off immediately (`POST /api/v1/system/wifi-off`).
+> off immediately (`POST /api/v1/system/wifi-off`). Without a keyboard the same actions (AP on, physical confirmation) are
+> also done by holding the **left + right mouse buttons** for 3 s or by a short press of the **BOOT** button.
 - SoftAP, SSID `HubBLE-XXXX` (last 4 hex digits of the MAC), **WPA2-PSK**.
 - **First run**: documented default setup password; the web app's setup wizard
   **forces** the user to set a new password (min 10 chars) before anything else.

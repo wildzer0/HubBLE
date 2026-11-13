@@ -108,6 +108,46 @@ void test_lat_stats_overflow_bucket(void) {
     TEST_ASSERT_EQUAL_UINT32(750, r.p95_us); /* upper edge of the 500 us bucket */
 }
 
+void test_mouse_gesture_left_and_right_only(void) {
+    combo_mouse_t c;
+    combo_mouse_init(&c, 3000);
+    const uint8_t both = COMBO_BTN_LEFT | COMBO_BTN_RIGHT;
+    TEST_ASSERT_FALSE(combo_mouse_update(&c, 0, both));
+    TEST_ASSERT_FALSE(combo_mouse_update(&c, 2999, both));
+    TEST_ASSERT_TRUE(combo_mouse_update(&c, 3000, both));
+    TEST_ASSERT_FALSE(combo_mouse_update(&c, 9000, both)); /* once per hold */
+    TEST_ASSERT_FALSE(combo_mouse_update(&c, 9100, 0));
+    TEST_ASSERT_FALSE(combo_mouse_update(&c, 9200, both));
+    TEST_ASSERT_TRUE(combo_mouse_update(&c, 12200, both)); /* re-armed by the release */
+}
+
+void test_mouse_gesture_is_not_triggered_by_other_buttons(void) {
+    combo_mouse_t c;
+    combo_mouse_init(&c, 3000);
+    TEST_ASSERT_FALSE(combo_mouse_update(&c, 0, COMBO_BTN_LEFT));
+    TEST_ASSERT_FALSE(combo_mouse_update(&c, 5000, COMBO_BTN_LEFT));
+    TEST_ASSERT_FALSE(combo_mouse_update(&c, 6000, COMBO_BTN_LEFT | COMBO_BTN_RIGHT));
+    TEST_ASSERT_FALSE(combo_mouse_update(&c, 7000, COMBO_BTN_LEFT | COMBO_BTN_RIGHT | 0x04)); /* a third button */
+    TEST_ASSERT_FALSE(combo_mouse_update(&c, 20000, COMBO_BTN_LEFT | COMBO_BTN_RIGHT | 0x04));
+}
+
+void test_button_short_press(void) {
+    combo_button_t b;
+    combo_button_init(&b);
+    TEST_ASSERT_FALSE(combo_button_update(&b, 1000, true));
+    TEST_ASSERT_TRUE(combo_button_update(&b, 1200, false)); /* released after 200 ms */
+    TEST_ASSERT_FALSE(combo_button_update(&b, 1300, false));
+}
+
+void test_button_bounce_and_long_press_are_ignored(void) {
+    combo_button_t b;
+    combo_button_init(&b);
+    TEST_ASSERT_FALSE(combo_button_update(&b, 0, true));
+    TEST_ASSERT_FALSE(combo_button_update(&b, 10, false)); /* a 10 ms contact bounce */
+    TEST_ASSERT_FALSE(combo_button_update(&b, 5000, true));
+    TEST_ASSERT_FALSE(combo_button_update(&b, 9000, false)); /* held 4 s: not a short press */
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_ap_on_after_hold);
@@ -116,6 +156,10 @@ int main(void) {
     RUN_TEST(test_recovery_after_10s_with_esc);
     RUN_TEST(test_esc_phase_never_fires_ap_on);
     RUN_TEST(test_clock_wraparound);
+    RUN_TEST(test_mouse_gesture_left_and_right_only);
+    RUN_TEST(test_mouse_gesture_is_not_triggered_by_other_buttons);
+    RUN_TEST(test_button_short_press);
+    RUN_TEST(test_button_bounce_and_long_press_are_ignored);
     RUN_TEST(test_lat_stats);
     RUN_TEST(test_lat_stats_overflow_bucket);
     return UNITY_END();
