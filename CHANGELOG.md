@@ -6,6 +6,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-13
+
+First stable release of the 1.3 line; it rolls up 1.3.0-rc.1 to rc.6 (see those sections below).
+
+### Added
+
+- Configuration and firmware updates over USB (opt-in setting) from the hosted web app, using WebHID.
+- Compatibility reports, typing filter (off by default), guided health check, keyboard-less gestures, Wi-Fi network
+  scan, "Wi-Fi off now" button, low-battery warning.
+
+### Changed
+
+- The manual `.bin` upload is no longer offered in the copy of the app served by the dongle over Wi-Fi: phone browsers
+  cannot open a file chooser there. Use the online update, or the hosted app over USB, which still offers it.
+
+### Fixed
+
+- Online update check (TLS buffers in PSRAM, station DNS, retry) and OTA over USB (serialised frames, longer timeouts).
+
 ## [1.3.0-rc.6] - 2026-11-13
 
 ### Fixed
