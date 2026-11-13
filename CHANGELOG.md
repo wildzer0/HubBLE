@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.3.0-rc.1] - 2026-11-13
+
 ### Added
 
 - **Configuration over USB (WebHID).** The dongle exposes a vendor-defined HID interface (64-byte reports) and forwards the web
