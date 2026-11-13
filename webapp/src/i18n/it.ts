@@ -231,6 +231,7 @@ export const it: Record<MessageKey, string> = {
     'Impossibile parlare con il dongle. Scollegalo e ricollegalo, chiudi le altre schede che lo usano e riprova.',
   'usb.linux':
     'Linux: se il dongle non compare nell’elenco, il tuo utente potrebbe aver bisogno del permesso per il dispositivo (vedi «Configurare via USB» nella documentazione).',
+  'usb.detail': 'Dettagli:',
   'usb.badge': 'USB',
   'usb.disconnect': 'Scollega',
   'pair.pair_with': 'Associa {name}',

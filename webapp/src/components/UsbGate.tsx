@@ -22,6 +22,8 @@ export function UsbGate({ onConnected }: { onConnected: (link: UsbLink) => void 
   const t = useT();
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<Problem>(usbSupported() ? null : 'unsupported');
+  // The technical reason of a failure (browser or link message), shown so it can be reported.
+  const [detail, setDetail] = useState('');
   const supported = usbSupported();
 
   const connect = async () => {
@@ -39,6 +41,7 @@ export function UsbGate({ onConnected }: { onConnected: (link: UsbLink) => void 
     } catch (e) {
       // A cancelled picker (no device chosen) is not an error worth shouting about.
       setProblem(e instanceof LinkError && e.message === 'No dongle selected' ? 'none' : 'failed');
+      setDetail(e instanceof Error ? `${e.name}: ${e.message}` : String(e));
     } finally {
       setBusy(false);
     }
@@ -76,6 +79,11 @@ export function UsbGate({ onConnected }: { onConnected: (link: UsbLink) => void 
       {problem === 'failed' && (
         <Alert kind="bad" role="alert">
           {t('usb.failed')}
+          {detail !== '' && (
+            <p class="hint" data-testid="usb-detail">
+              {t('usb.detail')} <code>{detail}</code>
+            </p>
+          )}
         </Alert>
       )}
       <p class="hint">{t('usb.linux')}</p>

@@ -221,6 +221,7 @@ export const en = {
     'Could not talk to the dongle. Unplug it and plug it in again, close other tabs using it, and retry.',
   'usb.linux':
     'Linux: if the dongle does not appear in the list, your user may need permission for the device (see “Configuring over USB” in the documentation).',
+  'usb.detail': 'Details:',
   'usb.badge': 'USB',
   'usb.disconnect': 'Disconnect',
   'pair.pair_with': 'Pair with {name}',

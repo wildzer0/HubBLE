@@ -255,7 +255,11 @@ export class UsbLink {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.waiters = this.waiters.filter((x) => x !== w);
-        reject(new LinkError('The dongle did not answer'));
+        reject(
+          new LinkError(
+            'The dongle did not answer the handshake within 3 s (the device opened, but no reply report arrived)',
+          ),
+        );
       }, timeoutMs);
       const w = (f: Frame): boolean => {
         if (!match(f)) return false;

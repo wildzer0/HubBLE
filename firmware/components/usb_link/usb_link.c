@@ -87,6 +87,7 @@ static void flush_report(void) {
     s_out_n = 0;
     if (!usb_hid_link_send(rep, TX_WAIT_MS)) {
         s_tx_failed = true;
+        ESP_LOGW(TAG, "a report could not be queued: the host is not reading the IN endpoint");
     }
 }
 
@@ -388,6 +389,10 @@ static void on_frame(uint8_t type, const uint8_t *payload, size_t len, void *ctx
     s_last_host_ms = now_ms();
     switch (type) {
     case ULINK_HELLO: {
+        static unsigned hellos;
+        if (hellos++ < 3) {
+            ESP_LOGI(TAG, "HELLO from the host, answering (window %s)", wifi_ap_config_open() ? "open" : "closed");
+        }
         char j[200];
         snprintf(j, sizeof(j), "{\"proto\":%d,\"fw\":\"%s\",\"board\":\"%s\",\"open\":%s}", ULINK_PROTO,
                  esp_app_get_description()->version, board_get_info()->id, wifi_ap_config_open() ? "true" : "false");
@@ -466,6 +471,11 @@ static void drain_events(void) {
 
 /** @brief Receive hook called by usb_hid in the TinyUSB task for every OUT report. */
 static void rx_report(const uint8_t *report, size_t len) {
+    static unsigned seen;
+    if (seen < 4) {
+        seen++;
+        ESP_LOGI(TAG, "OUT report from the host: %u bytes, %u stream bytes", (unsigned)len, len > 0 ? report[0] : 0u);
+    }
     if (s_rx != NULL) {
         xMessageBufferSend(s_rx, report, len, 0); /* Full: drop. The host's window of one keeps this rare. */
     }
