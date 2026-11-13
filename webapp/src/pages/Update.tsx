@@ -8,6 +8,7 @@ import { ApiError, getOtaStatus, getStatus, uploadFirmware } from '../api/client
 import { Alert } from '../components/ui';
 import { useT } from '../i18n/context';
 import { OnlineUpdateSection } from '../components/OnlineUpdate';
+import { isLimitedBrowser } from '../lib/embeddedBrowser';
 import { useApi } from '../lib/useApi';
 
 /** Interval between "is the dongle back?" polls after an install. */
@@ -110,13 +111,18 @@ export function Update() {
         }}
       >
         <h3 class="card-title">{t('update.manual')}</h3>
+        {isLimitedBrowser(navigator.userAgent) && (
+          <Alert kind="warn" testId="limited-browser">
+            {t('update.limited_browser')}
+          </Alert>
+        )}
         <label class="field">
           <span>{t('update.choose')}</span>
           <input
             ref={input}
             class="input"
             type="file"
-            accept=".bin"
+            // No `accept` filter: Android pickers grey out every file when only an extension is given for an unknown MIME type.
             disabled={busy}
             onChange={(e) => {
               setFile(e.currentTarget.files?.[0] ?? null);

@@ -234,6 +234,8 @@ export const it: Record<MessageKey, string> = {
   'usb.detail': 'Dettagli:',
   'usb.badge': 'USB',
   'usb.disconnect': 'Scollega',
+  'update.limited_browser':
+    'Questa finestra è il piccolo browser di «accesso alla rete», che non può scegliere né salvare file. Apri la pagina nel browser normale (Chrome, Safari): vai su http://192.168.4.1 e, su Android, spegni prima i dati mobili. Da un computer puoi usare anche la pagina di configurazione via USB.',
   'pair.pair_with': 'Associa {name}',
   'pair.connecting': 'Connessione a {name}…',
   'pair.waiting_device': 'In attesa del dispositivo…',

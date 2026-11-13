@@ -21,6 +21,7 @@ import { useT } from '../i18n/context';
 import { formatBytes, formatDuration } from '../lib/format';
 import { parseBackup } from '../lib/backup';
 import { downloadText } from '../lib/download';
+import { isLimitedBrowser } from '../lib/embeddedBrowser';
 import { useApi } from '../lib/useApi';
 
 /** Diagnostics refresh period. */
@@ -137,6 +138,9 @@ function BackupSection() {
         {t('system.backup')}
       </h3>
       <p class="hint">{t('system.backup_hint')}</p>
+      {isLimitedBrowser(navigator.userAgent) && (
+        <Alert kind="warn">{t('update.limited_browser')}</Alert>
+      )}
       <button type="button" class="btn" onClick={() => void download()}>
         {t('system.backup_download')}
       </button>

@@ -224,6 +224,8 @@ export const en = {
   'usb.detail': 'Details:',
   'usb.badge': 'USB',
   'usb.disconnect': 'Disconnect',
+  'update.limited_browser':
+    'This window is the small “sign in to the network” browser, which cannot choose or save files. Open the page in your normal browser (Chrome, Safari): go to http://192.168.4.1 and, on Android, turn mobile data off first. On a computer you can also use the USB configuration page.',
   'pair.pair_with': 'Pair with {name}',
   'pair.connecting': 'Connecting to {name}…',
   'pair.waiting_device': 'Waiting for the device…',

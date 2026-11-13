@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- "Choose file" on the Update page did nothing on phones: the sign-in window of the Wi-Fi network cannot open the file chooser
+  (the page now says so and points to the normal browser), and Android pickers greyed out every file because of the `.bin`
+  filter (removed).
+
 ## [1.3.0-rc.3] - 2026-11-13
 
 ### Fixed
