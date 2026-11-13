@@ -129,8 +129,10 @@ static void test_config_window_survives_force_off_and_follows_usb_activity(void)
     d = ap_policy_step(&p, &in);
     TEST_ASSERT_FALSE(d.config_open);
     in = quiet(401);
-    in.usb_alive = true; /* a session over USB reopens it and keeps it open */
-    TEST_ASSERT_TRUE(ap_policy_step(&p, &in).config_open);
+    in.usb_alive = true; /* a session over USB reopens it and keeps it open ... */
+    d = ap_policy_step(&p, &in);
+    TEST_ASSERT_TRUE(d.config_open);
+    TEST_ASSERT_FALSE(d.ap_on); /* ... but never switches the Wi-Fi on */
     in = quiet(500);
     TEST_ASSERT_TRUE(ap_policy_step(&p, &in).config_open); /* idle tail after the session */
 }

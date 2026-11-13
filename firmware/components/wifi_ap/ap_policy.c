@@ -15,6 +15,8 @@ void ap_policy_init(ap_policy_t *p, const ap_policy_config_t *cfg) {
     p->last_active_ms = 0;
     p->ever_active = false;
     p->forced_off = false;
+    p->usb_last_active_ms = 0;
+    p->usb_seen = false;
 }
 
 /**
@@ -36,7 +38,9 @@ static ap_policy_decision_t evaluate(ap_policy_t *p, const ap_policy_inputs_t *i
     }
 
     /* Rules 3 and 4: an open web-app session, a configuration session over USB or a force request is "activity". */
-    if ((in->clients > 0 && in->ws_alive) || in->usb_alive || in->force_on) {
+    /* A configuration session over USB is NOT activity here: it keeps the configuration window open (see below) but
+     * must not switch the radio on, because the Wi-Fi AP degrades the Bluetooth link of the paired devices. */
+    if ((in->clients > 0 && in->ws_alive) || in->force_on) {
         p->last_active_ms = in->now_ms;
         p->ever_active = true;
         return d;
@@ -76,8 +80,15 @@ ap_policy_decision_t ap_policy_step(ap_policy_t *p, const ap_policy_inputs_t *in
     }
 
     ap_policy_decision_t d = evaluate(p, in);
-    d.config_open =
-        d.ap_on; /* The USB configuration window ignores "off now": the radio is off, USB is not the radio. */
+    /* The USB configuration window: open whenever the AP would be on (boot window, gesture, nothing paired), regardless
+     * of "off now" (the radio is off, USB is not the radio), and while a USB session is in use plus the idle timeout
+     * after it. A USB session never keeps the AP itself on. */
+    if (in->usb_alive) {
+        p->usb_last_active_ms = in->now_ms;
+        p->usb_seen = true;
+    }
+    d.config_open = d.ap_on || in->usb_alive ||
+                    (p->usb_seen && in->now_ms - p->usb_last_active_ms < (uint64_t)p->cfg.idle_timeout_s * MS_PER_S);
     if (p->forced_off) {
         d.ap_on = false;
         d.remaining_s = 0;

@@ -6,17 +6,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.3.0-rc.4] - 2026-11-13
+
+### Fixed
+
+- While a configuration session over USB was open, the dongle kept the Wi-Fi AP on (the session counted as web-app activity),
+  and with the AP on the Bluetooth devices stopped working properly. A USB session now keeps only the configuration window
+  open; it never switches the Wi-Fi on.
+- "Choose file" on the Update page did nothing on phones: the sign-in window of the Wi-Fi network cannot open the file chooser
+  (the page now says so and points to the normal browser), and Android pickers greyed out every file because of the `.bin`
+  filter (removed).
+
 ### Changed
 
 - The USB configuration is **off by default** (setting `usb_link`, applied after a restart): with it off the dongle's USB
   descriptor is the original two-interface one. It is also started after the Bluetooth stack, so the radio gets its memory
   first. This is a safety measure after the first release candidates; turn it on in Settings to use the hosted app.
-
-### Fixed
-
-- "Choose file" on the Update page did nothing on phones: the sign-in window of the Wi-Fi network cannot open the file chooser
-  (the page now says so and points to the normal browser), and Android pickers greyed out every file because of the `.bin`
-  filter (removed).
 
 ## [1.3.0-rc.3] - 2026-11-13
 

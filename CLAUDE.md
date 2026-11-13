@@ -62,7 +62,8 @@ before starting, and re-read the relevant milestone before working on it.
 - Maintain `CHANGELOG.md` (Keep a Changelog format) on every PR.
 - **Direct-to-main policy (user decision, after v1.0.0):** no more PRs or milestone branches. Work and commit
   directly on `main`, run `tools/check.sh [quick|full]` before every push, and keep CI fast. Tags and releases still
-  follow the rules above (CHANGELOG section first, never move a tag).
+  follow the rules above (CHANGELOG section first, never move a tag). **Tags may be pushed without asking the user first
+  (authorised 2026-11-13); report the release afterwards.**
 - Use the `gh` CLI. At M0, if the repository does not exist yet, ask the user
   for the owner/name and **visibility** (public is recommended: OTA "check for
   updates" downloads release assets from GitHub without credentials; with a
