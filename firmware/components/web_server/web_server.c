@@ -29,6 +29,13 @@
 #include "web_assets.h"
 #include "wifi_ap.h"
 
+/** Virtual socket descriptor standing for the USB link in the input-tester subscription table. */
+#define USB_LINK_FD (-2)
+
+/** Mirror of the events for the USB configuration link, and whether it wants periodic events. */
+static void (*s_event_sink)(const char *event, const char *data_json);
+static bool (*s_event_wanted)(void);
+
 static const char *TAG = "web";
 
 /** Stack of the HTTP server task: cJSON trees and the OTA handler need more than the 4 KB default. */
@@ -253,6 +260,36 @@ static bool input_subscribed(int fd) {
 }
 
 /**
+ * @brief Act on a client message (`hello`, `input.subscribe`, `input.unsubscribe`).
+ *
+ * @param text JSON text.
+ * @param fd   Socket descriptor of the WebSocket client, or USB_LINK_FD for the USB link.
+ */
+static void handle_client_message(const char *text, int fd) {
+    cJSON *j = cJSON_Parse(text);
+    const cJSON *ev = j ? cJSON_GetObjectItemCaseSensitive(j, "event") : NULL;
+    if (cJSON_IsString(ev) && strcmp(ev->valuestring, "hello") == 0) {
+        wifi_ap_note_heartbeat(); /* Keeps the AP alive while the web app is open (CLAUDE.md §3.5). */
+    } else if (cJSON_IsString(ev) && strcmp(ev->valuestring, "input.subscribe") == 0) {
+        input_subscription(fd, true);
+    } else if (cJSON_IsString(ev) && strcmp(ev->valuestring, "input.unsubscribe") == 0) {
+        input_subscription(fd, false);
+    }
+    cJSON_Delete(j);
+}
+
+/** @copydoc web_server_usb_message */
+void web_server_usb_message(const char *json) {
+    handle_client_message(json, USB_LINK_FD);
+}
+
+/** @copydoc web_server_set_event_sink */
+void web_server_set_event_sink(void (*sink)(const char *event, const char *data_json), bool (*wanted)(void)) {
+    s_event_sink = sink;
+    s_event_wanted = wanted;
+}
+
+/**
  * @brief WebSocket handler: handshake and the client `hello` heartbeat.
  *
  * @param req Request.
@@ -288,16 +325,7 @@ static esp_err_t ws_handler(httpd_req_t *req) {
     }
     if (frame.type == HTTPD_WS_TYPE_TEXT) {
         buf[frame.len] = '\0';
-        cJSON *j = cJSON_Parse((const char *)buf);
-        const cJSON *ev = j ? cJSON_GetObjectItemCaseSensitive(j, "event") : NULL;
-        if (cJSON_IsString(ev) && strcmp(ev->valuestring, "hello") == 0) {
-            wifi_ap_note_heartbeat(); /* Keeps the AP alive while the web app is open (CLAUDE.md §3.5). */
-        } else if (cJSON_IsString(ev) && strcmp(ev->valuestring, "input.subscribe") == 0) {
-            input_subscription(httpd_req_to_sockfd(req), true);
-        } else if (cJSON_IsString(ev) && strcmp(ev->valuestring, "input.unsubscribe") == 0) {
-            input_subscription(httpd_req_to_sockfd(req), false);
-        }
-        cJSON_Delete(j);
+        handle_client_message((const char *)buf, httpd_req_to_sockfd(req));
     }
     return ESP_OK;
 }
@@ -310,6 +338,9 @@ static esp_err_t ws_handler(httpd_req_t *req) {
  * @param input_only true to reach only the clients subscribed to the input tester.
  */
 static void send_event(const char *event, const char *data_json, bool input_only) {
+    if (s_event_sink != NULL && (!input_only || input_subscribed(USB_LINK_FD))) {
+        s_event_sink(event, data_json); /* The USB link never blocks and ignores events when nobody listens. */
+    }
     if (s_server == NULL) {
         return;
     }
@@ -346,6 +377,9 @@ void web_server_broadcast_input(const char *data_json) {
 
 /** @brief Whether at least one WebSocket client is connected. */
 static bool any_ws_client(void) {
+    if (s_event_wanted != NULL && s_event_wanted()) {
+        return true; /* The USB link wants the periodic status and log events too. */
+    }
     size_t nfds = MAX_WS_FDS * 2;
     int fds[MAX_WS_FDS * 2];
     if (s_server == NULL || httpd_get_client_list(s_server, &nfds, fds) != ESP_OK) {

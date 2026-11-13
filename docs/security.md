@@ -58,3 +58,13 @@ Report vulnerabilities as described in `SECURITY.md`.
 Reviewed against this threat model, see [Security review](security-review.md). Added: cross-site WebSocket hijacking guard,
 strict `Host` check on state-changing calls, fuzzing of the HID parser, the manifest parser and the DNS responder, and
 sanitizer runs of all host tests.
+
+## Configuration over USB
+
+- **Threat:** a program on the host computer opens the dongle's vendor HID interface and changes settings, factory-resets it or
+  sends a firmware image, without knowing the Wi-Fi password.
+- **Mitigation:** the link answers only while the configuration window is open (`wifi_ap_config_open()`): the boot window,
+  a physical gesture (Ctrl + Alt, mouse buttons, BOOT) or an active session. Otherwise every request gets `403 usb_locked`. A
+  program cannot open the window itself. Firmware images are still checked against the release signature.
+- **Surface:** the framing parser takes untrusted bytes; it is bounded (frames over 1100 bytes resynchronise), fuzzed, and the
+  requests it forwards are limited to `/api/v1/` paths and the API's own validation.

@@ -115,6 +115,26 @@ static void test_force_off_ignored_without_bonds_or_during_ota(void) {
     TEST_ASSERT_TRUE(ap_policy_step(&p, &in).ap_on); /* it did not stick */
 }
 
+/** The USB configuration window ignores "Wi-Fi off now" and is extended by a USB session. */
+static void test_config_window_survives_force_off_and_follows_usb_activity(void) {
+    ap_policy_t p;
+    ap_policy_init(&p, &k_cfg);
+    ap_policy_inputs_t in = quiet(10);
+    TEST_ASSERT_TRUE(ap_policy_step(&p, &in).config_open); /* boot window */
+    in.force_off = true;
+    ap_policy_decision_t d = ap_policy_step(&p, &in);
+    TEST_ASSERT_FALSE(d.ap_on);
+    TEST_ASSERT_TRUE(d.config_open);
+    in = quiet(400); /* boot window over, nothing happening */
+    d = ap_policy_step(&p, &in);
+    TEST_ASSERT_FALSE(d.config_open);
+    in = quiet(401);
+    in.usb_alive = true; /* a session over USB reopens it and keeps it open */
+    TEST_ASSERT_TRUE(ap_policy_step(&p, &in).config_open);
+    in = quiet(500);
+    TEST_ASSERT_TRUE(ap_policy_step(&p, &in).config_open); /* idle tail after the session */
+}
+
 static void test_force_on(void) {
     ap_policy_t p;
     ap_policy_init(&p, &k_cfg);
@@ -153,6 +173,7 @@ int main(void) {
     RUN_TEST(test_ota_holds_ap);
     RUN_TEST(test_force_off_sticks_until_force_on);
     RUN_TEST(test_force_off_ignored_without_bonds_or_during_ota);
+    RUN_TEST(test_config_window_survives_force_off_and_follows_usb_activity);
     RUN_TEST(test_force_on);
     RUN_TEST(test_host_suspend);
     return UNITY_END();

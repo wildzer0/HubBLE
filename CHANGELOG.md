@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Configuration over USB (WebHID).** The dongle exposes a vendor-defined HID interface (64-byte reports) and forwards the web
+  app's requests to its own HTTP API over the loopback interface, plus the live events, so the app works with no Wi-Fi. The
+  app is hosted on the project's HTTPS site (`/app/`); open it in Chrome or Edge and press *Connect the dongle*. The link
+  answers only while the configuration window is open (the same window that switches the Wi-Fi on), so software on the computer
+  cannot change the settings at will. Protocol in `docs/api/usb-link.md`; framing tested on both ends with the same vectors.
+- The AP policy now exposes the configuration window (`config_open`), which an explicit "Wi-Fi off now" does not close, and a USB
+  session counts as activity.
 - Typing filter (off by default): ignore a key or mouse button pressed again within N ms of its release (bounce keys) and/or
   require a press to be held for N ms (slow keys). Applied to every paired keyboard and mouse before the USB report, effective
   at once. New settings `filter_enabled`, `filter_bounce_ms`, `filter_hold_ms`; pure `input_filter` component with host tests.

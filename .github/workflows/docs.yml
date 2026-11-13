@@ -46,6 +46,13 @@ jobs:
         run: |
           [ -z "$STATS_URL" ] || python3 tools/build_compat_page.py "$STATS_URL"
       - run: mkdocs build
+      # The same web app, hosted on HTTPS (WebHID needs a secure context): it talks to the dongle over USB.
+      - name: Hosted web app
+        working-directory: webapp
+        run: |
+          npm run build
+          mkdir -p ../site/app
+          cp -r dist/. ../site/app/
       - name: Web installer (latest stable release images, if any)
         env:
           GH_TOKEN: ${{ github.token }}

@@ -44,6 +44,23 @@ bool web_server_is_running(void);
 void web_server_broadcast(const char *event, const char *data_json);
 
 /**
+ * @brief Mirror every event to a second listener (the USB configuration link).
+ *
+ * @param sink   Called for each event the WebSocket clients would get (input events only while the USB listener holds
+ * an input-tester subscription). Must not block; may be called from any task. NULL removes it.
+ * @param wanted Whether the listener wants periodic events right now (keeps the status/log push running when no
+ * WebSocket client is connected). May be NULL.
+ */
+void web_server_set_event_sink(void (*sink)(const char *event, const char *data_json), bool (*wanted)(void));
+
+/**
+ * @brief Handle a message from the USB link as if it had arrived on a WebSocket (`hello`, `input.subscribe`, ...).
+ *
+ * @param json The JSON text the web app would have sent.
+ */
+void web_server_usb_message(const char *json);
+
+/**
  * @brief Whether at least one web client currently subscribes to `input.event` (input tester).
  *
  * Cheap (one timestamp compare), safe to call from any task including the BLE host task. Subscriptions expire 15 s

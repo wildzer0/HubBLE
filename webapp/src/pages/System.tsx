@@ -16,6 +16,7 @@ import { Alert } from '../components/ui';
 import { ConfirmButton } from '../components/ConfirmButton';
 import { PasswordForm } from '../components/PasswordForm';
 import { subscribe } from '../api/live';
+import { apiFetch } from '../api/transport';
 import { useT } from '../i18n/context';
 import { formatBytes, formatDuration } from '../lib/format';
 import { parseBackup } from '../lib/backup';
@@ -40,7 +41,7 @@ function LiveLog() {
   // is empty exactly when something has just gone wrong.
   useEffect(() => {
     let alive = true;
-    fetch('/api/v1/logs')
+    apiFetch('/api/v1/logs')
       .then((r) => r.text())
       .then(
         (text) => {
@@ -75,9 +76,22 @@ function LiveLog() {
       <pre class="log" tabIndex={0} aria-live="off" data-testid="log">
         {lines.length === 0 ? t('system.logs_empty') : lines.join('\n')}
       </pre>
-      <a class="btn" href="/api/v1/logs" download="hubble.log">
+      <button
+        type="button"
+        class="btn"
+        onClick={() => {
+          apiFetch('/api/v1/logs')
+            .then((r) => r.text())
+            .then(
+              (text) => {
+                downloadText('hubble.log', text);
+              },
+              () => undefined,
+            );
+        }}
+      >
         {t('system.logs_download')}
-      </a>
+      </button>
     </section>
   );
 }

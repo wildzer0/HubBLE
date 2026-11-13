@@ -40,11 +40,14 @@ typedef struct {
     bool force_on;           /**< One-shot request to switch the AP on (e.g. Ctrl + Alt combo). */
     bool force_off;          /**< One-shot request to switch the AP off now (web app button). */
     bool host_suspended;     /**< The host suspended the USB bus: AP off (unless an OTA runs). */
+    bool usb_alive;          /**< A configuration session over USB is in use (counts as activity, like a web app). */
 } ap_policy_inputs_t;
 
 /** Result of one evaluation. */
 typedef struct {
     bool ap_on;          /**< Desired AP state. */
+    bool config_open;    /**< The configuration window is open: the AP would be on if there were no "off now". Gates the
+                            USB link. */
     int32_t remaining_s; /**< Seconds until the AP switches off, or -1 if no countdown is running. */
 } ap_policy_decision_t;
 

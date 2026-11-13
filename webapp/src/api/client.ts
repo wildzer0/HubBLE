@@ -4,6 +4,7 @@
  * State-changing calls must send `X-HubBLE: 1` and a JSON (or octet-stream for uploads) content type
  * (CLAUDE.md §3.12, simple CSRF protection); {@link request} does this.
  */
+import { apiFetch, getUsbLink } from './transport';
 import type {
   ApiErrorBody,
   Backup,
@@ -65,7 +66,7 @@ export async function request<T>(method: string, path: string, body?: unknown): 
   }
   const init: RequestInit = { method, headers };
   if (body !== undefined) init.body = JSON.stringify(body);
-  const res = await fetch(path, init);
+  const res = await apiFetch(path, init);
   const data: unknown = await res.json();
   if (!res.ok) throw toApiError(res.status, data);
   return data as T;
@@ -323,6 +324,28 @@ export function uploadFirmware(
   file: File,
   onProgress: (fraction: number) => void,
 ): Promise<UploadResult> {
+  const link = getUsbLink();
+  if (link) {
+    // Over USB the image goes through the link in acknowledged chunks.
+    return file.arrayBuffer().then(async (buf) => {
+      const r = await link.request(
+        'POST',
+        '/api/v1/ota/upload',
+        new Uint8Array(buf),
+        'application/octet-stream',
+        onProgress,
+      );
+      let body: unknown = null;
+      try {
+        body = JSON.parse(new TextDecoder().decode(r.body));
+      } catch {
+        /* Fall through to the generic error below. */
+      }
+      if (r.status >= 200 && r.status < 300)
+        return { version: (body as UploadResult | null)?.version ?? '' };
+      throw toApiError(r.status, body);
+    });
+  }
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/api/v1/ota/upload');

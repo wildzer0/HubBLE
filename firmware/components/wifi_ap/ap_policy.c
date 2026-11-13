@@ -17,30 +17,15 @@ void ap_policy_init(ap_policy_t *p, const ap_policy_config_t *cfg) {
     p->forced_off = false;
 }
 
-/** @copydoc ap_policy_step */
-ap_policy_decision_t ap_policy_step(ap_policy_t *p, const ap_policy_inputs_t *in) {
+/**
+ * @brief The window rules, ignoring an explicit "off now" (see ap_policy.h rules 0-4).
+ *
+ * @param p  Policy state.
+ * @param in Inputs.
+ * @return Whether the AP would be on and the countdown.
+ */
+static ap_policy_decision_t evaluate(ap_policy_t *p, const ap_policy_inputs_t *in) {
     ap_policy_decision_t d = {.ap_on = true, .remaining_s = -1};
-
-    /* Host asleep (CLAUDE.md §3.9): the AP is off, even with no bonds. Only a running OTA keeps it up. The clocks keep
-     * running, so a boot window that has not expired is still there after the resume. */
-    if (in->host_suspended && !in->ota_active) {
-        d.ap_on = false;
-        d.remaining_s = 0;
-        return d;
-    }
-
-    /* Explicit "off now" from the user: stays off until the user asks for the AP again. Never while nothing is
-     * bonded (the AP is the only way to pair) or while an OTA runs. */
-    if (in->force_on || in->bonded_devices == 0 || in->ota_active) {
-        p->forced_off = false;
-    } else if (in->force_off) {
-        p->forced_off = true;
-    }
-    if (p->forced_off) {
-        d.ap_on = false;
-        d.remaining_s = 0;
-        return d;
-    }
 
     /* Rule 1: no bonds yet (first-run convenience) or OTA running: always on, no countdown.
      * The idle timer restarts when this condition ends, so the AP does not vanish mid-session. */
@@ -50,8 +35,8 @@ ap_policy_decision_t ap_policy_step(ap_policy_t *p, const ap_policy_inputs_t *in
         return d;
     }
 
-    /* Rules 3 and 4: an open web-app session (or a force request) is "activity". */
-    if ((in->clients > 0 && in->ws_alive) || in->force_on) {
+    /* Rules 3 and 4: an open web-app session, a configuration session over USB or a force request is "activity". */
+    if ((in->clients > 0 && in->ws_alive) || in->usb_alive || in->force_on) {
         p->last_active_ms = in->now_ms;
         p->ever_active = true;
         return d;
@@ -68,6 +53,32 @@ ap_policy_decision_t ap_policy_step(ap_policy_t *p, const ap_policy_inputs_t *in
     if (in->now_ms < deadline_ms) {
         d.remaining_s = (int32_t)((deadline_ms - in->now_ms + MS_PER_S - 1) / MS_PER_S); /* round up */
     } else {
+        d.ap_on = false;
+        d.remaining_s = 0;
+    }
+    return d;
+}
+
+/** @copydoc ap_policy_step */
+ap_policy_decision_t ap_policy_step(ap_policy_t *p, const ap_policy_inputs_t *in) {
+    /* Host asleep (CLAUDE.md §3.9): the AP is off, even with no bonds. Only a running OTA keeps it up. The clocks keep
+     * running, so a boot window that has not expired is still there after the resume. */
+    if (in->host_suspended && !in->ota_active) {
+        return (ap_policy_decision_t){.ap_on = false, .config_open = false, .remaining_s = 0};
+    }
+
+    /* Explicit "off now" from the user: stays off until the user asks for the AP again. Never while nothing is
+     * bonded (the AP is the only way to pair) or while an OTA runs. */
+    if (in->force_on || in->bonded_devices == 0 || in->ota_active) {
+        p->forced_off = false;
+    } else if (in->force_off) {
+        p->forced_off = true;
+    }
+
+    ap_policy_decision_t d = evaluate(p, in);
+    d.config_open =
+        d.ap_on; /* The USB configuration window ignores "off now": the radio is off, USB is not the radio. */
+    if (p->forced_off) {
         d.ap_on = false;
         d.remaining_s = 0;
     }

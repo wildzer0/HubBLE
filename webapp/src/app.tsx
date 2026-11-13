@@ -5,12 +5,15 @@
  */
 import { useEffect, useState } from 'preact/hooks';
 import { getStatus } from './api/client';
-import { subscribeState } from './api/live';
+import { startLive, subscribeState } from './api/live';
+import { setUsbLink } from './api/transport';
+import type { UsbLink } from './api/usbLink';
 import { LocaleContext, useT } from './i18n/context';
 import { pickLocale } from './i18n';
 import type { Locale } from './i18n';
 import { Icon } from './components/ui';
 import { PairingBanner } from './components/PairingBanner';
+import { UsbGate } from './components/UsbGate';
 import { Check } from './pages/Check';
 import { Dashboard } from './pages/Dashboard';
 import { DeviceDetail } from './pages/DeviceDetail';
@@ -43,6 +46,18 @@ const NAV_ICON = {
   settings: 'settings',
   system: 'system',
 } as const;
+
+/**
+ * Whether this copy of the app is the hosted one (not served by the dongle and not the development server): it then has
+ * to reach the dongle over USB.
+ *
+ * @returns true for the hosted copy.
+ */
+export function isHosted(): boolean {
+  if (import.meta.env.DEV) return false;
+  const h = location.hostname;
+  return h !== '192.168.4.1' && h !== 'hubble.local';
+}
 
 /**
  * Parse the location hash into a route.
@@ -145,6 +160,18 @@ function TabBar({ route }: { route: Route }) {
  */
 export function App() {
   const [locale, setLocale] = useState<Locale>(pickLocale(navigator.language));
+  // The hosted copy of the app (on the project's HTTPS site) has no dongle behind it: it talks over USB.
+  const [usb, setUsb] = useState<UsbLink | null>(null);
+  const needsUsb = isHosted() && usb === null;
+  const connected = (link: UsbLink) => {
+    setUsbLink(link);
+    startLive(() => link.socket());
+    link.onClose(() => {
+      setUsbLink(null);
+      setUsb(null);
+    });
+    setUsb(link);
+  };
   const [hash, setHash] = useState(location.hash);
   const route = parseRoute(hash);
 
@@ -160,14 +187,14 @@ export function App() {
 
   // Until a Wi-Fi password has been chosen, everything but the wizard is off limits (CLAUDE.md §3.5).
   useEffect(() => {
-    if (route === 'setup') return;
+    if (needsUsb || route === 'setup') return;
     getStatus().then(
       (st) => {
         if (st.setup_required) location.hash = '#/setup';
       },
       () => undefined, // an unreachable dongle is reported by the pages themselves
     );
-  }, [route]);
+  }, [route, needsUsb]);
 
   useEffect(() => {
     document.documentElement.lang = locale;
@@ -178,18 +205,23 @@ export function App() {
       <SkipLink />
       <TopBar />
       <main id="main" tabIndex={-1}>
-        {route !== 'pair' && route !== 'setup' && <PairingBanner />}
-        {route === 'setup' && <Setup />}
-        {route === 'dashboard' && <Dashboard />}
-        {route === 'pair' && <Pair />}
-        {route === 'device' && <DeviceDetail id={routeParam(hash)} />}
-        {route === 'tester' && <Tester />}
-        {route === 'check' && <Check />}
-        {route === 'settings' && <Settings locale={locale} onLocale={setLocale} />}
-        {route === 'update' && <Update />}
-        {route === 'system' && <System />}
+        {needsUsb && <UsbGate onConnected={connected} />}
+        {!needsUsb && (
+          <>
+            {route !== 'pair' && route !== 'setup' && <PairingBanner />}
+            {route === 'setup' && <Setup />}
+            {route === 'dashboard' && <Dashboard />}
+            {route === 'pair' && <Pair />}
+            {route === 'device' && <DeviceDetail id={routeParam(hash)} />}
+            {route === 'tester' && <Tester />}
+            {route === 'check' && <Check />}
+            {route === 'settings' && <Settings locale={locale} onLocale={setLocale} />}
+            {route === 'update' && <Update />}
+            {route === 'system' && <System />}
+          </>
+        )}
       </main>
-      {route !== 'setup' && <TabBar route={route} />}
+      {route !== 'setup' && !needsUsb && <TabBar route={route} />}
     </LocaleContext.Provider>
   );
 }

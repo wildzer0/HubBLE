@@ -61,6 +61,9 @@ target_include_directories(test_dns_reply PRIVATE ${COMP}/captive_portal/include
 hubble_add_test(test_input_filter unit/test_input_filter.c ${COMP}/input_filter/input_filter.c)
 target_include_directories(test_input_filter PRIVATE ${COMP}/input_filter/include)
 
+hubble_add_test(test_ulink_proto unit/test_ulink_proto.c ${COMP}/usb_link/ulink_proto.c)
+target_include_directories(test_ulink_proto PRIVATE ${COMP}/usb_link/include)
+
 hubble_add_test(test_captive_probe unit/test_captive_probe.c ${COMP}/captive_portal/captive_probe.c)
 target_include_directories(test_captive_probe PRIVATE ${COMP}/captive_portal/include)
 
@@ -127,6 +130,9 @@ if(HUBBLE_FUZZ)
                       ${COMP}/hid_normalizer/hid_normalizer.c ${COMP}/hid_report/hid_report.c)
     target_include_directories(fuzz_hid_parser PRIVATE ${COMP}/hid_parser/include ${COMP}/hid_normalizer/include
                                ${COMP}/hid_report/include)
+
+    hubble_add_fuzzer(fuzz_ulink fuzz/fuzz_ulink.c ${COMP}/usb_link/ulink_proto.c)
+    target_include_directories(fuzz_ulink PRIVATE ${COMP}/usb_link/include)
 
     hubble_add_fuzzer(fuzz_dns_reply fuzz/fuzz_dns_reply.c ${COMP}/captive_portal/dns_reply.c)
     target_include_directories(fuzz_dns_reply PRIVATE ${COMP}/captive_portal/include)

@@ -119,6 +119,24 @@ void wifi_ap_set_host_suspended(bool suspended);
  */
 void wifi_ap_set_bonded_devices(unsigned count);
 
+/**
+ * @brief Record activity of a configuration session over USB (keeps the configuration window open like an open web
+ * app).
+ *
+ * Call whenever the USB host talks to the dongle's configuration link. Thread-safe.
+ */
+void wifi_ap_note_usb_activity(void);
+
+/**
+ * @brief Whether the configuration window is open (boot window, gesture, no device paired, or an active session).
+ *
+ * The USB configuration link answers requests only while it is open, so that software running on the computer cannot
+ * change the dongle's settings at will. An explicit "Wi-Fi off now" does not close it. Thread-safe.
+ *
+ * @return true while the window is open.
+ */
+bool wifi_ap_config_open(void);
+
 #ifdef __cplusplus
 }
 #endif

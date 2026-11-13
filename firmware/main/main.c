@@ -28,6 +28,7 @@
 #include "ota_online.h"
 #include "settings.h"
 #include "usb_hid.h"
+#include "usb_link.h"
 #include "web_assets.h"
 #include "web_server.h"
 #include "wifi_ap.h"
@@ -206,6 +207,11 @@ void app_main(void) {
     err = web_server_start();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "web server start failed: %s", esp_err_to_name(err));
+    }
+
+    err = usb_link_start(); /* Configuration over USB (WebHID), open only while the configuration window is. */
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "USB link start failed: %s", esp_err_to_name(err));
     }
 
     bridge_set_input_tap(web_server_input_active, web_server_broadcast_input); /* Input tester (M5). */

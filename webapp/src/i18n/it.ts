@@ -215,6 +215,24 @@ export const it: Record<MessageKey, string> = {
     'Un aggiornamento precedente non è riuscito e il dongle è tornato al firmware più vecchio.',
   'check.firmware.pending.warn': 'Il nuovo firmware è ancora in verifica.',
   'check.bootfail.warn': 'Avvii falliti contati: {n}.',
+  'usb.heading': 'Collega il dongle via USB',
+  'usb.intro':
+    'Questa pagina configura il dongle attraverso il cavo USB: non serve il Wi-Fi. Collega il dongle a questo computer e usa Chrome o Edge.',
+  'usb.connect': 'Collega il dongle',
+  'usb.connecting': 'Collegamento…',
+  'usb.steps':
+    'Il browser mostrerà un elenco: scegli «HubBLE» e premi Connetti. Il dongle risponde solo durante la sua finestra di configurazione: i primi minuti dopo averlo collegato, oppure dopo Ctrl + Alt, il pulsante BOOT o il gesto del mouse.',
+  'usb.unsupported':
+    'Questo browser non può parlare con i dispositivi USB. Apri la pagina in Chrome o Edge su un computer (Firefox, Safari e i telefoni non sono supportati).',
+  'usb.none': 'Nessun dongle scelto. Premi di nuovo il pulsante e scegli «HubBLE».',
+  'usb.closed':
+    'Il dongle è collegato, ma la sua finestra di configurazione è chiusa. Premi il pulsante BOOT sul dongle, oppure scollegalo e ricollegalo, poi connettiti.',
+  'usb.failed':
+    'Impossibile parlare con il dongle. Scollegalo e ricollegalo, chiudi le altre schede che lo usano e riprova.',
+  'usb.linux':
+    'Linux: se il dongle non compare nell’elenco, il tuo utente potrebbe aver bisogno del permesso per il dispositivo (vedi «Configurare via USB» nella documentazione).',
+  'usb.badge': 'USB',
+  'usb.disconnect': 'Scollega',
   'pair.pair_with': 'Associa {name}',
   'pair.connecting': 'Connessione a {name}…',
   'pair.waiting_device': 'In attesa del dispositivo…',

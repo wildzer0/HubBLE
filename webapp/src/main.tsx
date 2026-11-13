@@ -5,7 +5,7 @@
  */
 import { render } from 'preact';
 import { startLive } from './api/live';
-import { App } from './app';
+import { App, isHosted } from './app';
 import './style.css';
 
 const root = document.getElementById('app');
@@ -16,6 +16,6 @@ if (import.meta.env.DEV) {
   void import('./mocks/mockSocket').then((m) => {
     startLive(m.mockSocketFactory);
   });
-} else {
-  startLive();
+} else if (!isHosted()) {
+  startLive(); // The hosted copy starts it after the USB connection (see App).
 }

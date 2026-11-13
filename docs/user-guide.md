@@ -149,6 +149,11 @@ connection values). You see exactly what it contains before anything is shared. 
 Bluetooth address, the name you gave the device or any Wi-Fi data. You can download it, and when the project's collection
 service is configured you can send it from the page. See [Compatibility](compatibility.md).
 
+## Configuring over USB
+
+No Wi-Fi? Open <https://wildzer0.github.io/HubBLE/app/> in Chrome or Edge with the dongle plugged into the computer and press
+**Connect the dongle**. See [Configuring over USB](usb-config.md).
+
 ## Typing filter (off by default)
 
 For a keyboard that types twice (worn switches) or hands that brush keys by accident, **Settings → Typing filter** can clean

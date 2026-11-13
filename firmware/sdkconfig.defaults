@@ -27,7 +27,7 @@ CONFIG_LWIP_MAX_SOCKETS=16
 # RAM log buffer shown in the web app; there is no CDC interface in release builds (CLAUDE.md §3.2).
 # Interface 0 = boot keyboard, interface 1 = mouse + consumer + system.
 CONFIG_ESP_CONSOLE_NONE=y
-CONFIG_TINYUSB_HID_COUNT=2
+CONFIG_TINYUSB_HID_COUNT=3
 
 # BLE: NimBLE as central only, up to 4 HID peripherals + 1 pairing candidate (CLAUDE.md §3.3).
 CONFIG_BT_ENABLED=y

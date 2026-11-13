@@ -13,6 +13,7 @@ nav:
   - Web installer: install.md
   - Getting started: getting-started.md
   - User guide: user-guide.md
+  - Configuring over USB: usb-config.md
   - Hardware: hardware.md
   - Compatibility: compatibility.md
   - Architecture: architecture.md
@@ -29,6 +30,7 @@ nav:
   - Troubleshooting: troubleshooting.md
   - API:
       - WebSocket: api/websocket.md
+      - USB link: api/usb-link.md
   - ADRs:
       - Index: adr/README.md
       - ESP-IDF over Arduino: adr/0001-esp-idf-over-arduino.md

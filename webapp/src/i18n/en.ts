@@ -205,6 +205,24 @@ export const en = {
     'A previous update failed and the dongle went back to the older firmware.',
   'check.firmware.pending.warn': 'The new firmware is still being verified.',
   'check.bootfail.warn': 'Failed starts counted: {n}.',
+  'usb.heading': 'Connect the dongle by USB',
+  'usb.intro':
+    'This page configures the dongle through the USB cable: no Wi-Fi needed. Plug the dongle into this computer and use Chrome or Edge.',
+  'usb.connect': 'Connect the dongle',
+  'usb.connecting': 'Connecting…',
+  'usb.steps':
+    'Your browser will show a list: choose “HubBLE” and press Connect. The dongle answers only during its configuration window: the first minutes after you plug it in, or after Ctrl + Alt, the BOOT button or the mouse gesture.',
+  'usb.unsupported':
+    'This browser cannot talk to USB devices. Open this page in Chrome or Edge on a computer (Firefox, Safari and phones are not supported).',
+  'usb.none': 'No dongle was chosen. Press the button again and pick “HubBLE”.',
+  'usb.closed':
+    'The dongle is connected, but its configuration window is closed. Press the BOOT button on the dongle, or unplug it and plug it in again, then connect.',
+  'usb.failed':
+    'Could not talk to the dongle. Unplug it and plug it in again, close other tabs using it, and retry.',
+  'usb.linux':
+    'Linux: if the dongle does not appear in the list, your user may need permission for the device (see “Configuring over USB” in the documentation).',
+  'usb.badge': 'USB',
+  'usb.disconnect': 'Disconnect',
   'pair.pair_with': 'Pair with {name}',
   'pair.connecting': 'Connecting to {name}…',
   'pair.waiting_device': 'Waiting for the device…',

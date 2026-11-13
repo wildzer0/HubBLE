@@ -17,6 +17,7 @@
 
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
 #include "freertos/task.h"
 #include "sdkconfig.h"
 #include "tinyusb.h"
@@ -25,10 +26,16 @@
 static const char *TAG = "usb_hid";
 
 /** HID interface indices (also the TinyUSB HID instance numbers). */
-enum { ITF_KEYBOARD = 0, ITF_CONTROL = 1, ITF_COUNT = 2 };
-/** IN endpoint addresses. */
+enum { ITF_KEYBOARD = 0, ITF_CONTROL = 1, ITF_LINK = 2, ITF_COUNT = 3 };
+/** Endpoint addresses. The configuration link has an IN and an OUT interrupt endpoint (64 bytes each). */
 #define EP_KEYBOARD_IN 0x81
 #define EP_CONTROL_IN  0x82
+#define EP_LINK_IN     0x83
+#define EP_LINK_OUT    0x03
+/** Report size of the configuration link (see usb_link). */
+#define LINK_REPORT_SIZE 64
+/** Reports the link may have queued for sending. */
+#define LINK_TX_DEPTH 24
 /** Endpoint packet size: the largest report is 1 (ID) + 7 (mouse) bytes. */
 #define EP_SIZE 8
 /** Endpoint polling interval in ms (full speed, CLAUDE.md §3.2). */
@@ -47,7 +54,33 @@ enum { STR_LANG = 0, STR_MANUFACTURER, STR_PRODUCT, STR_SERIAL, STR_COUNT };
 #define WAKEUP_MIN_INTERVAL_MS 500
 
 /** Total length of the configuration descriptor. */
-#define CONFIG_TOTAL_LEN (TUD_CONFIG_DESC_LEN + 2 * TUD_HID_DESC_LEN)
+#define CONFIG_TOTAL_LEN (TUD_CONFIG_DESC_LEN + 2 * TUD_HID_DESC_LEN + TUD_HID_INOUT_DESC_LEN)
+
+/**
+ * Report descriptor of the configuration link: one vendor-defined application collection (usage page 0xFF00, usage 1)
+ * with a 64-byte input report and a 64-byte output report, no report IDs. WebHID finds the interface by this usage.
+ */
+static const uint8_t s_link_report_desc[] = {
+    0x06, 0x00,
+    0xFF,       /* Usage Page (Vendor Defined 0xFF00) */
+    0x09, 0x01, /* Usage (1) */
+    0xA1, 0x01, /* Collection (Application) */
+    0x09, 0x02, /*   Usage (2): data to the host */
+    0x15, 0x00, /*   Logical Minimum (0) */
+    0x26, 0xFF,
+    0x00,                   /*   Logical Maximum (255) */
+    0x75, 0x08,             /*   Report Size (8) */
+    0x95, LINK_REPORT_SIZE, /*   Report Count (64) */
+    0x81, 0x02,             /*   Input (Data, Variable, Absolute) */
+    0x09, 0x03,             /*   Usage (3): data from the host */
+    0x15, 0x00,             /*   Logical Minimum (0) */
+    0x26, 0xFF,
+    0x00,                   /*   Logical Maximum (255) */
+    0x75, 0x08,             /*   Report Size (8) */
+    0x95, LINK_REPORT_SIZE, /*   Report Count (64) */
+    0x91, 0x02,             /*   Output (Data, Variable, Absolute) */
+    0xC0,                   /* End Collection */
+};
 
 /** Device descriptor: composite via interfaces (class 0), full speed, VID/PID from Kconfig. */
 static const tusb_desc_device_t s_device_desc = {
@@ -88,6 +121,8 @@ static const uint8_t s_config_desc[] = {
                        POLL_INTERVAL_MS),
     TUD_HID_DESCRIPTOR(ITF_CONTROL, 0, HID_ITF_PROTOCOL_NONE, HID_CTRL_REPORT_DESC_LEN, EP_CONTROL_IN, EP_SIZE,
                        POLL_INTERVAL_MS),
+    TUD_HID_INOUT_DESCRIPTOR(ITF_LINK, 0, HID_ITF_PROTOCOL_NONE, sizeof(s_link_report_desc), EP_LINK_OUT, EP_LINK_IN,
+                             LINK_REPORT_SIZE, POLL_INTERVAL_MS),
 };
 
 /** Which reports have changed since they were last sent (bit mask). */
@@ -123,6 +158,10 @@ static TaskHandle_t s_task;
 static volatile bool s_initialized;
 /** Tick count of the last wakeup attempt. */
 static TickType_t s_last_wakeup_tick;
+/** Reports waiting to be sent on the configuration link; drained by the report task (the only TinyUSB sender). */
+static QueueHandle_t s_link_tx;
+/** Receiver of the configuration link's OUT reports (called in the TinyUSB task). */
+static usb_hid_link_rx_cb_t s_link_rx;
 
 /**
  * @brief Wake the report task (safe from any task, never blocks).
@@ -272,6 +311,38 @@ static void send_pending(void) {
     }
 }
 
+/** Drop queued link reports if the host has not taken one for this long (a closed page never polls the endpoint). */
+#define LINK_STALL_MS 500
+
+/** @brief Send one queued configuration-link report if the endpoint is ready (report task only). */
+static void send_link(void) {
+    static TickType_t stalled_since;
+    if (s_link_tx == NULL || uxQueueMessagesWaiting(s_link_tx) == 0) {
+        stalled_since = 0;
+        return;
+    }
+    uint8_t rep[LINK_REPORT_SIZE];
+    if (!tud_hid_n_ready(ITF_LINK)) {
+        /* Windows does not poll the IN endpoint of a vendor interface nobody has opened: do not keep the task
+         * retrying every millisecond for ever over reports that nobody will read. */
+        const TickType_t now = xTaskGetTickCount();
+        if (stalled_since == 0) {
+            stalled_since = now ? now : 1;
+        } else if (now - stalled_since > pdMS_TO_TICKS(LINK_STALL_MS)) {
+            while (xQueueReceive(s_link_tx, rep, 0) == pdTRUE) {
+            }
+            stalled_since = 0;
+        }
+        return;
+    }
+    stalled_since = 0;
+    if (xQueueReceive(s_link_tx, rep, 0) == pdTRUE) {
+        if (!tud_hid_n_report(ITF_LINK, 0, rep, sizeof(rep))) {
+            xQueueSendToFront(s_link_tx, rep, 0); /* Endpoint refused: keep it for the next try. */
+        }
+    }
+}
+
 /**
  * @brief Report task: waits for producers, then drains the dirty reports at the endpoint's pace.
  *
@@ -284,10 +355,12 @@ static void report_task(void *arg) {
         portENTER_CRITICAL(&s_lock);
         pending = s_dirty != 0;
         portEXIT_CRITICAL(&s_lock);
+        pending = pending || (s_link_tx != NULL && uxQueueMessagesWaiting(s_link_tx) > 0);
         /* Sleep until kicked; while something is pending, retry every tick (endpoint busy). */
         ulTaskNotifyTake(pdTRUE, pending ? RETRY_TICKS : portMAX_DELAY);
         if (s_state == USB_STATE_CONFIGURED) {
             send_pending();
+            send_link();
         } else {
             /* Not connected / suspended: the host will get a full resync on (re)attach, so drop the queue
              * and the unsent movement instead of replaying stale input later. */
@@ -296,6 +369,9 @@ static void report_task(void *arg) {
             hid_mouse_in_t discard;
             hid_merge_take_mouse(&s_merge, &discard);
             portEXIT_CRITICAL(&s_lock);
+            uint8_t drop[LINK_REPORT_SIZE];
+            while (s_link_tx != NULL && xQueueReceive(s_link_tx, drop, 0) == pdTRUE) {
+            }
         }
     }
 }
@@ -425,6 +501,23 @@ void usb_hid_set_remote_wakeup_allowed(bool enabled) {
     s_wakeup_allowed = enabled;
 }
 
+/** @copydoc usb_hid_link_set_rx */
+void usb_hid_link_set_rx(usb_hid_link_rx_cb_t cb) {
+    s_link_rx = cb;
+}
+
+/** @copydoc usb_hid_link_send */
+bool usb_hid_link_send(const uint8_t report[64], uint32_t wait_ms) {
+    if (s_link_tx == NULL || report == NULL) {
+        return false;
+    }
+    if (xQueueSend(s_link_tx, report, pdMS_TO_TICKS(wait_ms)) != pdTRUE) {
+        return false;
+    }
+    kick();
+    return true;
+}
+
 /** @copydoc usb_hid_shutdown */
 void usb_hid_shutdown(void) {
     if (s_initialized) {
@@ -442,7 +535,14 @@ void usb_hid_shutdown(void) {
  * @return Descriptor bytes.
  */
 uint8_t const *tud_hid_descriptor_report_cb(uint8_t instance) {
-    return instance == ITF_KEYBOARD ? hid_kbd_report_desc : hid_ctrl_report_desc;
+    switch (instance) {
+    case ITF_KEYBOARD:
+        return hid_kbd_report_desc;
+    case ITF_LINK:
+        return s_link_report_desc;
+    default:
+        return hid_ctrl_report_desc;
+    }
 }
 
 /**
@@ -481,6 +581,14 @@ uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_t
 void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t const *buffer,
                            uint16_t bufsize) {
     (void)report_id;
+    if (instance == ITF_LINK) {
+        /* Data from the configuration link: any report type (an OUT endpoint transfer is reported without one). */
+        usb_hid_link_rx_cb_t rx = s_link_rx;
+        if (rx != NULL && bufsize > 0) {
+            rx(buffer, bufsize);
+        }
+        return;
+    }
     if (instance != ITF_KEYBOARD || report_type != HID_REPORT_TYPE_OUTPUT || bufsize < 1) {
         return;
     }

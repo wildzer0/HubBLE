@@ -159,6 +159,27 @@ void usb_hid_shutdown(void);
  */
 void usb_hid_set_state_callback(void (*cb)(usb_state_t state));
 
+/** Receiver of the configuration link's OUT reports; runs in the TinyUSB task and must not block. */
+typedef void (*usb_hid_link_rx_cb_t)(const uint8_t *report, size_t len);
+
+/**
+ * @brief Set the receiver of the configuration link's OUT reports (the vendor HID interface, see usb_link).
+ *
+ * @param cb Receiver, or NULL to ignore the data.
+ */
+void usb_hid_link_set_rx(usb_hid_link_rx_cb_t cb);
+
+/**
+ * @brief Queue one 64-byte report for the configuration link's IN endpoint.
+ *
+ * The report task sends it when the endpoint is free. Reports queued while the host is not configured are dropped.
+ *
+ * @param report  64 bytes.
+ * @param wait_ms How long to wait for space in the queue (0 = do not wait).
+ * @return true if queued.
+ */
+bool usb_hid_link_send(const uint8_t report[64], uint32_t wait_ms);
+
 #ifdef __cplusplus
 }
 #endif

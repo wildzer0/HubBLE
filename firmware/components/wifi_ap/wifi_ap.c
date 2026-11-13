@@ -65,6 +65,10 @@ static volatile bool s_ota_active;
 static volatile bool s_host_suspended;
 /** Number of bonded BLE devices (set by the bridge); with none the AP stays on (first-run convenience). */
 static volatile uint32_t s_bonded_devices;
+/** Last USB configuration activity (ms since boot), 0 = never. */
+static volatile uint64_t s_last_usb_ms;
+/** Whether the configuration window is open (from the last policy decision). */
+static volatile bool s_config_open;
 /** One-shot "force on" request, consumed by the manager. */
 static volatile bool s_force_on;
 /** One-shot "off now" request, consumed by the manager. */
@@ -177,10 +181,12 @@ static void manager_task(void *arg) {
             .force_on = s_force_on,
             .force_off = s_force_off,
             .host_suspended = s_host_suspended,
+            .usb_alive = s_last_usb_ms != 0 && (now - s_last_usb_ms) < HEARTBEAT_TTL_MS,
         };
         s_force_on = false;
         s_force_off = false;
         const ap_policy_decision_t d = ap_policy_step(&policy, &in);
+        s_config_open = d.config_open;
 
         if (s_reconfigure && s_ap_running) {
             s_reconfigure = false;
@@ -401,6 +407,16 @@ void wifi_ap_note_heartbeat(void) {
 /** @copydoc wifi_ap_set_ota_active */
 void wifi_ap_set_ota_active(bool active) {
     s_ota_active = active;
+}
+
+/** @copydoc wifi_ap_note_usb_activity */
+void wifi_ap_note_usb_activity(void) {
+    s_last_usb_ms = now_ms();
+}
+
+/** @copydoc wifi_ap_config_open */
+bool wifi_ap_config_open(void) {
+    return s_config_open;
 }
 
 /** @copydoc wifi_ap_set_bonded_devices */
