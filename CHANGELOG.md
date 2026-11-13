@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- "Check for updates" failed with "GitHub not reachable or download interrupted": the certificate bundle held only the common
+  subset of root CAs, which lacks the USERTrust/Sectigo roots github.com and api.github.com use today, so every HTTPS request
+  to GitHub failed the certificate check. The full root list is now embedded (+about 45 KB), and the log says why a request
+  could not be opened.
+
 ## [1.3.0-rc.2] - 2026-11-13
 
 ### Fixed

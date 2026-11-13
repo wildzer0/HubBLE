@@ -157,7 +157,10 @@ static esp_http_client_handle_t http_open(const char *url) {
     }
     esp_http_client_set_header(c, "Accept", "application/vnd.github+json, application/json, application/octet-stream");
     for (int hop = 0; hop <= MAX_REDIRECTS; hop++) {
-        if (esp_http_client_open(c, 0) != ESP_OK) {
+        const esp_err_t open_err = esp_http_client_open(c, 0);
+        if (open_err != ESP_OK) {
+            /* esp-tls logs the TLS detail just before this line (certificate verification, handshake, DNS). */
+            ESP_LOGW(TAG, "cannot open %.60s: %s", url, esp_err_to_name(open_err));
             break;
         }
         esp_http_client_fetch_headers(c);

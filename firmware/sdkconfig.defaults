@@ -52,8 +52,10 @@ CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT=y
 
 # HTTPS for "check for updates" (certificate bundle with the common root CAs).
 CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y
-CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=n
-CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_CMN=y
+# The full Mozilla list: the common subset lacks the USERTrust/Sectigo roots that github.com and api.github.com use,
+# which made every HTTPS request to GitHub fail the certificate check.
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=y
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_CMN=n
 
 # 1 ms scheduler tick: the HID report task retries every millisecond (with the default 100 Hz tick that delay rounds
 # down to zero and the task would spin), and all millisecond timeouts get their real resolution.
