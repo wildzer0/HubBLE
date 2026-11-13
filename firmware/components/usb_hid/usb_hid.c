@@ -382,6 +382,10 @@ esp_err_t usb_hid_init(void) {
         return ESP_ERR_INVALID_STATE;
     }
     hid_merge_init(&s_merge);
+    s_link_tx = xQueueCreate(LINK_TX_DEPTH, LINK_REPORT_SIZE);
+    if (s_link_tx == NULL) {
+        return ESP_ERR_NO_MEM;
+    }
 
     tinyusb_config_t cfg = TINYUSB_DEFAULT_CONFIG(on_usb_event);
     cfg.descriptor.device = &s_device_desc;
@@ -509,6 +513,7 @@ void usb_hid_link_set_rx(usb_hid_link_rx_cb_t cb) {
 /** @copydoc usb_hid_link_send */
 bool usb_hid_link_send(const uint8_t report[64], uint32_t wait_ms) {
     if (s_link_tx == NULL || report == NULL) {
+        ESP_LOGE(TAG, "link transmit queue missing");
         return false;
     }
     if (xQueueSend(s_link_tx, report, pdMS_TO_TICKS(wait_ms)) != pdTRUE) {

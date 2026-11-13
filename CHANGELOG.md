@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.3.0-rc.2] - 2026-11-13
+
+### Fixed
+
+- USB configuration link: the queue that carries the dongle's replies was never created, so the handshake never got an
+  answer ("The dongle did not answer the handshake"). The page now also shows the technical reason of a failed connection,
+  and the log records the link's activity (`OUT report from the host`, `HELLO from the host`).
+
 ## [1.3.0-rc.1] - 2026-11-13
 
 ### Added
