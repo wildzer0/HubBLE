@@ -12,7 +12,12 @@
 
 #include <string.h>
 
-/** @brief true for characters allowed in a board id: [a-z0-9_]. */
+/**
+ * @brief true for characters allowed in a board id: [a-z0-9_].
+ *
+ * @param c Byte to test.
+ * @return true if allowed.
+ */
 static bool is_id_char(uint8_t c) {
     return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_';
 }
@@ -22,7 +27,12 @@ void board_marker_init(board_marker_scanner_t *s) {
     memset(s, 0, sizeof(*s));
 }
 
-/** @brief Abandon the current candidate and restart matching with byte @p c. */
+/**
+ * @brief Abandon the current candidate and restart matching with byte @p c.
+ *
+ * @param s Scanner state.
+ * @param c Byte that restarts matching.
+ */
 static void restart_with(board_marker_scanner_t *s, uint8_t c) {
     s->reading_id = false;
     s->id_len = 0;

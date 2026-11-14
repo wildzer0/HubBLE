@@ -1,11 +1,26 @@
 {
-  "entryPoints": [
-    "src/api/types.ts",
-    "src/api/client.ts",
-    "src/i18n/index.ts",
-    "src/mocks/handlers.ts"
-  ],
+  "entryPoints": ["src"],
+  "entryPointStrategy": "expand",
+  "exclude": ["**/*.test.*", "**/*.d.ts", "**/i18n/en.ts", "**/i18n/it.ts"],
   "out": "../docs/api/generated/webapp",
   "tsconfig": "tsconfig.json",
-  "name": "HubBLE web app"
+  "name": "HubBLE web app",
+  "validation": {
+    "notExported": false,
+    "invalidLink": true,
+    "notDocumented": true
+  },
+  "requiredToBeDocumented": [
+    "Function",
+    "Method",
+    "Class",
+    "Interface",
+    "TypeAlias",
+    "Variable",
+    "Enum",
+    "Constructor",
+    "Property",
+    "Accessor"
+  ],
+  "treatWarningsAsErrors": true
 }

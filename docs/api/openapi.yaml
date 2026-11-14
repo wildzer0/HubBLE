@@ -1,9 +1,10 @@
 openapi: 3.0.3
 info:
   title: HubBLE firmware API
-  version: 1.0.0
+  version: 1.3.0
   description: |
-    REST contract between firmware and web app (M1 subset). All paths are under `/api/v1`.
+    REST contract between firmware and web app. The WebSocket events are in `websocket.md`; the same API is also reachable
+    over USB (`usb-link.md`). All paths are under `/api/v1`.
     Errors use `{ "error": { "code": "...", "message": "..." } }`.
 
     State-changing calls (POST) require the header `X-HubBLE: 1` and the documented content type
@@ -62,7 +63,7 @@ paths:
         '422': { $ref: '#/components/responses/Error' }
   /api/v1/ota/check:
     post:
-      summary: Check GitHub for an update (`{ channel?: "stable" | "prerelease" }`)
+      summary: 'Check GitHub for an update (`{ channel?: "stable" | "prerelease" }`)'
       description: >
         Starts the background check (joins the saved Wi-Fi network as a station). Poll `GET /ota/status` (`online`) or listen
         to the `ota.state` event. 409 `no_wifi_credentials` when no network is saved; 409 `busy`.
@@ -97,7 +98,7 @@ paths:
         '503': { $ref: '#/components/responses/Error' }
   /api/v1/ota/install:
     post:
-      summary: Install the release found by the last check (`{ allow_downgrade?: bool }`)
+      summary: 'Install the release found by the last check (`{ allow_downgrade?: bool }`)'
       description: >
         Waits for the physical confirmation when required, downloads over HTTPS, verifies SHA-256 and signature, reboots.
         409 `downgrade_not_confirmed` for an older release without `allow_downgrade`; 409 `nothing_to_install`.
@@ -108,8 +109,22 @@ paths:
     put:
       summary: Save (or forget, with an empty `ssid`) the Wi-Fi network used for updates (`{ ssid, password }`)
       description: Write-only. The response is the settings object, which only says `sta_configured`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ssid]
+              properties:
+                ssid: { type: string, maxLength: 32, description: "Empty forgets the saved network" }
+                password: { type: string, maxLength: 63 }
       responses:
-        '200': { description: Settings }
+        '200':
+          description: Settings
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Settings' }
         '400': { $ref: '#/components/responses/Error' }
   /api/v1/diagnostics:
     get:
@@ -183,47 +198,115 @@ paths:
   /api/v1/devices:
     get:
       summary: Registered (bonded) devices with live state
+      description: At most 4 devices (the slot count of the dongle, see `docs/architecture.md`).
       responses:
-        '200': { description: "{ devices: [...], max: 4 }" }
+        '200':
+          description: The registered devices
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeviceList' }
   /api/v1/devices/{id}:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string, description: "12 hex digits (the address)" } }
     get:
       summary: One device
       responses:
-        '200': { description: Device }
+        '200':
+          description: Device
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Device' }
         '404': { $ref: '#/components/responses/Error' }
     patch:
-      summary: Rename (`{ "name": "..." }`)
+      summary: 'Rename (`{ "name": "..." }`)'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1, description: Longer names are truncated to 31 characters }
       responses:
-        '200': { description: Device }
+        '200':
+          description: Device
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Device' }
         '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
     delete:
       summary: Forget the device and delete its bond
       responses:
         '200': { $ref: '#/components/responses/Ok' }
+        '404': { $ref: '#/components/responses/Error' }
   /api/v1/devices/{id}/report-map:
     get:
-      summary: Raw report map as hex (`{ hex, length }`); 409 if the device is not connected
+      summary: Raw report map as hex; 409 if the device is not connected
       responses:
-        '200': { description: Report map }
+        '200':
+          description: Report map
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hex: { type: string, description: The HID report map, hex encoded }
+                  length: { type: integer, description: Length of the report map in bytes }
+        '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
+  /api/v1/devices/{id}/report:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, description: "12 hex digits (the address)" } }
+    get:
+      summary: Compatibility report of the device (`docs/api/device-report.schema.json`)
+      description: >
+        What the dongle learned about the device (identity strings, report map, parser outcome, connection and latency
+        figures). It never contains keystrokes, the Bluetooth address, the name the user gave the device or any Wi-Fi data.
+        The web app shows it to the user before anything is sent anywhere.
+      responses:
+        '200':
+          description: The report
+          content:
+            application/json:
+              schema: { type: object, description: "See device-report.schema.json" }
+        '404': { $ref: '#/components/responses/Error' }
   /api/v1/pairing/scan:
     get:
       summary: Pairing state and the scan list (HID-looking advertisers)
       responses:
-        '200': { description: "{ state, results: [{ address, address_type, name, rssi, appearance }] }" }
+        '200':
+          description: Pairing state, the full pairing object and the scan results
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScanResponse' }
     post:
       summary: Start a 30 s scan (409 when busy or all four slots are used, 429 when locked)
       responses:
         '200': { $ref: '#/components/responses/Ok' }
         '409': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
   /api/v1/pairing/start:
     post:
-      summary: Pair with `{ address, address_type, allow_legacy? }`; 429 `pairing_locked` after 3 failures
+      summary: Pair with the device picked from the scan; 429 `pairing_locked` after 3 failures
+      description: Progress is pushed with the `pairing.*` WebSocket events and is also available from `GET /pairing/scan`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [address]
+              properties:
+                address: { type: string, description: "12 hex digits, from the scan list" }
+                address_type: { type: integer, description: "0 public, 1 random", default: 0 }
+                allow_legacy: { type: boolean, description: "Accept legacy pairing (security level red)", default: false }
       responses:
         '200': { $ref: '#/components/responses/Ok' }
+        '400': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
   /api/v1/pairing/cancel:
     post:
       summary: Cancel scanning / pairing
@@ -231,23 +314,51 @@ paths:
         '200': { $ref: '#/components/responses/Ok' }
   /api/v1/settings:
     get:
-      summary: Settings (`require_confirmation`, `ap_boot_window_s`, `ap_idle_timeout_s`, `update_channel`, `sta_configured`, `remote_wakeup`, `led_brightness` 0-100, `status_led`, `shift_hold_ms` 1000-10000, `portal_auto`, `filter_enabled`, `filter_bounce_ms` 0-500, `filter_hold_ms` 0-1000; never secrets)
-      description: The AP times (30..86400 s) apply from the next restart.
+      summary: Current settings (never any secret)
+      description: The AP times (30..86400 s) and `usb_link` apply from the next restart.
       responses:
-        '200': { description: Settings }
+        '200':
+          description: Settings
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Settings' }
     put:
       summary: Update the given settings fields (all-or-nothing validation)
+      description: Send only the fields to change. `sta_configured` is read-only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SettingsUpdate' }
       responses:
-        '200': { description: Settings after the update }
+        '200':
+          description: Settings after the update
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Settings' }
         '400': { $ref: '#/components/responses/Error' }
   /api/v1/backup:
     get:
-      summary: Settings backup `{ format: "hubble-backup", version: 1, settings }`; never contains bonds or secrets
+      summary: Settings backup; never contains bonds or secrets
       responses:
-        '200': { description: Backup document }
+        '200':
+          description: Backup document
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  format: { type: string, enum: [hubble-backup] }
+                  version: { type: integer, example: 1 }
+                  settings: { $ref: '#/components/schemas/Settings' }
   /api/v1/restore:
     post:
       summary: Restore a backup document (400 `bad_backup` if it is not one)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, description: "A document returned by GET /backup" }
       responses:
         '200': { $ref: '#/components/responses/Ok' }
         '400': { $ref: '#/components/responses/Error' }
@@ -272,6 +383,14 @@ paths:
         '200': { $ref: '#/components/responses/Ok' }
         '400': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
+  /api/v1/ws:
+    get:
+      summary: WebSocket upgrade (events and heartbeat)
+      description: >
+        Not a REST call: upgrades to a WebSocket. Messages are JSON text frames; see `websocket.md` for every event. The
+        client heartbeat (`hello`) keeps the Wi-Fi access point on.
+      responses:
+        '101': { description: Switching protocols }
 components:
   responses:
     Ok:
@@ -312,12 +431,144 @@ components:
         rollback_happened: { type: boolean, description: The other slot holds an image that failed and was rolled back }
         boot_failures: { type: integer }
         last_result: { type: string }
+        online: { $ref: '#/components/schemas/OnlineUpdate' }
     Partition:
       type: object
       properties:
         label: { type: string }
         address: { type: integer }
         size: { type: integer }
+    OnlineUpdate:
+      type: object
+      description: State of the "check for updates" engine (GitHub)
+      properties:
+        state: { type: string, enum: [idle, connecting, checking, available, up_to_date, confirm, downloading, installed, error] }
+        error:
+          type: string
+          description: Present when `state` is `error`
+          enum: [no_wifi_credentials, wifi_failed, network_error, no_release, bad_manifest, no_board_image, unsigned, too_old, downgrade, confirm_timeout, hash_mismatch, install_failed, busy]
+        detail: { type: string, description: Technical reason of a failure, for support }
+        wifi_configured: { type: boolean }
+        channel: { type: string, enum: [stable, prerelease] }
+        release:
+          type: object
+          description: The release found, when any
+          properties:
+            version: { type: string }
+            min_version: { type: string, description: Oldest running version that may install it directly }
+            notes_url: { type: string }
+            size: { type: integer, description: Image size in bytes }
+            signed: { type: boolean }
+            downgrade: { type: boolean, description: True if older than the running version }
+        received: { type: integer, description: Bytes downloaded }
+        total: { type: integer, description: Bytes to download }
+        confirm_remaining_s: { type: integer, description: Seconds left to confirm physically }
+    ConnectionParams:
+      type: object
+      properties:
+        interval_ms: { type: number }
+        latency: { type: integer }
+        timeout_ms: { type: number }
+    LatencyStats:
+      type: object
+      description: BLE notification to USB report queued, microseconds
+      properties:
+        count: { type: integer }
+        min: { type: integer }
+        avg: { type: integer }
+        p95: { type: integer }
+        max: { type: integer }
+    Device:
+      type: object
+      properties:
+        id: { type: string, description: "12 hex digits (the address)" }
+        slot: { type: integer, minimum: 0, maximum: 3 }
+        name: { type: string }
+        type: { type: string, enum: [keyboard, pointer, unknown] }
+        connected: { type: boolean }
+        ready: { type: boolean, description: HID discovery finished and input is forwarded }
+        boot_fallback: { type: boolean }
+        battery: { type: integer, nullable: true }
+        rssi: { type: integer, nullable: true }
+        connection: { $ref: '#/components/schemas/ConnectionParams' }
+        reconnects: { type: integer }
+        last_seen_s: { type: integer }
+        latency_us: { $ref: '#/components/schemas/LatencyStats' }
+        security: { type: string, enum: [green, yellow, red, unknown] }
+    DeviceList:
+      type: object
+      properties:
+        devices: { type: array, items: { $ref: '#/components/schemas/Device' } }
+        max: { type: integer, example: 4 }
+    Pairing:
+      type: object
+      properties:
+        state: { type: string, enum: [idle, scanning, connecting, pairing, quarantine, confirm, bonded, failed] }
+        reason: { type: string, enum: [timeout, cancelled, legacy_rejected, security_failed, no_hid_service, challenge_failed] }
+        level: { type: string, enum: [green, yellow, red, unknown] }
+        device: { type: string }
+        remaining_s: { type: integer }
+        lock_remaining_s: { type: integer }
+        rx_reports: { type: integer }
+        needs_confirmation: { type: boolean }
+        passkey: { type: string, description: 6 digits to type on the keyboard }
+        challenge:
+          type: object
+          properties:
+            kind: { type: string, enum: [clicks, code] }
+            value: { type: string }
+            progress: { type: integer }
+            length: { type: integer }
+    ScanResponse:
+      type: object
+      properties:
+        state: { type: string }
+        pairing: { $ref: '#/components/schemas/Pairing' }
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              address: { type: string }
+              address_type: { type: integer }
+              name: { type: string }
+              rssi: { type: integer }
+              appearance: { type: integer }
+    Settings:
+      type: object
+      properties:
+        require_confirmation: { type: boolean, description: Physical confirmation for new pairings and OTA installs }
+        ap_boot_window_s: { type: integer, minimum: 30, maximum: 86400 }
+        ap_idle_timeout_s: { type: integer, minimum: 30, maximum: 86400 }
+        update_channel: { type: string, enum: [stable, prerelease] }
+        sta_configured: { type: boolean, readOnly: true }
+        remote_wakeup: { type: boolean }
+        portal_auto: { type: boolean, description: Joining the Wi-Fi opens the web app automatically }
+        led_brightness: { type: integer, minimum: 0, maximum: 100 }
+        status_led: { type: boolean }
+        shift_hold_ms: { type: integer, minimum: 1000, maximum: 10000, description: Hold time of the Ctrl + Alt gesture }
+        usb_link: { type: boolean, description: USB configuration interface (applied at restart) }
+        filter_enabled: { type: boolean }
+        filter_bounce_ms: { type: integer, minimum: 0, maximum: 500 }
+        filter_hold_ms: { type: integer, minimum: 0, maximum: 1000 }
+    SettingsUpdate:
+      type: object
+      description: Any subset of the writable fields of Settings
+      additionalProperties: false
+      properties:
+        require_confirmation: { type: boolean }
+        ap_boot_window_s: { type: integer }
+        ap_idle_timeout_s: { type: integer }
+        update_channel: { type: string, enum: [stable, prerelease] }
+        remote_wakeup: { type: boolean }
+        portal_auto: { type: boolean }
+        led_brightness: { type: integer }
+        status_led: { type: boolean }
+        shift_hold_ms: { type: integer }
+        usb_link: { type: boolean }
+        filter_enabled: { type: boolean }
+        filter_bounce_ms: { type: integer }
+        filter_hold_ms: { type: integer }
     Diagnostics:
       type: object
       properties:
@@ -342,7 +593,18 @@ components:
         chip_temp_c: { type: number, description: "Die temperature in degrees Celsius (absent if unreadable)" }
         boot_failures: { type: integer }
         usb_state: { type: string }
-        ble: { nullable: true, description: Reserved for M3 }
+        ble:
+          type: object
+          properties:
+            ready: { type: boolean }
+            connected: { type: integer }
+            bonded: { type: integer }
+        power:
+          type: object
+          properties:
+            mode: { type: string, enum: [active, low] }
+            remote_wakeup: { type: boolean }
+        keyboard_leds: { type: integer, description: Num/Caps/Scroll Lock bits last sent by the host }
         wifi:
           type: object
           properties:

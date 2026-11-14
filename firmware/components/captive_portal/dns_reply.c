@@ -27,7 +27,12 @@
 /** QR bit: set for responses, which we must never answer. */
 #define DNS_FLAG_QR 0x8000U
 
-/** @brief Read a big-endian 16-bit value. */
+/**
+ * @brief Read a big-endian 16-bit value.
+ *
+ * @param p Pointer to the first of two bytes.
+ * @return The decoded value.
+ */
 static uint16_t rd16(const uint8_t *p) {
     return (uint16_t)((p[0] << 8) | p[1]);
 }

@@ -142,10 +142,11 @@ static bool s_link_enabled;
 
 /** Which reports have changed since they were last sent (bit mask). */
 enum {
-    DIRTY_KEYBOARD = 1u << 0,
-    DIRTY_MOUSE = 1u << 1,
-    DIRTY_CONSUMER = 1u << 2,
-    DIRTY_SYSTEM = 1u << 3,
+    DIRTY_KEYBOARD = 1u << 0, /**< Keyboard report changed. */
+    DIRTY_MOUSE = 1u << 1,    /**< Mouse report changed. */
+    DIRTY_CONSUMER = 1u << 2, /**< Consumer-control report changed. */
+    DIRTY_SYSTEM = 1u << 3,   /**< System-control report changed. */
+    /** Everything changed (used after a (re)connect so the host gets a full snapshot). */
     DIRTY_ALL = DIRTY_KEYBOARD | DIRTY_MOUSE | DIRTY_CONSUMER | DIRTY_SYSTEM,
 };
 

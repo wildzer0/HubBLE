@@ -9,5 +9,6 @@ EXTRACT_ALL            = YES
 EXTRACT_STATIC         = YES
 GENERATE_LATEX         = NO
 WARN_IF_UNDOCUMENTED   = YES
+WARN_NO_PARAMDOC       = YES
 WARN_AS_ERROR          = NO
 QUIET                  = YES

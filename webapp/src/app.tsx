@@ -127,7 +127,7 @@ function TopBar() {
 /**
  * Bottom tab bar (thumb-friendly on phones).
  *
- * @param props.route Current route.
+ * - `route`: Current route.
  * @returns The navigation element.
  */
 function TabBar({ route }: { route: Route }) {

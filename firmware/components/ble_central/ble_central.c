@@ -114,9 +114,9 @@ static uint8_t s_own_addr_type;              /**< Own address type from ble_hs_i
 static volatile uint8_t s_leds;              /**< Last keyboard LED state from the host. */
 /** Connection parameters currently requested (7.5 ms profile until the power task asks otherwise). */
 static struct {
-    uint16_t itvl;
-    uint16_t latency;
-    uint16_t timeout;
+    uint16_t itvl;    /**< Connection interval, 1.25 ms units. */
+    uint16_t latency; /**< Peripheral latency, connection events. */
+    uint16_t timeout; /**< Supervision timeout, 10 ms units. */
 } s_profile = {CONFIG_HUBBLE_BLE_CONN_ITVL_UNITS, CONFIG_HUBBLE_BLE_CONN_LATENCY,
                CONFIG_HUBBLE_BLE_SUPERVISION_TIMEOUT_10MS};
 static esp_timer_handle_t s_pair_timer;      /**< 1 s tick driving the pairing timeouts and the lock. */
@@ -126,6 +126,7 @@ static esp_timer_handle_t s_stats_timer;     /**< Periodic RSSI/parameter refres
 static void reconcile(void);
 static int gap_event(struct ble_gap_event *event, void *arg);
 
+/** Take / release the registry mutex that protects the device table (never held across NimBLE calls that block). */
 #define LOCK()   xSemaphoreTake(s_mu, portMAX_DELAY)
 #define UNLOCK() xSemaphoreGive(s_mu)
 
@@ -218,12 +219,20 @@ static void refresh_link(int slot) {
 
 /* ---- Pairing helpers ---------------------------------------------------------------------------- */
 
-/** @brief Monotonic milliseconds for the pairing state machine. */
+/**
+ * @brief Monotonic milliseconds for the pairing state machine.
+ *
+ * @return Milliseconds (monotonic).
+ */
 static uint32_t now_ms(void) {
     return (uint32_t)(esp_timer_get_time() / 1000);
 }
 
-/** @brief Hardware RNG adapter for pair_rng_t. */
+/**
+ * @brief Hardware RNG adapter for pair_rng_t.
+ *
+ * @return 32 random bits from the hardware RNG.
+ */
 static uint32_t hw_rng(void) {
     return esp_random();
 }
@@ -288,7 +297,11 @@ static void pair_fail(pair_fail_t reason) {
     pair_sync();
 }
 
-/** @brief esp_timer callback (1 s): pairing phase timeouts and lock expiry. */
+/**
+ * @brief esp_timer callback (1 s): pairing phase timeouts and lock expiry.
+ *
+ * @param arg Unused.
+ */
 static void pair_tick_cb(void *arg) {
     (void)arg;
     LOCK();
@@ -308,7 +321,12 @@ static void pair_tick_cb(void *arg) {
 /** Remaining diagnostic log lines; refilled when a pairing candidate becomes ready. Touched under the lock. */
 static int s_pair_diag_left;
 
-/** @brief HOGP ready: the device now delivers reports (a pairing candidate goes on to quarantine/confirm). */
+/**
+ * @brief HOGP ready: the device now delivers reports (a pairing candidate goes on to quarantine/confirm).
+ *
+ * @param h HOGP client instance.
+ * @param ctx Unused.
+ */
 static void hogp_ready(hogp_t *h, void *ctx) {
     (void)h;
     int slot = (int)(intptr_t)ctx;
@@ -349,7 +367,13 @@ static void hogp_ready(hogp_t *h, void *ctx) {
     changed(slot);
 }
 
-/** @brief HOGP failed: drop the link (the pairing, if any, fails with it). */
+/**
+ * @brief HOGP failed: drop the link (the pairing, if any, fails with it).
+ *
+ * @param h HOGP client instance.
+ * @param status NimBLE status that made discovery fail.
+ * @param ctx Unused.
+ */
 static void hogp_failed(hogp_t *h, int status, void *ctx) {
     (void)h;
     int slot = (int)(intptr_t)ctx;
@@ -365,7 +389,13 @@ static void hogp_failed(hogp_t *h, int status, void *ctx) {
     }
 }
 
-/** @brief HOGP battery level update. */
+/**
+ * @brief HOGP battery level update.
+ *
+ * @param h HOGP client instance.
+ * @param percent Battery level, 0..100.
+ * @param ctx Unused.
+ */
 static void hogp_battery(hogp_t *h, uint8_t percent, void *ctx) {
     (void)h;
     int slot = (int)(intptr_t)ctx;
@@ -379,6 +409,7 @@ static void hogp_battery(hogp_t *h, uint8_t percent, void *ctx) {
     changed(slot);
 }
 
+/** Callbacks the HOGP client uses to report discovery results, failures and battery levels to this module. */
 static const hogp_cbs_t s_hogp_cbs = {.on_ready = hogp_ready, .on_failed = hogp_failed, .on_battery = hogp_battery};
 
 /* ---- GAP ---------------------------------------------------------------------------------------- */
@@ -434,6 +465,8 @@ static void on_connected(uint16_t conn_handle, void *arg) {
  * @brief Handle an ended link.
  *
  * @param conn_handle Connection handle.
+ *
+ * @param reason HCI disconnect reason.
  */
 static void on_disconnected(uint16_t conn_handle, int reason) {
     LOCK();
@@ -809,13 +842,21 @@ static void reconcile(void) {
     }
 }
 
-/** @brief esp_timer callback: re-run reconcile() after the post-disconnect delay. */
+/**
+ * @brief esp_timer callback: re-run reconcile() after the post-disconnect delay.
+ *
+ * @param arg Unused.
+ */
 static void reconnect_timer_cb(void *arg) {
     (void)arg;
     reconcile();
 }
 
-/** @brief esp_timer callback: refresh RSSI and link parameters of the connected devices. */
+/**
+ * @brief esp_timer callback: refresh RSSI and link parameters of the connected devices.
+ *
+ * @param arg Unused.
+ */
 static void stats_timer_cb(void *arg) {
     (void)arg;
     static unsigned periods;
@@ -847,7 +888,11 @@ static void stats_timer_cb(void *arg) {
 
 /* ---- Host lifecycle ----------------------------------------------------------------------------- */
 
-/** @brief NimBLE reset callback. */
+/**
+ * @brief NimBLE reset callback.
+ *
+ * @param reason NimBLE reset reason.
+ */
 static void on_reset(int reason) {
     ESP_LOGE(TAG, "host reset, reason %d", reason);
     s_synced = false;
@@ -865,7 +910,11 @@ static void on_sync(void) {
     reconcile();
 }
 
-/** @brief NimBLE host task body. */
+/**
+ * @brief NimBLE host task body.
+ *
+ * @param param Unused.
+ */
 static void host_task(void *param) {
     (void)param;
     nimble_port_run(); /* Returns only when nimble_port_stop() is called. */

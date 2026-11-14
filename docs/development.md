@@ -82,6 +82,22 @@ doxygen Doxyfile                 # firmware API docs -> docs/api/generated/firmw
 (cd webapp && npm run docs)      # TypeDoc -> docs/api/generated/webapp
 ```
 
+### Documentation rules
+
+Every function (also `static` ones), macro, struct field, enum value and file-scope variable has a Doxygen block (C) or a
+TSDoc block (TypeScript); functions document every parameter (`@param`) and their result (`@return`). Two gates enforce
+it, both in `tools/check.sh` and in CI:
+
+- `python3 tools/check_docs.py` scans the C sources for undocumented symbols and for functions missing an `@param` /
+  `@return`, without needing Doxygen.
+- `npm run docs` in `webapp/` runs TypeDoc with `validation.notDocumented` and `treatWarningsAsErrors`, so a missing
+  comment or an `@param` that does not match fails the build. The i18n string tables (`en.ts`, `it.ts`) are excluded:
+  the key names are the documentation.
+
+`python3 tools/check_openapi.py` keeps `docs/api/openapi.yaml` in step with the routes registered in the firmware. When you
+add or change an endpoint, update the OpenAPI file, `websocket.md` for events, and the TypeScript types in
+`webapp/src/api/types.ts`.
+
 ## Local signing
 
 Firmware builds are signed (RSA-3072, ADR 6). `tools/build-firmware.sh` creates a git-ignored development key in

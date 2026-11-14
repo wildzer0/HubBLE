@@ -6,6 +6,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- Documentation only, no firmware behaviour change: every firmware function, macro, struct field and enum value now has a
+  Doxygen block with `@param` / `@return`, and the TypeDoc reference covers the whole web app (`src/`), not just four
+  files.
+- `docs/api/openapi.yaml` now has request and response schemas for devices, pairing, settings, backup and diagnostics, and
+  documents `GET /devices/{id}/report` and the WebSocket upgrade; it was not valid YAML before (unquoted colons).
+- `docs/api/websocket.md` lists every event in its table; `docs/architecture.md` describes all components and tasks and
+  explains the limit of four devices (5 NimBLE connections, 8 bonds).
+- New API overview page in the documentation site.
+
+### Added
+
+- `tools/check_docs.py` (undocumented C symbols and missing `@param` / `@return`) and `tools/check_openapi.py` (OpenAPI
+  matches the routes registered in the firmware); both run in `tools/check.sh` and in CI. TypeDoc fails on undocumented
+  exports.
+
 ## [1.3.0] - 2026-11-13
 
 First stable release of the 1.3 line; it rolls up 1.3.0-rc.1 to rc.6 (see those sections below).

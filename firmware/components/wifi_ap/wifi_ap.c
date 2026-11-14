@@ -98,7 +98,11 @@ static atomic_bool s_scanning;
 /** Current SSID, built once from the MAC. */
 static char s_ssid[33];
 
-/** @brief Milliseconds since boot. */
+/**
+ * @brief Milliseconds since boot.
+ *
+ * @return Milliseconds (monotonic).
+ */
 static uint64_t now_ms(void) {
     return (uint64_t)(esp_timer_get_time() / 1000);
 }

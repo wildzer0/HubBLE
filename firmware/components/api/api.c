@@ -54,10 +54,10 @@ static const char *TAG = "api";
 
 /** Deferred action kinds. */
 typedef enum {
-    DEFER_REBOOT,
-    DEFER_REBOOT_DOWNLOAD,
-    DEFER_APPLY_PASSWORD,
-    DEFER_FACTORY_RESET,
+    DEFER_REBOOT,          /**< Restart the dongle. */
+    DEFER_REBOOT_DOWNLOAD, /**< Restart into the ROM USB download mode. */
+    DEFER_APPLY_PASSWORD,  /**< Apply the new AP password (restarts the AP). */
+    DEFER_FACTORY_RESET,   /**< Erase settings and bonds, then restart. */
 } defer_kind_t;
 
 /** Receive buffer for uploads (static: handler stacks are small; only one upload at a time). */
@@ -145,6 +145,12 @@ static esp_err_t send_json(httpd_req_t *req, cJSON *root) {
 
 /**
  * @brief Read a request header into @p buf, or return NULL if absent/too long.
+ *
+ * @param req HTTP request being served.
+ * @param name Header name.
+ * @param buf Output buffer for the value.
+ * @param cap Capacity of the output buffer in bytes (including the NUL).
+ * @return Pointer to @p buf holding the value, or NULL.
  */
 static const char *get_hdr(httpd_req_t *req, const char *name, char *buf, size_t cap) {
     return httpd_req_get_hdr_value_str(req, name, buf, cap) == ESP_OK ? buf : NULL;
@@ -181,7 +187,12 @@ static bool guard(httpd_req_t *req, const char *expected_ct) {
     return false;
 }
 
-/** GET /api/v1/status. */
+/**
+ * GET /api/v1/status.
+ *
+ * @param req HTTP request being served.
+ * @return ESP_OK once the response was sent, otherwise an error from the HTTP server.
+ */
 static esp_err_t status_get(httpd_req_t *req) {
     wifi_ap_status_t ap;
     wifi_ap_get_status(&ap);
@@ -247,7 +258,12 @@ void api_ota_events(void (*emit)(const char *event, const char *json)) {
     cJSON_Delete(o);
 }
 
-/** GET /api/v1/ota/status. */
+/**
+ * GET /api/v1/ota/status.
+ *
+ * @param req HTTP request being served.
+ * @return ESP_OK once the response was sent, otherwise an error from the HTTP server.
+ */
 static esp_err_t ota_status_get(httpd_req_t *req) {
     ota_status_t s;
     ota_get_status(&s);
@@ -266,7 +282,13 @@ static esp_err_t ota_status_get(httpd_req_t *req) {
     return send_json(req, r);
 }
 
-/** @brief Add a partition object to @p parent. */
+/**
+ * @brief Add a partition object to @p parent.
+ *
+ * @param parent JSON object receiving the member.
+ * @param name Member name of the partition object.
+ * @param p Partition facts.
+ */
 static void add_partition(cJSON *parent, const char *name, const diag_partition_t *p) {
     cJSON *o = cJSON_AddObjectToObject(parent, name);
     cJSON_AddStringToObject(o, "label", p->label);
@@ -274,7 +296,12 @@ static void add_partition(cJSON *parent, const char *name, const diag_partition_
     cJSON_AddNumberToObject(o, "size", p->size);
 }
 
-/** GET /api/v1/diagnostics. */
+/**
+ * GET /api/v1/diagnostics.
+ *
+ * @param req HTTP request being served.
+ * @return ESP_OK once the response was sent, otherwise an error from the HTTP server.
+ */
 static esp_err_t diagnostics_get(httpd_req_t *req) {
     diag_info_t d;
     diag_collect(&d);
@@ -313,7 +340,12 @@ static esp_err_t diagnostics_get(httpd_req_t *req) {
     return send_json(req, r);
 }
 
-/** GET /api/v1/logs: the RAM log buffer as plain text. */
+/**
+ * GET /api/v1/logs: the RAM log buffer as plain text.
+ *
+ * @param req HTTP request being served.
+ * @return ESP_OK once the response was sent, otherwise an error from the HTTP server.
+ */
 static esp_err_t logs_get(httpd_req_t *req) {
     httpd_resp_set_type(req, "text/plain; charset=utf-8");
     httpd_resp_set_hdr(req, "Content-Disposition", "attachment; filename=\"hubble.log\"");
@@ -366,7 +398,12 @@ static cJSON *read_json_body(httpd_req_t *req) {
     return j;
 }
 
-/** POST /api/v1/settings/wifi-password. */
+/**
+ * POST /api/v1/settings/wifi-password.
+ *
+ * @param req HTTP request being served.
+ * @return ESP_OK once the response was sent, otherwise an error from the HTTP server.
+ */
 static esp_err_t wifi_password_post(httpd_req_t *req) {
     if (!guard(req, CT_JSON)) {
         return ESP_OK;
@@ -392,7 +429,13 @@ static esp_err_t wifi_password_post(httpd_req_t *req) {
     return send_json(req, r);
 }
 
-/** @brief Map an OTA error to an HTTP status/code and send it. */
+/**
+ * @brief Map an OTA error to an HTTP status/code and send it.
+ *
+ * @param req HTTP request being served.
+ * @param r OTA result code to map.
+ * @return ESP_OK once the error response was sent.
+ */
 static esp_err_t send_ota_error(httpd_req_t *req, ota_result_t r) {
     const char *status = "400 Bad Request";
     const char *code = "ota_failed";
@@ -426,7 +469,12 @@ static esp_err_t send_ota_error(httpd_req_t *req, ota_result_t r) {
     return send_error(req, status, code, ota_result_text(r));
 }
 
-/** POST /api/v1/ota/upload: raw .bin streamed straight to flash. */
+/**
+ * POST /api/v1/ota/upload: raw .bin streamed straight to flash.
+ *
+ * @param req HTTP request being served.
+ * @return ESP_OK once the response was sent, otherwise an error from the HTTP server.
+ */
 static esp_err_t ota_upload_post(httpd_req_t *req) {
     if (!guard(req, CT_OCTET)) {
         return ESP_OK;
@@ -466,7 +514,12 @@ static esp_err_t ota_upload_post(httpd_req_t *req) {
     return send_json(req, j);
 }
 
-/** POST /api/v1/system/reboot. */
+/**
+ * POST /api/v1/system/reboot.
+ *
+ * @param req HTTP request being served.
+ * @return ESP_OK once the response was sent, otherwise an error from the HTTP server.
+ */
 static esp_err_t reboot_post(httpd_req_t *req) {
     if (!guard(req, CT_JSON)) {
         return ESP_OK;
@@ -480,6 +533,9 @@ static esp_err_t reboot_post(httpd_req_t *req) {
 /**
  * POST /api/v1/system/wifi-off: switch the AP off now (it stays off until the Ctrl + Alt gesture or a restart).
  * Refused while no device is paired: the AP is then the only way to pair one.
+ *
+ * @param req HTTP request being served.
+ * @return ESP_OK once the response was sent, otherwise an error from the HTTP server.
  */
 static esp_err_t wifi_off_post(httpd_req_t *req) {
     if (!guard(req, CT_JSON)) {
@@ -495,7 +551,12 @@ static esp_err_t wifi_off_post(httpd_req_t *req) {
     return send_json(req, r);
 }
 
-/** POST /api/v1/system/reboot-download. */
+/**
+ * POST /api/v1/system/reboot-download.
+ *
+ * @param req HTTP request being served.
+ * @return ESP_OK once the response was sent, otherwise an error from the HTTP server.
+ */
 static esp_err_t reboot_download_post(httpd_req_t *req) {
     if (!guard(req, CT_JSON)) {
         return ESP_OK;
@@ -513,7 +574,12 @@ static esp_err_t reboot_download_post(httpd_req_t *req) {
 /** Longest accepted device id (12 hex digits). */
 #define DEVICE_ID_LEN 12
 
-/** @brief Security badge name for the API (green = passkey/SC, yellow = Just Works verified, red = legacy). */
+/**
+ * @brief Security badge name for the API (green = passkey/SC, yellow = Just Works verified, red = legacy).
+ *
+ * @param s Security level of the bond.
+ * @return Constant string.
+ */
 static const char *sec_name(sec_level_t s) {
     switch (s) {
     case SEC_GREEN:
@@ -588,7 +654,12 @@ bool api_device_event_json(int slot, char *out, size_t cap) {
     return ok;
 }
 
-/** GET /api/v1/devices. */
+/**
+ * GET /api/v1/devices.
+ *
+ * @param req HTTP request being served.
+ * @return ESP_OK once the response was sent, otherwise an error from the HTTP server.
+ */
 static esp_err_t devices_get(httpd_req_t *req) {
     cJSON *r = cJSON_CreateObject();
     cJSON *arr = cJSON_AddArrayToObject(r, "devices");
@@ -626,7 +697,13 @@ static int device_from_uri(httpd_req_t *req, const char **suffix) {
     return slot;
 }
 
-/** Add a string field, or null when it is empty. */
+/**
+ * Add a string field, or null when it is empty.
+ *
+ * @param o JSON object receiving the field.
+ * @param key NVS key / JSON member name.
+ * @param value String to add; NULL or empty becomes JSON null.
+ */
 static void add_str_or_null(cJSON *o, const char *key, const char *value) {
     if (value != NULL && value[0] != '\0') {
         cJSON_AddStringToObject(o, key, value);
@@ -639,6 +716,10 @@ static void add_str_or_null(cJSON *o, const char *key, const char *value) {
  * GET /api/v1/devices/{id}/report: the compatibility report (docs/api/device-report.schema.json). It holds what the
  * dongle learned about the device, never keystrokes, the Bluetooth address, the user's name for the device or any Wi-Fi
  * data. The web app shows it to the user before anything is sent.
+ *
+ * @param req HTTP request being served.
+ * @param slot Slot of the requested device.
+ * @return ESP_OK once the response was sent, otherwise an error from the HTTP server.
  */
 static esp_err_t device_report_get(httpd_req_t *req, int slot) {
     ble_device_info_t d;
@@ -706,7 +787,12 @@ static esp_err_t device_report_get(httpd_req_t *req, int slot) {
     return send_json(req, r);
 }
 
-/** GET /api/v1/devices/{id}/report-map: the raw report map as hex (debugging, test fixtures). */
+/**
+ * GET /api/v1/devices/{id}/report-map: the raw report map as hex (debugging, test fixtures).
+ *
+ * @param req HTTP request being served.
+ * @return ESP_OK once the response was sent, otherwise an error from the HTTP server.
+ */
 static esp_err_t device_item_get(httpd_req_t *req) {
     const char *suffix;
     int slot = device_from_uri(req, &suffix);
@@ -740,7 +826,12 @@ static esp_err_t device_item_get(httpd_req_t *req) {
     return send_json(req, r);
 }
 
-/** PATCH /api/v1/devices/{id}: rename. */
+/**
+ * PATCH /api/v1/devices/{id}: rename.
+ *
+ * @param req HTTP request being served.
+ * @return ESP_OK once the response was sent, otherwise an error from the HTTP server.
+ */
 static esp_err_t device_item_patch(httpd_req_t *req) {
     if (!guard(req, CT_JSON)) {
         return ESP_OK;
@@ -768,7 +859,12 @@ static esp_err_t device_item_patch(httpd_req_t *req) {
     return send_json(req, device_json(&d));
 }
 
-/** DELETE /api/v1/devices/{id}: forget the device and delete its bond. */
+/**
+ * DELETE /api/v1/devices/{id}: forget the device and delete its bond.
+ *
+ * @param req HTTP request being served.
+ * @return ESP_OK once the response was sent, otherwise an error from the HTTP server.
+ */
 static esp_err_t device_item_delete(httpd_req_t *req) {
     if (!guard(req, CT_JSON)) {
         return ESP_OK;
@@ -784,7 +880,12 @@ static esp_err_t device_item_delete(httpd_req_t *req) {
     return send_json(req, r);
 }
 
-/** @brief Name of a pairing state for the API. */
+/**
+ * @brief Name of a pairing state for the API.
+ *
+ * @param s Pairing state.
+ * @return Constant string.
+ */
 static const char *pair_state_name(pair_state_t s) {
     switch (s) {
     case PAIR_SCANNING:
@@ -807,7 +908,12 @@ static const char *pair_state_name(pair_state_t s) {
     }
 }
 
-/** @brief Failure reason name for the API. */
+/**
+ * @brief Failure reason name for the API.
+ *
+ * @param f Failure reason.
+ * @return Constant string.
+ */
 static const char *fail_name(pair_fail_t f) {
     switch (f) {
     case FAIL_TIMEOUT:
@@ -884,7 +990,12 @@ void api_pairing_events(void (*emit)(const char *event, const char *json)) {
     cJSON_Delete(o);
 }
 
-/** GET /api/v1/pairing/scan: pairing state and the scan list. */
+/**
+ * GET /api/v1/pairing/scan: pairing state and the scan list.
+ *
+ * @param req HTTP request being served.
+ * @return ESP_OK once the response was sent, otherwise an error from the HTTP server.
+ */
 static esp_err_t pairing_scan_get(httpd_req_t *req) {
     ble_scan_result_t res[BLE_CENTRAL_MAX_SCAN];
     size_t n = ble_central_scan_results(res);
@@ -908,7 +1019,12 @@ static esp_err_t pairing_scan_get(httpd_req_t *req) {
     return send_json(req, r);
 }
 
-/** POST /api/v1/pairing/scan: start scanning for HID devices. */
+/**
+ * POST /api/v1/pairing/scan: start scanning for HID devices.
+ *
+ * @param req HTTP request being served.
+ * @return ESP_OK once the response was sent, otherwise an error from the HTTP server.
+ */
 static esp_err_t pairing_scan_post(httpd_req_t *req) {
     if (!guard(req, CT_JSON)) {
         return ESP_OK;
@@ -950,7 +1066,12 @@ static bool parse_address(const char *s, uint8_t out[6]) {
     return true;
 }
 
-/** POST /api/v1/pairing/start {"address":"aabbccddeeff","address_type":0}. */
+/**
+ * POST /api/v1/pairing/start {"address":"aabbccddeeff","address_type":0}.
+ *
+ * @param req HTTP request being served.
+ * @return ESP_OK once the response was sent, otherwise an error from the HTTP server.
+ */
 static esp_err_t pairing_start_post(httpd_req_t *req) {
     if (!guard(req, CT_JSON)) {
         return ESP_OK;
@@ -986,7 +1107,12 @@ static esp_err_t pairing_start_post(httpd_req_t *req) {
     return send_json(req, r);
 }
 
-/** POST /api/v1/pairing/cancel. */
+/**
+ * POST /api/v1/pairing/cancel.
+ *
+ * @param req HTTP request being served.
+ * @return ESP_OK once the response was sent, otherwise an error from the HTTP server.
+ */
 static esp_err_t pairing_cancel_post(httpd_req_t *req) {
     if (!guard(req, CT_JSON)) {
         return ESP_OK;
@@ -1146,12 +1272,22 @@ static void settings_object_apply(const cJSON *s) {
     }
 }
 
-/** GET /api/v1/settings: non-secret settings (the AP windows apply from the next boot). */
+/**
+ * GET /api/v1/settings: non-secret settings (the AP windows apply from the next boot).
+ *
+ * @param req HTTP request being served.
+ * @return ESP_OK once the response was sent, otherwise an error from the HTTP server.
+ */
 static esp_err_t settings_get(httpd_req_t *req) {
     return send_json(req, settings_json());
 }
 
-/** PUT /api/v1/settings: update the given fields; all-or-nothing validation. */
+/**
+ * PUT /api/v1/settings: update the given fields; all-or-nothing validation.
+ *
+ * @param req HTTP request being served.
+ * @return ESP_OK once the response was sent, otherwise an error from the HTTP server.
+ */
 static esp_err_t settings_put(httpd_req_t *req) {
     if (!guard(req, CT_JSON)) {
         return ESP_OK;
@@ -1172,6 +1308,9 @@ static esp_err_t settings_put(httpd_req_t *req) {
 /**
  * GET /api/v1/backup: settings as a downloadable document. Bonds and the Wi-Fi password are deliberately NOT included:
  * they are secrets (CLAUDE.md §3.7 page 8, §3.12).
+ *
+ * @param req HTTP request being served.
+ * @return ESP_OK once the response was sent, otherwise an error from the HTTP server.
  */
 static esp_err_t backup_get(httpd_req_t *req) {
     cJSON *r = cJSON_CreateObject();
@@ -1181,7 +1320,12 @@ static esp_err_t backup_get(httpd_req_t *req) {
     return send_json(req, r);
 }
 
-/** POST /api/v1/restore: apply a backup document produced by backup_get(). */
+/**
+ * POST /api/v1/restore: apply a backup document produced by backup_get().
+ *
+ * @param req HTTP request being served.
+ * @return ESP_OK once the response was sent, otherwise an error from the HTTP server.
+ */
 static esp_err_t restore_post(httpd_req_t *req) {
     if (!guard(req, CT_JSON)) {
         return ESP_OK;
@@ -1209,7 +1353,12 @@ static esp_err_t restore_post(httpd_req_t *req) {
     return send_json(req, r);
 }
 
-/** PUT /api/v1/settings/sta {"ssid","password"}: save (or, with an empty ssid, forget) the update Wi-Fi network. */
+/**
+ * PUT /api/v1/settings/sta {"ssid","password"}: save (or, with an empty ssid, forget) the update Wi-Fi network.
+ *
+ * @param req HTTP request being served.
+ * @return ESP_OK once the response was sent, otherwise an error from the HTTP server.
+ */
 static esp_err_t settings_sta_put(httpd_req_t *req) {
     if (!guard(req, CT_JSON)) {
         return ESP_OK;
@@ -1233,7 +1382,12 @@ static esp_err_t settings_sta_put(httpd_req_t *req) {
     return settings_get(req); /* Reports sta_configured only. */
 }
 
-/** GET /api/v1/wifi/scan: nearby Wi-Fi networks for the "Wi-Fi network for updates" picker. */
+/**
+ * GET /api/v1/wifi/scan: nearby Wi-Fi networks for the "Wi-Fi network for updates" picker.
+ *
+ * @param req HTTP request being served.
+ * @return ESP_OK once the response was sent, otherwise an error from the HTTP server.
+ */
 static esp_err_t wifi_scan_get(httpd_req_t *req) {
     /* A GET has no CSRF header, but the scan is slow and exposes the neighbourhood: still require our own Host. */
     char host[64];
@@ -1271,7 +1425,12 @@ static esp_err_t wifi_scan_get(httpd_req_t *req) {
     return send_json(req, r);
 }
 
-/** POST /api/v1/ota/check {"channel":"stable"|"prerelease"}: start looking for an update on GitHub. */
+/**
+ * POST /api/v1/ota/check {"channel":"stable"|"prerelease"}: start looking for an update on GitHub.
+ *
+ * @param req HTTP request being served.
+ * @return ESP_OK once the response was sent, otherwise an error from the HTTP server.
+ */
 static esp_err_t ota_check_post(httpd_req_t *req) {
     if (!guard(req, CT_JSON)) {
         return ESP_OK;
@@ -1297,7 +1456,12 @@ static esp_err_t ota_check_post(httpd_req_t *req) {
     return send_json(req, r);
 }
 
-/** POST /api/v1/ota/install {"allow_downgrade":bool}: install the release found by the last check. */
+/**
+ * POST /api/v1/ota/install {"allow_downgrade":bool}: install the release found by the last check.
+ *
+ * @param req HTTP request being served.
+ * @return ESP_OK once the response was sent, otherwise an error from the HTTP server.
+ */
 static esp_err_t ota_install_post(httpd_req_t *req) {
     if (!guard(req, CT_JSON)) {
         return ESP_OK;
@@ -1321,7 +1485,12 @@ static esp_err_t ota_install_post(httpd_req_t *req) {
     return send_json(req, r);
 }
 
-/** POST /api/v1/system/factory-reset: erase everything and restart (the response is sent first). */
+/**
+ * POST /api/v1/system/factory-reset: erase everything and restart (the response is sent first).
+ *
+ * @param req HTTP request being served.
+ * @return ESP_OK once the response was sent, otherwise an error from the HTTP server.
+ */
 static esp_err_t factory_reset_post(httpd_req_t *req) {
     if (!guard(req, CT_JSON)) {
         return ESP_OK;
@@ -1359,6 +1528,9 @@ static int json_int(const cJSON *o, const char *key, int def) {
  *  - {"kind":"consumer","usage":233,"hold_ms":50}
  *  - {"kind":"system","bits":1,"hold_ms":50}
  * The state is applied, held for hold_ms and then released.
+ *
+ * @param req HTTP request being served.
+ * @return ESP_OK once the response was sent, otherwise an error from the HTTP server.
  */
 static esp_err_t debug_input_post(httpd_req_t *req) {
     if (!guard(req, CT_JSON)) {

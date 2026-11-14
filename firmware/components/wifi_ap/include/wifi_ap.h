@@ -65,7 +65,11 @@ void wifi_ap_request_off(void);
 /** @brief Re-read the stored password and restart the AP so it takes effect (clients are dropped). */
 void wifi_ap_apply_password(void);
 
-/** @brief Whether wifi_ap_init() completed (used by the OTA self-test). */
+/**
+ * @brief Whether wifi_ap_init() completed (used by the OTA self-test).
+ *
+ * @return true after a successful init.
+ */
 bool wifi_ap_is_initialized(void);
 
 /**

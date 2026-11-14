@@ -70,7 +70,11 @@ static uint8_t s_out[ULINK_REPORT_DATA]; /**< Stream bytes waiting to fill a rep
 static size_t s_out_n;                   /**< Bytes in s_out. */
 static bool s_tx_failed;                 /**< A report could not be queued: the host is gone. */
 
-/** @brief Milliseconds since boot. */
+/**
+ * @brief Milliseconds since boot.
+ *
+ * @return Milliseconds (monotonic).
+ */
 static int64_t now_ms(void) {
     return esp_timer_get_time() / 1000;
 }
@@ -91,7 +95,12 @@ static void flush_report(void) {
     }
 }
 
-/** @brief Append stream bytes, sending a report whenever one is full. */
+/**
+ * @brief Append stream bytes, sending a report whenever one is full.
+ *
+ * @param data Stream bytes to append.
+ * @param n Number of bytes.
+ */
 static void stream_write(const uint8_t *data, size_t n) {
     while (n > 0 && !s_tx_failed) {
         size_t take = ULINK_REPORT_DATA - s_out_n;
@@ -126,19 +135,37 @@ static bool send_frame(uint8_t type, const void *payload, size_t len) {
     return !s_tx_failed;
 }
 
-/** @brief Send a JSON text frame. */
+/**
+ * @brief Send a JSON text frame.
+ *
+ * @param type Frame type to send.
+ * @param json JSON text.
+ * @return true if the frame was queued.
+ */
 static bool send_json(uint8_t type, const char *json) {
     return send_frame(type, json, strlen(json));
 }
 
-/** @brief Send an ERROR frame. */
+/**
+ * @brief Send an ERROR frame.
+ *
+ * @param code Short machine-readable error code.
+ * @param message Human-readable message.
+ */
 static void send_error(const char *code, const char *message) {
     char j[160];
     snprintf(j, sizeof(j), "{\"code\":\"%s\",\"message\":\"%s\"}", code, message);
     send_json(ULINK_ERROR, j);
 }
 
-/** @brief Answer a request that is refused before it reaches the API. */
+/**
+ * @brief Answer a request that is refused before it reaches the API.
+ *
+ * @param id Request id the refusal answers.
+ * @param status HTTP status to report.
+ * @param code Short machine-readable error code.
+ * @param message Human-readable message.
+ */
 static void send_refusal(int id, int status, const char *code, const char *message) {
     char head[96];
     char body[160];
@@ -161,7 +188,13 @@ static void req_close(void) {
     s_req.remaining = 0;
 }
 
-/** @brief Send all of a buffer on the request socket. */
+/**
+ * @brief Send all of a buffer on the request socket.
+ *
+ * @param data Bytes to send.
+ * @param n Number of bytes.
+ * @return true if everything was sent.
+ */
 static bool sock_send_all(const uint8_t *data, size_t n) {
     while (n > 0) {
         const int w = send(s_req.sock, data, n, 0);
@@ -243,13 +276,23 @@ static void relay_response(void) {
     req_close();
 }
 
-/** @brief Whether a method is one the API uses. */
+/**
+ * @brief Whether a method is one the API uses.
+ *
+ * @param m Method string.
+ * @return true if allowed.
+ */
 static bool method_ok(const char *m) {
     return strcmp(m, "GET") == 0 || strcmp(m, "POST") == 0 || strcmp(m, "PUT") == 0 || strcmp(m, "PATCH") == 0 ||
            strcmp(m, "DELETE") == 0;
 }
 
-/** @brief Whether a path is a plain API path without anything that could break the request line. */
+/**
+ * @brief Whether a path is a plain API path without anything that could break the request line.
+ *
+ * @param p Partition (or pointer) to describe.
+ * @return true if acceptable.
+ */
 static bool path_ok(const char *p) {
     if (strncmp(p, "/api/v1/", 8) != 0 || strlen(p) > PATH_MAX_LEN || strcmp(p, "/api/v1/ws") == 0) {
         return false;
@@ -279,7 +322,12 @@ static void reject_body(size_t body_len) {
     }
 }
 
-/** @brief Handle REQ_HEAD: open the loopback connection and send the request head. */
+/**
+ * @brief Handle REQ_HEAD: open the loopback connection and send the request head.
+ *
+ * @param payload REQ_HEAD payload (id, method, path, headers).
+ * @param len Payload length.
+ */
 static void on_req_head(const uint8_t *payload, size_t len) {
     req_close();
     char text[ULINK_MAX_PAYLOAD + 1];
@@ -351,7 +399,12 @@ static void on_req_head(const uint8_t *payload, size_t len) {
     }
 }
 
-/** @brief Handle REQ_BODY: forward the chunk, acknowledge it, answer when the body is complete. */
+/**
+ * @brief Handle REQ_BODY: forward the chunk, acknowledge it, answer when the body is complete.
+ *
+ * @param payload REQ_BODY payload (id, chunk).
+ * @param len Payload length.
+ */
 static void on_req_body(const uint8_t *payload, size_t len) {
     if (s_req.state == REQ_NONE) {
         send_error("no_request", "Body without a request");
@@ -383,7 +436,14 @@ static void on_req_body(const uint8_t *payload, size_t len) {
 
 /* ---- Frames from the host ------------------------------------------------------------------------ */
 
-/** @brief Handle one frame from the host. */
+/**
+ * @brief Handle one frame from the host.
+ *
+ * @param type Frame type (ULINK_*).
+ * @param payload Frame payload.
+ * @param len Payload length.
+ * @param ctx Unused.
+ */
 static void on_frame(uint8_t type, const uint8_t *payload, size_t len, void *ctx) {
     (void)ctx;
     s_last_host_ms = now_ms();
@@ -422,7 +482,11 @@ static void on_frame(uint8_t type, const uint8_t *payload, size_t len, void *ctx
 
 /* ---- Events to the host ------------------------------------------------------------------------- */
 
-/** @brief Whether the host is listening (it sent something recently). */
+/**
+ * @brief Whether the host is listening (it sent something recently).
+ *
+ * @return true if the host is listening.
+ */
 static bool host_present(void) {
     return s_last_host_ms != 0 && now_ms() - s_last_host_ms < HOST_TTL_MS;
 }
@@ -451,7 +515,11 @@ static void event_sink(const char *event, const char *data_json) {
     }
 }
 
-/** @brief Whether the web server should produce periodic events for the link. */
+/**
+ * @brief Whether the web server should produce periodic events for the link.
+ *
+ * @return true if events should be produced.
+ */
 static bool events_wanted(void) {
     return host_present() && wifi_ap_config_open();
 }
@@ -469,7 +537,12 @@ static void drain_events(void) {
 
 /* ---- Task ---------------------------------------------------------------------------------------- */
 
-/** @brief Receive hook called by usb_hid in the TinyUSB task for every OUT report. */
+/**
+ * @brief Receive hook called by usb_hid in the TinyUSB task for every OUT report.
+ *
+ * @param report The 64-byte OUT report (first byte = length of the stream data).
+ * @param len Report length.
+ */
 static void rx_report(const uint8_t *report, size_t len) {
     static unsigned seen;
     if (seen < 4) {
@@ -481,7 +554,11 @@ static void rx_report(const uint8_t *report, size_t len) {
     }
 }
 
-/** @brief The link task. */
+/**
+ * @brief The link task.
+ *
+ * @param arg Unused.
+ */
 static void link_task(void *arg) {
     (void)arg;
     uint8_t rep[ULINK_REPORT_SIZE];

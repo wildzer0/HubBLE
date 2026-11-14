@@ -42,17 +42,17 @@ extern "C" {
 
 /** Frame types. */
 typedef enum {
-    ULINK_REQ_HEAD = 0x01,
-    ULINK_REQ_BODY = 0x02,
-    ULINK_RES_HEAD = 0x11,
-    ULINK_RES_BODY = 0x12,
-    ULINK_RES_END = 0x13,
-    ULINK_EVENT = 0x21,
-    ULINK_LIVE = 0x31,
-    ULINK_ACK = 0x41,
-    ULINK_HELLO = 0x51,
-    ULINK_INFO = 0x52,
-    ULINK_ERROR = 0x7F,
+    ULINK_REQ_HEAD = 0x01, /**< Host -> dongle: method, path and headers of a request. */
+    ULINK_REQ_BODY = 0x02, /**< Host -> dongle: a chunk of the request body. */
+    ULINK_RES_HEAD = 0x11, /**< Dongle -> host: status and headers of the response. */
+    ULINK_RES_BODY = 0x12, /**< Dongle -> host: a chunk of the response body. */
+    ULINK_RES_END = 0x13,  /**< Dongle -> host: end of the response. */
+    ULINK_EVENT = 0x21,    /**< Dongle -> host: a WebSocket-equivalent event. */
+    ULINK_LIVE = 0x31,     /**< Host -> dongle: keep-alive holding the configuration window open. */
+    ULINK_ACK = 0x41,      /**< Flow-control acknowledgement. */
+    ULINK_HELLO = 0x51,    /**< Host -> dongle: handshake request. */
+    ULINK_INFO = 0x52,     /**< Dongle -> host: handshake answer (protocol, firmware, board). */
+    ULINK_ERROR = 0x7F,    /**< Either direction: protocol error, the link resets. */
 } ulink_type_t;
 
 /** Callback receiving a complete frame. */

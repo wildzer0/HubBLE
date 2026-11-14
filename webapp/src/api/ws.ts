@@ -80,6 +80,8 @@ export class HubbleSocket {
   private stopped = true;
 
   /**
+   * Create the socket wrapper; call `start()` to connect.
+   *
    * @param url WebSocket URL.
    * @param factory Socket factory (browser or mock).
    * @param onMessage Called for every valid server message.

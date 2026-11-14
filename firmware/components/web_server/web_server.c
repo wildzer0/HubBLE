@@ -64,7 +64,7 @@ static const char *TAG = "web";
 
 /** Socket fds subscribed to the input tester, and when each subscription expires (esp_timer us; 0 = free). */
 static int s_input_fd[MAX_WS_FDS];
-static int64_t s_input_until[MAX_WS_FDS];
+static int64_t s_input_until[MAX_WS_FDS]; /**< Expiry per subscription, parallel to `s_input_fd`. */
 /** Latest expiry over all subscriptions: lets the hot path ask "is anybody listening?" with one compare. */
 static volatile int64_t s_input_any_until;
 /** Protects the three variables above (tiny critical sections, no blocking calls inside). */
@@ -100,8 +100,8 @@ static const char *mime_for(const char *path) {
         return "application/octet-stream";
     }
     static const struct {
-        const char *ext;
-        const char *mime;
+        const char *ext;  /**< File extension including the dot. */
+        const char *mime; /**< Content-Type to send. */
     } table[] = {
         {".html", "text/html; charset=utf-8"},
         {".js", "text/javascript; charset=utf-8"},
@@ -375,7 +375,11 @@ void web_server_broadcast_input(const char *data_json) {
     send_event("input.event", data_json, true);
 }
 
-/** @brief Whether at least one WebSocket client is connected. */
+/**
+ * @brief Whether at least one WebSocket client is connected.
+ *
+ * @return true if one is connected.
+ */
 static bool any_ws_client(void) {
     if (s_event_wanted != NULL && s_event_wanted()) {
         return true; /* The USB link wants the periodic status and log events too. */

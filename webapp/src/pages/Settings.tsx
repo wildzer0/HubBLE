@@ -29,8 +29,8 @@ const MS_PER_S = 1000;
 /**
  * Render the settings page.
  *
- * @param props.locale Active language.
- * @param props.onLocale Language change callback.
+ * - `locale`: Active language.
+ * - `onLocale`: Language change callback.
  * @returns The page element.
  */
 export function Settings({ locale, onLocale }: { locale: Locale; onLocale: (l: Locale) => void }) {

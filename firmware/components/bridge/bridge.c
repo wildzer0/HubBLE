@@ -63,7 +63,7 @@ typedef struct {
 #define POWER_TASK_PRIO  5
 
 static void (*s_on_changed)(int slot);
-static TaskHandle_t s_power_task;
+static TaskHandle_t s_power_task; /**< Task that applies BLE connection profile changes on suspend/resume. */
 /** Poll period of the filter task while an element waits for its hold time, ms. */
 #define FILTER_TICK_MS 5
 /** Stack and priority of the filter task (it only moves a few bytes around). */
@@ -88,10 +88,11 @@ static TaskHandle_t s_filter_task;                   /**< Ticks the filters whil
 
 /** Last buttons byte of each pointing device (for the keyboard-less gesture); written by the BLE host task. */
 static volatile uint8_t s_mouse_buttons[BLE_CENTRAL_MAX_DEVICES];
+/** Current power mode as last told by the USB layer; read by the BLE host task, written by the USB callbacks. */
 static volatile power_mode_t s_power_mode = POWER_ACTIVE;
 static bool (*s_tap_active)(void);
 static void (*s_tap_emit)(const char *json);
-static QueueHandle_t s_tap_queue;
+static QueueHandle_t s_tap_queue; /**< Input-tester events waiting to be sent to the web app (drop when full). */
 
 /**
  * @brief Compose the keyboard report of a source from its filter. Caller holds s_filter_mu.
@@ -115,7 +116,12 @@ static void filter_compose_keyboard(unsigned slot, uint8_t *mods, uint8_t keys[H
     }
 }
 
-/** @brief Compose the mouse-button byte of a source from its filter. Caller holds s_filter_mu. */
+/**
+ * @brief Compose the mouse-button byte of a source from its filter. Caller holds s_filter_mu.
+ *
+ * @param slot Source slot of the pointing device.
+ * @return The mouse-button byte (bit per button).
+ */
 static uint8_t filter_compose_buttons(unsigned slot) {
     uint8_t ids[INPUT_FILTER_MAX];
     const size_t n = input_filter_active(&s_bf[slot], ids, sizeof(ids));

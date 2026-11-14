@@ -129,10 +129,18 @@ bool settings_get_prerelease_channel(void);
  */
 esp_err_t settings_set_prerelease_channel(bool prerelease);
 
-/** @brief AP boot window in seconds (stored value or the default). */
+/**
+ * @brief AP boot window in seconds (stored value or the default).
+ *
+ * @return Seconds.
+ */
 uint32_t settings_get_boot_window_s(void);
 
-/** @brief AP idle timeout in seconds (stored value or the default). */
+/**
+ * @brief AP idle timeout in seconds (stored value or the default).
+ *
+ * @return Seconds.
+ */
 uint32_t settings_get_idle_timeout_s(void);
 
 /** Shortest accepted AP window (boot window / idle timeout), seconds. */
@@ -171,7 +179,11 @@ esp_err_t settings_set_idle_timeout_s(uint32_t seconds);
  */
 uint32_t settings_boot_failures_increment(void);
 
-/** @brief Current boot-failure counter. */
+/**
+ * @brief Current boot-failure counter.
+ *
+ * @return Number of consecutive failed boots.
+ */
 uint32_t settings_boot_failures(void);
 
 /** @brief Reset the boot-failure counter to zero (self-test passed or new image installed). */
@@ -206,6 +218,8 @@ void settings_get_ota_result(char *out, size_t cap);
  * iPhones and PCs, but Android then keeps its browser on mobile data (the Wi-Fi is not "validated": it cannot answer
  * the HTTPS probe) and cannot reach 192.168.4.1 unless mobile data is off. Until the setup wizard is done the popup is
  * always on.
+ *
+ * @return true if the captive portal pops up the web app.
  */
 bool settings_get_portal_auto(void);
 /** @brief Store the captive-portal popup flag. @param enabled New value. @return ESP_OK or an NVS error. */
@@ -219,42 +233,72 @@ esp_err_t settings_set_portal_auto(bool enabled);
 /**
  * @brief Whether the dongle presents the USB configuration interface (WebHID) after the next restart. Default false:
  * the USB descriptor then has the two interfaces the dongle has always had.
+ *
+ * @return true if the USB configuration interface is enabled.
  */
 bool settings_get_usb_link(void);
 /** @brief Store the USB configuration switch. @param enabled New value. @return ESP_OK or an NVS error. */
 esp_err_t settings_set_usb_link(bool enabled);
 
-/** @brief Whether the typing filter (bounce keys / slow keys) is on. Default false. */
+/**
+ * @brief Whether the typing filter (bounce keys / slow keys) is on. Default false.
+ *
+ * @return true if the filter is on.
+ */
 bool settings_get_filter_enabled(void);
 /** @brief Store the typing-filter switch. @param enabled New value. @return ESP_OK or an NVS error. */
 esp_err_t settings_set_filter_enabled(bool enabled);
-/** @brief Bounce window in ms: a key or button pressed again this soon after its release is ignored (0 = off). */
+/**
+ * @brief Bounce window in ms: a key or button pressed again this soon after its release is ignored (0 = off).
+ *
+ * @return Milliseconds (0 = off).
+ */
 uint32_t settings_get_filter_bounce_ms(void);
 /** @brief Store the bounce window. @param ms 0..SETTINGS_FILTER_BOUNCE_MAX_MS. @return ESP_OK, ESP_ERR_INVALID_ARG or
  * an NVS error. */
 esp_err_t settings_set_filter_bounce_ms(uint32_t ms);
-/** @brief Hold time in ms: a key or button counts only after being held this long (0 = off). */
+/**
+ * @brief Hold time in ms: a key or button counts only after being held this long (0 = off).
+ *
+ * @return Milliseconds (0 = off).
+ */
 uint32_t settings_get_filter_hold_ms(void);
 /** @brief Store the hold time. @param ms 0..SETTINGS_FILTER_HOLD_MAX_MS. @return ESP_OK, ESP_ERR_INVALID_ARG or an NVS
  * error. */
 esp_err_t settings_set_filter_hold_ms(uint32_t ms);
 
-/** @brief Whether a peripheral event may wake the suspended host (default true, CLAUDE.md §3.9). */
+/**
+ * @brief Whether a peripheral event may wake the suspended host (default true, CLAUDE.md §3.9).
+ *
+ * @return true if wake-up is allowed.
+ */
 bool settings_get_remote_wakeup(void);
 /** @brief Store the remote-wakeup setting. @param enabled New value. @return ESP_OK or an NVS error. */
 esp_err_t settings_set_remote_wakeup(bool enabled);
 
-/** @brief LED brightness in percent (0 = LED off). */
+/**
+ * @brief LED brightness in percent (0 = LED off).
+ *
+ * @return Percent, 0..100.
+ */
 uint8_t settings_get_led_brightness(void);
 /** @brief Store the LED brightness. @param percent 0..100. @return ESP_OK, ESP_ERR_INVALID_ARG or an NVS error. */
 esp_err_t settings_set_led_brightness(uint32_t percent);
 
-/** @brief Whether the LED shows dim green while a device is connected (default false). */
+/**
+ * @brief Whether the LED shows dim green while a device is connected (default false).
+ *
+ * @return true if the status LED is on.
+ */
 bool settings_get_status_led(void);
 /** @brief Store the status-LED setting. @param enabled New value. @return ESP_OK or an NVS error. */
 esp_err_t settings_set_status_led(bool enabled);
 
-/** @brief Hold time of the Ctrl+Alt gesture in ms. Applied at the next boot. */
+/**
+ * @brief Hold time of the Ctrl+Alt gesture in ms. Applied at the next boot.
+ *
+ * @return Milliseconds.
+ */
 uint32_t settings_get_shift_hold_ms(void);
 /** @brief Store the gesture hold time. @param ms 1000..10000. @return ESP_OK, ESP_ERR_INVALID_ARG or an NVS error. */
 esp_err_t settings_set_shift_hold_ms(uint32_t ms);

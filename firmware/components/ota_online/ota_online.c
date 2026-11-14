@@ -112,7 +112,11 @@ static void set_detail(const char *what) {
     portEXIT_CRITICAL(&s_lock);
 }
 
-/** @brief Fail the operation: leave the station network, release the AP hold, publish the error. */
+/**
+ * @brief Fail the operation: leave the station network, release the AP hold, publish the error.
+ *
+ * @param err Failure kind.
+ */
 static void finish_error(ou_error_t err) {
     ESP_LOGW(TAG, "failed: %s", ota_online_error_name(err));
     wifi_ap_sta_disconnect();
@@ -295,6 +299,8 @@ static void use_station_dns(void) {
  * @param host Name to resolve.
  * @param[out] out Receives the address text or the failure.
  * @return true if it resolved to an address that is not the dongle's own.
+ *
+ * @param cap Capacity of @p out.
  */
 static bool resolve_check(const char *host, char *out, size_t cap) {
     struct addrinfo hints = {.ai_family = AF_INET, .ai_socktype = SOCK_STREAM};
@@ -438,7 +444,12 @@ esp_err_t ota_online_check(bool prerelease) {
     return ESP_OK;
 }
 
-/** @brief Hex-encode a SHA-256 digest (lower case). */
+/**
+ * @brief Hex-encode a SHA-256 digest (lower case).
+ *
+ * @param d 32-byte digest.
+ * @param out Receives 64 hex characters and a NUL.
+ */
 static void to_hex(const uint8_t d[32], char out[65]) {
     static const char H[] = "0123456789abcdef";
     for (int i = 0; i < 32; i++) {

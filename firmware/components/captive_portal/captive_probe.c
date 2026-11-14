@@ -10,8 +10,8 @@
 
 /** Probe path -> kind. The hosts differ (gstatic, apple, msft...) but the paths are distinctive enough. */
 static const struct {
-    const char *path;
-    captive_probe_t kind;
+    const char *path;     /**< Request path of the probe. */
+    captive_probe_t kind; /**< Platform the probe belongs to. */
 } PROBES[] = {
     {"/generate_204", CAPTIVE_PROBE_ANDROID},       {"/gen_204", CAPTIVE_PROBE_ANDROID},
     {"/hotspot-detect.html", CAPTIVE_PROBE_APPLE},  {"/library/test/success.html", CAPTIVE_PROBE_APPLE},

@@ -73,12 +73,24 @@ bool semver_parse(const char *text, semver_t *out) {
     return true;
 }
 
-/** @brief Three-way compare of unsigned integers. */
+/**
+ * @brief Three-way compare of unsigned integers.
+ *
+ * @param a Left value.
+ * @param b Right value.
+ * @return -1, 0 or 1.
+ */
 static int cmp_u32(uint32_t a, uint32_t b) {
     return (a > b) - (a < b);
 }
 
-/** @brief true if the identifier [s, s+len) is purely numeric. */
+/**
+ * @brief true if the identifier [s, s+len) is purely numeric.
+ *
+ * @param s Identifier start.
+ * @param len Identifier length.
+ * @return true if every character is a digit.
+ */
 static bool is_numeric(const char *s, size_t len) {
     for (size_t i = 0; i < len; i++) {
         if (!isdigit((unsigned char)s[i])) {
@@ -93,6 +105,10 @@ static bool is_numeric(const char *s, size_t len) {
  *
  * Numeric identifiers compare numerically and rank below alphanumeric ones;
  * a longer set of identifiers wins when all preceding ones are equal.
+ *
+ * @param a Left pre-release string.
+ * @param b Right pre-release string.
+ * @return Negative, zero or positive like strcmp().
  */
 static int cmp_prerelease(const char *a, const char *b) {
     while (*a != '\0' && *b != '\0') {

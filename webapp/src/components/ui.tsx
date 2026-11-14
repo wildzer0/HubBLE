@@ -41,7 +41,7 @@ const PATHS: Record<IconName, string> = {
 /**
  * Decorative icon (hidden from assistive technology; always next to a text label).
  *
- * @param props.name Icon to draw.
+ * - `name`: Icon to draw.
  * @returns The SVG element.
  */
 export function Icon({ name }: { name: IconName }) {
@@ -65,10 +65,10 @@ export function Icon({ name }: { name: IconName }) {
 /**
  * A setting toggled by a switch, with an optional explanation under the label.
  *
- * @param props.label Setting name.
- * @param props.hint Optional explanation.
- * @param props.checked Current value.
- * @param props.onChange Called with the new value.
+ * - `label`: Setting name.
+ * - `hint`: Optional explanation.
+ * - `checked`: Current value.
+ * - `onChange`: Called with the new value.
  * @returns The row element.
  */
 export function SwitchRow({
@@ -104,15 +104,15 @@ export function SwitchRow({
 /**
  * A number input with a unit shown inside the field and an optional explanation.
  *
- * @param props.label Field name.
- * @param props.unit Unit text (for example "s").
- * @param props.value Current value.
- * @param props.min Lowest allowed value.
- * @param props.max Highest allowed value.
- * @param props.step Step of the input (default 1).
- * @param props.hint Optional explanation.
- * @param props.id Element id (used by tests and labels).
- * @param props.onChange Called with the typed number (NaN when empty).
+ * - `label`: Field name.
+ * - `unit`: Unit text (for example "s").
+ * - `value`: Current value.
+ * - `min`: Lowest allowed value.
+ * - `max`: Highest allowed value.
+ * - `step`: Step of the input (default 1).
+ * - `hint`: Optional explanation.
+ * - `id`: Element id (used by tests and labels).
+ * - `onChange`: Called with the typed number (NaN when empty).
  * @returns The field element.
  */
 export function NumberField({
@@ -165,9 +165,9 @@ export function NumberField({
 /**
  * Message box.
  *
- * @param props.kind Colour: info (default), ok, warn or bad.
- * @param props.role ARIA role (`alert` for errors, `status` for results).
- * @param props.children Content.
+ * - `kind`: Colour: info (default), ok, warn or bad.
+ * - `role`: ARIA role (`alert` for errors, `status` for results).
+ * - `children`: Content.
  * @returns The box element.
  */
 export function Alert({
@@ -191,8 +191,8 @@ export function Alert({
 /**
  * Coloured status pill.
  *
- * @param props.tone ok, warn, bad or off.
- * @param props.children Text.
+ * - `tone`: ok, warn, bad or off.
+ * - `children`: Text.
  * @returns The pill element.
  */
 export function Pill({
@@ -222,8 +222,8 @@ export const SECURITY_TONE: Record<SecurityLevel, 'ok' | 'warn' | 'bad' | 'off'>
 /**
  * Signal strength drawn as four bars.
  *
- * @param props.rssi Signal in dBm.
- * @param props.label Accessible name ("Signal strength").
+ * - `rssi`: Signal in dBm.
+ * - `label`: Accessible name ("Signal strength").
  * @returns The bars element.
  */
 export function SignalBars({ rssi, label }: { rssi: number; label: string }) {

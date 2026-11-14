@@ -8,9 +8,9 @@ import { useT } from '../i18n/context';
 /**
  * Two-step button.
  *
- * @param props.label Button text.
- * @param props.onConfirm Called after the user confirms.
- * @param props.danger Draw the button in the "danger" colour (default true).
+ * - `label`: Button text.
+ * - `onConfirm`: Called after the user confirms.
+ * - `danger`: Draw the button in the "danger" colour (default true).
  * @returns The control element.
  */
 export function ConfirmButton({

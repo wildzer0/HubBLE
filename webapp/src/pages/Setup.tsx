@@ -17,8 +17,8 @@ const DONGLE_URL = 'http://192.168.4.1'; // an IP works on every phone; .local d
 /**
  * Printable sticker with both QR codes.
  *
- * @param props.ssid Access point name.
- * @param props.password The password just chosen.
+ * - `ssid`: Access point name.
+ * - `password`: The password just chosen.
  * @returns The sticker element.
  */
 function Sticker({ ssid, password }: { ssid: string; password: string }) {

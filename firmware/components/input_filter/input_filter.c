@@ -15,7 +15,13 @@ void input_filter_init(input_filter_t *f, uint32_t bounce_ms, uint32_t hold_ms) 
     f->hold_ms = hold_ms;
 }
 
-/** @brief Find the tracked entry of an element, or NULL. */
+/**
+ * @brief Find the tracked entry of an element, or NULL.
+ *
+ * @param f Filter state.
+ * @param id Element id (key usage or button bit).
+ * @return The entry, or NULL.
+ */
 static input_filter_entry_t *find(input_filter_t *f, uint8_t id) {
     for (size_t i = 0; i < INPUT_FILTER_MAX; i++) {
         if (f->e[i].state != IF_FREE && f->e[i].id == id) {
@@ -25,7 +31,12 @@ static input_filter_entry_t *find(input_filter_t *f, uint8_t id) {
     return NULL;
 }
 
-/** @brief A free entry; an old RELEASED one is recycled when the table is full. NULL if none. */
+/**
+ * @brief A free entry; an old RELEASED one is recycled when the table is full. NULL if none.
+ *
+ * @param f Filter state.
+ * @return A free entry, or NULL.
+ */
 static input_filter_entry_t *allocate(input_filter_t *f) {
     input_filter_entry_t *oldest = NULL;
     for (size_t i = 0; i < INPUT_FILTER_MAX; i++) {
@@ -39,7 +50,12 @@ static input_filter_entry_t *allocate(input_filter_t *f) {
     return oldest;
 }
 
-/** @brief Promote pending elements whose hold time has elapsed and drop expired releases. */
+/**
+ * @brief Promote pending elements whose hold time has elapsed and drop expired releases.
+ *
+ * @param f Filter state.
+ * @param now_ms Current time in ms.
+ */
 static void advance(input_filter_t *f, uint32_t now_ms) {
     for (size_t i = 0; i < INPUT_FILTER_MAX; i++) {
         input_filter_entry_t *e = &f->e[i];

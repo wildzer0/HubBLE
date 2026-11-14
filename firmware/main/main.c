@@ -110,15 +110,35 @@ static void on_ota_online_changed(void) {
 static bool check_settings(void) {
     return settings_is_ready();
 }
+/**
+ * Self-test: the Wi-Fi AP driver was initialised.
+ *
+ * @return true if healthy.
+ */
 static bool check_wifi(void) {
     return wifi_ap_is_initialized();
 }
+/**
+ * Self-test: the HTTP server is running.
+ *
+ * @return true if healthy.
+ */
 static bool check_web(void) {
     return web_server_is_running();
 }
+/**
+ * Self-test: the NimBLE host stack has synchronised with the controller.
+ *
+ * @return true if healthy.
+ */
 static bool check_ble(void) {
     return ble_central_is_ready();
 }
+/**
+ * Self-test: the USB HID driver is installed and its report task runs.
+ *
+ * @return true if healthy.
+ */
 static bool check_usb(void) {
     /* Driver installed and report task running; whether a host is attached is not a firmware fault. */
     return usb_hid_is_initialized();

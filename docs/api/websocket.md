@@ -21,8 +21,15 @@ Every message is `{ "event": "<name>", "data": <payload> }`.
 | `system.status` | every 1 s while a client is connected | `{ "uptime_s": 1234, "heap_free": 142000, "ap_timeout_s": 120 \| null }` |
 | `log.line` | every 1 s when new log text exists | `{ "text": "I (1234) web: ...\n" }` (complete lines, may contain several) |
 | `ota.progress` | during an upload, about every 2 % | `{ "received": 100000, "total": 870000 }` |
+| `ota.state` | on every state change of the online update | the `online` object, see [Online updates](#online-updates-m6) |
+| `device.updated`, `device.removed` | when a device changes | see [Device events](#device-events-m3) |
+| `pairing.state`, `pairing.passkey`, `pairing.challenge`, `pairing.result` | during a pairing | see [Device events](#device-events-m3) |
+| `input.event` | only while the input tester is subscribed | see [Input tester](#input-tester-m5) |
 
-Planned for later milestones: `ap.timeout` (see `CLAUDE.md` §4.2).
+`CLAUDE.md` §4.2 also lists an `ap.timeout` event. It does not exist as a separate message: the remaining time of the
+access point is the `ap_timeout_s` field of `system.status` (`null` when no countdown runs).
+
+Client → server messages are `hello`, `input.subscribe` and `input.unsubscribe`. Anything else is ignored.
 
 ## Limits
 

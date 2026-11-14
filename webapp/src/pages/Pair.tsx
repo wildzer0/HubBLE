@@ -44,7 +44,7 @@ function failureText(t: TFunction, reason: PairFailure | undefined): string {
 /**
  * Challenge display: the click sequence (with progress) or the code to type.
  *
- * @param props.p Pairing status with a challenge.
+ * - `p`: Pairing status with a challenge.
  * @returns The challenge element.
  */
 function Challenge({ p }: { p: Pairing }) {

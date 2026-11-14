@@ -23,7 +23,7 @@ const NAME_MAX = 31;
 /**
  * Tiny line chart of the battery history of this session.
  *
- * @param props.samples Battery percentages, oldest first.
+ * - `samples`: Battery percentages, oldest first.
  * @returns An SVG, or null with fewer than two samples.
  */
 function BatteryChart({ samples }: { samples: number[] }) {
@@ -49,7 +49,7 @@ function BatteryChart({ samples }: { samples: number[] }) {
 /**
  * Render the device detail page.
  *
- * @param props.id Device id from the route.
+ * - `id`: Device id from the route.
  * @returns The page element.
  */
 export function DeviceDetail({ id }: { id: string }) {

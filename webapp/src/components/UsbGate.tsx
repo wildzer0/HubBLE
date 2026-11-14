@@ -15,7 +15,7 @@ type Problem = 'unsupported' | 'none' | 'closed' | 'failed' | null;
 /**
  * Render the gate.
  *
- * @param props.onConnected Called with the connected link once the dongle answered and its window is open.
+ * - `onConnected`: Called with the connected link once the dongle answered and its window is open.
  * @returns The screen element.
  */
 export function UsbGate({ onConnected }: { onConnected: (link: UsbLink) => void }) {

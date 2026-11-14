@@ -53,17 +53,17 @@ typedef struct {
     uint32_t last_percent;                      /**< Last percentage reported. */
 } session_t;
 
-static session_t s_sess;
+static session_t s_sess; /**< The one open upload session (valid while `s_busy`). */
 /** true while a session is open. */
 static atomic_bool s_busy;
-static ota_progress_cb_t s_progress_cb;
+static ota_progress_cb_t s_progress_cb; /**< Optional progress observer (e.g. the WebSocket broadcaster). */
 
 /** Registered self-test checks. */
 static struct {
-    const char *name;
-    ota_check_fn_t fn;
+    const char *name;  /**< Check name, used in the log. */
+    ota_check_fn_t fn; /**< Check function; must return true when the subsystem is healthy. */
 } s_checks[OTA_SELFTEST_MAX_CHECKS];
-static size_t s_check_count;
+static size_t s_check_count; /**< Number of entries used in `s_checks`. */
 
 /** @copydoc ota_result_text */
 const char *ota_result_text(ota_result_t r) {
@@ -93,6 +93,10 @@ void ota_set_progress_cb(ota_progress_cb_t cb) {
 
 /**
  * @brief Copy the version of the image in @p p into @p out (empty if unreadable).
+ *
+ * @param p Partition holding an app image.
+ * @param out Receives the version string (empty if unreadable).
+ * @param cap Capacity of @p out.
  */
 static void partition_version(const esp_partition_t *p, char *out, size_t cap) {
     esp_app_desc_t desc;
@@ -141,7 +145,11 @@ void ota_boot_check(void) {
     }
 }
 
-/** @brief Report progress if the percentage advanced enough. */
+/**
+ * @brief Report progress if the percentage advanced enough.
+ *
+ * @param force Report even if the percentage did not advance enough.
+ */
 static void report_progress(bool force) {
     if (s_progress_cb == NULL || s_sess.total == 0) {
         return;
@@ -235,7 +243,12 @@ ota_result_t ota_session_write(const uint8_t *data, size_t len) {
     return OTA_OK;
 }
 
-/** @brief Abort and persist a failure text. */
+/**
+ * @brief Abort and persist a failure text.
+ *
+ * @param r Failure to record.
+ * @return @p r, so callers can `return fail(...)`.
+ */
 static ota_result_t fail(ota_result_t r) {
     char text[SETTINGS_OTA_RESULT_MAX];
     snprintf(text, sizeof(text), "install failed: %s", ota_result_text(r));

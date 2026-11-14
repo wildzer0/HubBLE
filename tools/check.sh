@@ -11,6 +11,10 @@ cd "$root"
 echo "== clang-format =="
 find firmware/main firmware/components firmware/test/unit -name '*.[ch]' -print0 | xargs -0 clang-format --dry-run -Werror
 
+echo "== firmware API documentation (Doxygen-style) =="
+python3 tools/check_docs.py
+python3 tools/check_openapi.py
+
 echo "== markdownlint =="
 npx --yes markdownlint-cli2@0.18.1 "**/*.md" >/dev/null
 
@@ -34,6 +38,7 @@ echo "== web app =="
     npm run lint
     npm run format:check
     npm run test:coverage
+    npm run docs
     npm run build
     npm run size
     if [ "$mode" = full ]; then npm run e2e; fi

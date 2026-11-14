@@ -23,6 +23,8 @@ import type {
 /** Error thrown for non-2xx API responses. */
 export class ApiError extends Error {
   /**
+   * Build an error from a failed response.
+   *
    * @param status HTTP status code.
    * @param code Machine readable error code from the response body.
    * @param message Human readable message.

@@ -70,7 +70,13 @@ void ulink_pack_report(uint8_t out[ULINK_REPORT_SIZE], const uint8_t *data, size
     }
 }
 
-/** @brief Case-insensitive prefix test. */
+/**
+ * @brief Case-insensitive prefix test.
+ *
+ * @param s String to test.
+ * @param prefix Lower-case prefix.
+ * @return true if @p s starts with @p prefix.
+ */
 static bool starts_with_ci(const char *s, const char *prefix) {
     while (*prefix != '\0') {
         if (tolower((unsigned char)*s) != tolower((unsigned char)*prefix)) {

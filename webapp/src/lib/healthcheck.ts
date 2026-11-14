@@ -24,11 +24,13 @@ export interface Check {
 export const LATENCY_LIMIT_US = 15000;
 /** Connection interval above which a device is flagged, ms. */
 export const INTERVAL_LIMIT_MS = 15;
-/** Free internal RAM below which memory is flagged / critical, bytes. */
+/** Free internal RAM below which the memory check is flagged, bytes. */
 export const HEAP_WARN_BYTES = 60 * 1024;
+/** Free-RAM threshold below which the memory check is critical, bytes. */
 export const HEAP_BAD_BYTES = 30 * 1024;
-/** Chip temperature above which it is flagged / critical, Celsius. */
+/** Chip temperature above which the check is flagged, Celsius. */
 export const TEMP_WARN_C = 75;
+/** Chip temperature above which the check is critical, Celsius. */
 export const TEMP_BAD_C = 85;
 /** Bytes per KiB. */
 const KIB = 1024;

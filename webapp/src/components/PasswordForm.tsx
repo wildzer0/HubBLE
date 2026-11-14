@@ -12,7 +12,7 @@ import { passwordProblem } from '../lib/password';
 /**
  * Render the password form.
  *
- * @param props.onSaved Called with the new password after the dongle accepted it.
+ * - `onSaved`: Called with the new password after the dongle accepted it.
  * @returns The form element.
  */
 export function PasswordForm({ onSaved }: { onSaved?: (password: string) => void }) {

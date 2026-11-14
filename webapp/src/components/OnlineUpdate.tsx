@@ -16,8 +16,8 @@ const ACTIVE = ['connecting', 'checking', 'confirm', 'downloading', 'installed']
 /**
  * Render the online update controls.
  *
- * @param props.online State from `GET /ota/status`.
- * @param props.refresh Reload the status now.
+ * - `online`: State from `GET /ota/status`.
+ * - `refresh`: Reload the status now.
  * @returns The section element.
  */
 export function OnlineUpdateSection({

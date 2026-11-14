@@ -18,7 +18,10 @@ const REFRESH_MS = 3000;
  *
  * @returns The current {@link ApiState} of the list.
  */
-export function useDevices(): ApiState<DeviceList> & { reload: () => void } {
+export function useDevices(): ApiState<DeviceList> & {
+  /** Reload the list now. */
+  reload: () => void;
+} {
   const state = useApi(getDevices, REFRESH_MS);
   useEffect(
     () =>

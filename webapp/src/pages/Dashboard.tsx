@@ -21,7 +21,7 @@ const REFRESH_MS = 5000;
 /**
  * One device card; the whole card opens the detail page.
  *
- * @param props.device The device.
+ * - `device`: The device.
  * @returns The list item.
  */
 function DeviceCard({ device: d }: { device: Device }) {

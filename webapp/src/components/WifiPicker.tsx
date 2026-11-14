@@ -27,8 +27,8 @@ type Mode =
 /**
  * Render the network picker.
  *
- * @param props.configured Whether credentials are saved.
- * @param props.onChanged Called with the new "configured" flag after a save or forget.
+ * - `configured`: Whether credentials are saved.
+ * - `onChanged`: Called with the new "configured" flag after a save or forget.
  * @returns The section element.
  */
 export function WifiPicker({

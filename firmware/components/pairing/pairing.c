@@ -276,8 +276,8 @@ void pairing_input_buttons(pairing_t *p, uint32_t now_ms, uint8_t buttons) {
     uint8_t pressed = (uint8_t)(buttons & ~p->challenge.prev_buttons); /* rising edges only */
     p->challenge.prev_buttons = buttons;
     static const struct {
-        uint8_t bit;
-        char ch;
+        uint8_t bit; /**< Mouse button bit (BTN_*). */
+        char ch;     /**< Letter shown in the challenge for that button. */
     } MAP[] = {{BTN_LEFT, 'L'}, {BTN_RIGHT, 'R'}, {BTN_MIDDLE, 'M'}};
     for (unsigned i = 0; i < sizeof(MAP) / sizeof(MAP[0]) && p->state == PAIR_QUARANTINE; i++) {
         if (pressed & MAP[i].bit) {

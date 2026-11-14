@@ -10,7 +10,7 @@ import { Pill, SECURITY_TONE } from './ui';
 /**
  * Render the badge.
  *
- * @param props.level Security level.
+ * - `level`: Security level.
  * @returns The badge element.
  */
 export function SecurityBadge({ level }: { level: SecurityLevel }) {

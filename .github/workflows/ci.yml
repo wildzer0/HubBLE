@@ -44,6 +44,10 @@ jobs:
             firmware/components/captive_portal/dns_reply.c firmware/components/settings/settings_model.c \
             firmware/components/api/http_guard.c firmware/components/hid_report/hid_report.c firmware/components/hid_parser/hid_parser.c firmware/components/hid_normalizer/hid_normalizer.c firmware/components/combo/combo.c firmware/components/lat_stats/lat_stats.c firmware/components/pairing/pairing.c firmware/components/ota/board_marker.c \
             firmware/components/ota/boot_guard.c firmware/components/ota_manifest/ota_manifest.c firmware/components/power/power_policy.c firmware/components/led/led_pattern.c firmware/components/input_filter/input_filter.c firmware/components/usb_link/ulink_proto.c firmware/components/captive_portal/captive_probe.c
+      - name: Firmware API documentation
+        run: python3 tools/check_docs.py
+      - name: OpenAPI matches the firmware routes
+        run: pip install --quiet pyyaml && python3 tools/check_openapi.py
       - name: markdownlint
         run: npx --yes markdownlint-cli2@0.18.1 "**/*.md"
       - name: actionlint

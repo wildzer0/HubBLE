@@ -29,6 +29,7 @@ nav:
   - Release process: release-process.md
   - Troubleshooting: troubleshooting.md
   - API:
+      - Overview: api/index.md
       - WebSocket: api/websocket.md
       - USB link: api/usb-link.md
   - ADRs:

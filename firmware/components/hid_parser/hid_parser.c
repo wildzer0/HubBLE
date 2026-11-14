@@ -49,22 +49,22 @@
 
 /** Global item state (the part saved by Push / restored by Pop). */
 typedef struct {
-    uint16_t usage_page;
-    int32_t logical_min;
-    int32_t logical_max;
-    uint8_t report_size;
-    uint16_t report_count;
-    uint8_t report_id;
+    uint16_t usage_page;   /**< Current Usage Page (global item 0x05). */
+    int32_t logical_min;   /**< Logical Minimum (0x15), sign-extended. */
+    int32_t logical_max;   /**< Logical Maximum (0x25), sign-extended as logical_min dictates. */
+    uint8_t report_size;   /**< Report Size in bits (0x75). */
+    uint16_t report_count; /**< Report Count (0x95): number of fields of that size. */
+    uint8_t report_id;     /**< Report ID (0x85); 0 = the map uses no report IDs. */
 } globals_t;
 
 /** Local item state, reset after every main item (HID 1.11 §6.2.2.8). */
 typedef struct {
-    uint16_t usages[HID_PARSER_MAX_USAGES];
-    uint8_t usage_count;
-    bool has_range;
-    uint16_t usage_min;
-    uint16_t usage_max;
-    bool usage_overflow; /* more usages than we can store: later elements fall back to the last stored one */
+    uint16_t usages[HID_PARSER_MAX_USAGES]; /**< Usages listed one by one (local item 0x09). */
+    uint8_t usage_count;                    /**< Number of valid entries in `usages`. */
+    bool has_range;                         /**< A Usage Minimum/Maximum pair is in effect. */
+    uint16_t usage_min;                     /**< Usage Minimum (0x19). */
+    uint16_t usage_max;                     /**< Usage Maximum (0x29). */
+    bool usage_overflow;                    /**< More usages than we can store: later elements reuse the last one. */
 } locals_t;
 
 /**

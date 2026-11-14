@@ -12,30 +12,45 @@ import type { SocketLike } from './ws';
 
 /** Vendor and usage the dongle's configuration interface is found by (see usb_hid.c). */
 export const LINK_VENDOR_ID = 0x303a;
+/** Vendor-defined HID usage page of the configuration interface. */
 export const LINK_USAGE_PAGE = 0xff00;
+/** Usage within {@link LINK_USAGE_PAGE}. */
 export const LINK_USAGE = 0x0001;
 
 /** Size of one report, and the stream bytes it carries. */
 export const REPORT_SIZE = 64;
+/** Stream bytes per report: the first byte of a report is its length. */
 export const REPORT_DATA = REPORT_SIZE - 1;
 /** Largest frame payload, and the body chunk the host sends per frame. */
 export const MAX_PAYLOAD = 1100;
+/** Request body bytes sent per `REQ_BODY` frame. */
 export const BODY_CHUNK = 1024;
 /** Protocol version. */
 export const PROTO = 1;
 
 /** Frame types (same numbers as the firmware). */
 export const T = {
+  /** Host → dongle: HTTP method, path and headers of a request. */
   REQ_HEAD: 0x01,
+  /** Host → dongle: a chunk of the request body. */
   REQ_BODY: 0x02,
+  /** Dongle → host: status line and headers of the response. */
   RES_HEAD: 0x11,
+  /** Dongle → host: a chunk of the response body. */
   RES_BODY: 0x12,
+  /** Dongle → host: end of the response. */
   RES_END: 0x13,
+  /** Dongle → host: a WebSocket-equivalent event. */
   EVENT: 0x21,
+  /** Host → dongle: keep-alive that holds the configuration window open. */
   LIVE: 0x31,
+  /** Flow-control acknowledgement of received frames. */
   ACK: 0x41,
+  /** Host → dongle: handshake request. */
   HELLO: 0x51,
+  /** Dongle → host: handshake answer (see {@link LinkInfo}). */
   INFO: 0x52,
+  /** Either direction: protocol error, the link is reset. */
   ERROR: 0x7f,
 } as const;
 
@@ -135,7 +150,9 @@ export class FrameParser {
 export interface HidLike {
   /** Opened. */
   opened: boolean;
+  /** Open the device. */
   open(): Promise<void>;
+  /** Close the device. */
   close(): Promise<void>;
   /** Send an output report (no report ID: 0). */
   sendReport(reportId: number, data: Uint8Array): Promise<void>;
@@ -147,8 +164,11 @@ export interface HidLike {
 
 /** Answer of the dongle to the handshake. */
 export interface LinkInfo {
+  /** Protocol version the dongle speaks. */
   proto: number;
+  /** Firmware version string. */
   fw: string;
+  /** Board identifier. */
   board: string;
   /** The configuration window is open: requests are answered. */
   open: boolean;
@@ -156,8 +176,11 @@ export interface LinkInfo {
 
 /** Response of a request over the link. */
 export interface LinkResponse {
+  /** HTTP-style status code. */
   status: number;
+  /** `Content-Type` of the body. */
   contentType: string;
+  /** Raw response body. */
   body: Uint8Array;
 }
 

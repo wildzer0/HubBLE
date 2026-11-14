@@ -37,8 +37,8 @@ async function sendReport(report: DeviceReport): Promise<void> {
 /**
  * Render the card.
  *
- * @param props.id Device id.
- * @param props.connected Whether the device is connected (a report needs a live device).
+ * - `id`: Device id.
+ * - `connected`: Whether the device is connected (a report needs a live device).
  * @returns The card element.
  */
 export function ReportCard({ id, connected }: { id: string; connected: boolean }) {

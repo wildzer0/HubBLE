@@ -27,3 +27,4 @@ docs/api/generated/
 # Report service
 service/node_modules/
 service/.wrangler/
+__pycache__/

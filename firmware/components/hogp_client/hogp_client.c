@@ -111,6 +111,12 @@ static uint16_t uuid16(const ble_uuid_any_t *uuid) {
 
 /**
  * @brief GATT callback: primary service discovery by UUID (HID).
+ *
+ * @param conn Connection handle (unused: the client instance is passed as @p arg).
+ * @param err GATT status of this step; BLE_HS_EDONE marks the end of the procedure.
+ * @param svc Discovered service, or NULL at the end.
+ * @param arg The hogp_t of this connection.
+ * @return 0 always: failures are handled by the HOGP state machine (fail()), never by the return value.
  */
 static int on_svc(uint16_t conn, const struct ble_gatt_error *err, const struct ble_gatt_svc *svc, void *arg) {
     (void)conn;
@@ -139,6 +145,12 @@ static int on_svc(uint16_t conn, const struct ble_gatt_error *err, const struct 
  * @brief GATT callback: characteristic discovery inside the HID service.
  *
  * Records the interesting ones and closes the previous one's handle range when the next characteristic starts.
+ *
+ * @param conn Connection handle (unused: the client instance is passed as @p arg).
+ * @param err GATT status of this step; BLE_HS_EDONE marks the end of the procedure.
+ * @param chr Discovered characteristic, or NULL at the end.
+ * @param arg The hogp_t of this connection.
+ * @return 0 always: failures are handled by the HOGP state machine (fail()), never by the return value.
  */
 static int on_chr(uint16_t conn, const struct ble_gatt_error *err, const struct ble_gatt_chr *chr, void *arg) {
     (void)conn;
@@ -176,6 +188,13 @@ static int on_chr(uint16_t conn, const struct ble_gatt_error *err, const struct 
 
 /**
  * @brief GATT callback: descriptor discovery of one HID characteristic.
+ *
+ * @param conn Connection handle (unused: the client instance is passed as @p arg).
+ * @param err GATT status of this step; BLE_HS_EDONE marks the end of the procedure.
+ * @param chr_val_handle Value handle of the characteristic the descriptors belong to.
+ * @param dsc Discovered descriptor, or NULL at the end.
+ * @param arg The hogp_t of this connection.
+ * @return 0 always: failures are handled by the HOGP state machine (fail()), never by the return value.
  */
 static int on_dsc(uint16_t conn, const struct ble_gatt_error *err, uint16_t chr_val_handle,
                   const struct ble_gatt_dsc *dsc, void *arg) {
@@ -203,6 +222,12 @@ static int on_dsc(uint16_t conn, const struct ble_gatt_error *err, uint16_t chr_
 
 /**
  * @brief GATT callback: Report Map read (long read, delivered in chunks).
+ *
+ * @param conn Connection handle (unused: the client instance is passed as @p arg).
+ * @param err GATT status of this step; BLE_HS_EDONE marks the end of the procedure.
+ * @param attr Attribute read or written (may be NULL on error).
+ * @param arg The hogp_t of this connection.
+ * @return 0 always: failures are handled by the HOGP state machine (fail()), never by the return value.
  */
 static int on_map(uint16_t conn, const struct ble_gatt_error *err, struct ble_gatt_attr *attr, void *arg) {
     (void)conn;
@@ -236,6 +261,12 @@ static int on_map(uint16_t conn, const struct ble_gatt_error *err, struct ble_ga
 
 /**
  * @brief GATT callback: Report Reference descriptor read (2 bytes: report ID, report type).
+ *
+ * @param conn Connection handle (unused: the client instance is passed as @p arg).
+ * @param err GATT status of this step; BLE_HS_EDONE marks the end of the procedure.
+ * @param attr Attribute read or written (may be NULL on error).
+ * @param arg The hogp_t of this connection.
+ * @return 0 always: failures are handled by the HOGP state machine (fail()), never by the return value.
  */
 static int on_ref(uint16_t conn, const struct ble_gatt_error *err, struct ble_gatt_attr *attr, void *arg) {
     (void)conn;
@@ -258,6 +289,12 @@ static int on_ref(uint16_t conn, const struct ble_gatt_error *err, struct ble_ga
 
 /**
  * @brief GATT callback: CCC write of an input report.
+ *
+ * @param conn Connection handle (unused: the client instance is passed as @p arg).
+ * @param err GATT status of this step; BLE_HS_EDONE marks the end of the procedure.
+ * @param attr Attribute read or written (may be NULL on error).
+ * @param arg The hogp_t of this connection.
+ * @return 0 always: failures are handled by the HOGP state machine (fail()), never by the return value.
  */
 static int on_sub(uint16_t conn, const struct ble_gatt_error *err, struct ble_gatt_attr *attr, void *arg) {
     (void)conn;
@@ -274,7 +311,15 @@ static int on_sub(uint16_t conn, const struct ble_gatt_error *err, struct ble_ga
 
 /* ---- Battery ------------------------------------------------------------------------------------ */
 
-/** @brief GATT callback: Battery service discovery. A missing service is not an error. */
+/**
+ * @brief GATT callback: Battery service discovery. A missing service is not an error.
+ *
+ * @param conn Connection handle (unused: the client instance is passed as @p arg).
+ * @param err GATT status of this step; BLE_HS_EDONE marks the end of the procedure.
+ * @param svc Discovered service, or NULL at the end.
+ * @param arg The hogp_t of this connection.
+ * @return 0 always: failures are handled by the HOGP state machine (fail()), never by the return value.
+ */
 static int on_bas_svc(uint16_t conn, const struct ble_gatt_error *err, const struct ble_gatt_svc *svc, void *arg) {
     (void)conn;
     hogp_t *h = arg;
@@ -290,7 +335,15 @@ static int on_bas_svc(uint16_t conn, const struct ble_gatt_error *err, const str
     return 0;
 }
 
-/** @brief GATT callback: Battery Level characteristic discovery. */
+/**
+ * @brief GATT callback: Battery Level characteristic discovery.
+ *
+ * @param conn Connection handle (unused: the client instance is passed as @p arg).
+ * @param err GATT status of this step; BLE_HS_EDONE marks the end of the procedure.
+ * @param chr Discovered characteristic, or NULL at the end.
+ * @param arg The hogp_t of this connection.
+ * @return 0 always: failures are handled by the HOGP state machine (fail()), never by the return value.
+ */
 static int on_bas_chr(uint16_t conn, const struct ble_gatt_error *err, const struct ble_gatt_chr *chr, void *arg) {
     (void)conn;
     hogp_t *h = arg;
@@ -305,7 +358,16 @@ static int on_bas_chr(uint16_t conn, const struct ble_gatt_error *err, const str
     return 0;
 }
 
-/** @brief GATT callback: Battery Level descriptor discovery (looking for the CCC). */
+/**
+ * @brief GATT callback: Battery Level descriptor discovery (looking for the CCC).
+ *
+ * @param conn Connection handle (unused: the client instance is passed as @p arg).
+ * @param err GATT status of this step; BLE_HS_EDONE marks the end of the procedure.
+ * @param chr_val_handle Value handle of the characteristic the descriptors belong to.
+ * @param dsc Discovered descriptor, or NULL at the end.
+ * @param arg The hogp_t of this connection.
+ * @return 0 always: failures are handled by the HOGP state machine (fail()), never by the return value.
+ */
 static int on_bas_dsc(uint16_t conn, const struct ble_gatt_error *err, uint16_t chr_val_handle,
                       const struct ble_gatt_dsc *dsc, void *arg) {
     (void)conn;
@@ -322,7 +384,15 @@ static int on_bas_dsc(uint16_t conn, const struct ble_gatt_error *err, uint16_t 
     return 0;
 }
 
-/** @brief GATT callback: Battery Level read. */
+/**
+ * @brief GATT callback: Battery Level read.
+ *
+ * @param conn Connection handle (unused: the client instance is passed as @p arg).
+ * @param err GATT status of this step; BLE_HS_EDONE marks the end of the procedure.
+ * @param attr Attribute read or written (may be NULL on error).
+ * @param arg The hogp_t of this connection.
+ * @return 0 always: failures are handled by the HOGP state machine (fail()), never by the return value.
+ */
 static int on_bas_read(uint16_t conn, const struct ble_gatt_error *err, struct ble_gatt_attr *attr, void *arg) {
     (void)conn;
     hogp_t *h = arg;
@@ -344,7 +414,15 @@ static int on_bas_read(uint16_t conn, const struct ble_gatt_error *err, struct b
     return 0;
 }
 
-/** @brief GATT callback: periodic Battery Level re-read (see hogp_read_battery). */
+/**
+ * @brief GATT callback: periodic Battery Level re-read (see hogp_read_battery).
+ *
+ * @param conn Connection handle (unused: the client instance is passed as @p arg).
+ * @param err GATT status of this step; BLE_HS_EDONE marks the end of the procedure.
+ * @param attr Attribute read or written (may be NULL on error).
+ * @param arg The hogp_t of this connection.
+ * @return 0 always: failures are handled by the HOGP state machine (fail()), never by the return value.
+ */
 static int on_bas_poll(uint16_t conn, const struct ble_gatt_error *err, struct ble_gatt_attr *attr, void *arg) {
     (void)conn;
     hogp_t *h = arg;
@@ -363,7 +441,15 @@ void hogp_read_battery(hogp_t *h) {
     }
 }
 
-/** @brief GATT callback: Battery CCC write; the result does not matter. */
+/**
+ * @brief GATT callback: Battery CCC write; the result does not matter.
+ *
+ * @param conn Connection handle (unused: the client instance is passed as @p arg).
+ * @param err GATT status of this step; BLE_HS_EDONE marks the end of the procedure.
+ * @param attr Attribute read or written (may be NULL on error).
+ * @param arg The hogp_t of this connection.
+ * @return 0 always: failures are handled by the HOGP state machine (fail()), never by the return value.
+ */
 static int on_bas_sub(uint16_t conn, const struct ble_gatt_error *err, struct ble_gatt_attr *attr, void *arg) {
     (void)conn;
     (void)err;
@@ -604,13 +690,25 @@ enum { F_NAME = 1, F_APPEARANCE, F_MANUFACTURER, F_MODEL, F_FW_REVISION, F_PNP }
 
 static void info_advance(hogp_t *h);
 
-/** @brief Finish the identification read (also the exit of every failure). */
+/**
+ * @brief Finish the identification read (also the exit of every failure).
+ *
+ * @param h HOGP client instance.
+ */
 static void info_finish(hogp_t *h) {
     h->info_phase = INFO_DONE;
     h->info.done = true;
 }
 
-/** @brief GATT callback: all primary services; remember the Generic Access and Device Information ranges. */
+/**
+ * @brief GATT callback: all primary services; remember the Generic Access and Device Information ranges.
+ *
+ * @param conn Connection handle (unused: the client instance is passed as @p arg).
+ * @param err GATT status of this step; BLE_HS_EDONE marks the end of the procedure.
+ * @param svc Discovered service, or NULL at the end.
+ * @param arg The hogp_t of this connection.
+ * @return 0 always: failures are handled by the HOGP state machine (fail()), never by the return value.
+ */
 static int on_info_svc(uint16_t conn, const struct ble_gatt_error *err, const struct ble_gatt_svc *svc, void *arg) {
     (void)conn;
     hogp_t *h = arg;
@@ -633,7 +731,13 @@ static int on_info_svc(uint16_t conn, const struct ble_gatt_error *err, const st
     return 0;
 }
 
-/** @brief Field filled by a characteristic UUID inside the given service phase (0 = not wanted). */
+/**
+ * @brief Field filled by a characteristic UUID inside the given service phase (0 = not wanted).
+ *
+ * @param phase Identification phase: Generic Access or Device Information.
+ * @param u 16-bit UUID of the characteristic.
+ * @return Field identifier, or 0 if the characteristic is not wanted.
+ */
 static uint8_t info_field_for(uint8_t phase, uint16_t u) {
     if (phase == INFO_GAP_CHRS) {
         return u == UUID_DEVICE_NAME ? F_NAME : (u == UUID_APPEARANCE ? F_APPEARANCE : 0);
@@ -652,7 +756,15 @@ static uint8_t info_field_for(uint8_t phase, uint16_t u) {
     }
 }
 
-/** @brief GATT callback: characteristics of the Generic Access or Device Information service. */
+/**
+ * @brief GATT callback: characteristics of the Generic Access or Device Information service.
+ *
+ * @param conn Connection handle (unused: the client instance is passed as @p arg).
+ * @param err GATT status of this step; BLE_HS_EDONE marks the end of the procedure.
+ * @param chr Discovered characteristic, or NULL at the end.
+ * @param arg The hogp_t of this connection.
+ * @return 0 always: failures are handled by the HOGP state machine (fail()), never by the return value.
+ */
 static int on_info_chr(uint16_t conn, const struct ble_gatt_error *err, const struct ble_gatt_chr *chr, void *arg) {
     (void)conn;
     hogp_t *h = arg;
@@ -690,7 +802,15 @@ static void info_copy_string(char *dst, const uint8_t *src, size_t n) {
     dst[o] = '\0';
 }
 
-/** @brief GATT callback: one identification characteristic was read. */
+/**
+ * @brief GATT callback: one identification characteristic was read.
+ *
+ * @param conn Connection handle (unused: the client instance is passed as @p arg).
+ * @param err GATT status of this step; BLE_HS_EDONE marks the end of the procedure.
+ * @param attr Attribute read or written (may be NULL on error).
+ * @param arg The hogp_t of this connection.
+ * @return 0 always: failures are handled by the HOGP state machine (fail()), never by the return value.
+ */
 static int on_info_read(uint16_t conn, const struct ble_gatt_error *err, struct ble_gatt_attr *attr, void *arg) {
     (void)conn;
     hogp_t *h = arg;
@@ -739,7 +859,11 @@ static int on_info_read(uint16_t conn, const struct ble_gatt_error *err, struct 
     return 0;
 }
 
-/** @brief Issue the next procedure of the identification read. */
+/**
+ * @brief Issue the next procedure of the identification read.
+ *
+ * @param h HOGP client instance.
+ */
 static void info_advance(hogp_t *h) {
     int rc = 0;
     for (;;) {

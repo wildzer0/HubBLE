@@ -131,11 +131,28 @@ export interface Diagnostics {
   /** Human readable reset reason. */
   reset_reason: string;
   /** Internal RAM statistics in bytes. */
-  heap: { free: number; min_free: number; largest_block: number };
+  heap: {
+    /** Free internal heap, bytes. */
+    free: number;
+    /** Lowest free heap since boot, bytes (low-water mark). */
+    min_free: number;
+    /** Largest single allocatable block, bytes (fragmentation indicator). */
+    largest_block: number;
+  };
   /** PSRAM statistics in bytes (0 if the board has none). */
-  psram: { total: number; free: number };
+  psram: {
+    /** Total PSRAM, bytes. */
+    total: number;
+    /** Free PSRAM, bytes. */
+    free: number;
+  };
   /** Running and next-update partitions. */
-  partitions: { running: PartitionInfo; next_update: PartitionInfo };
+  partitions: {
+    /** The OTA slot the firmware is running from. */
+    running: PartitionInfo;
+    /** The OTA slot the next update will be written to. */
+    next_update: PartitionInfo;
+  };
   /** Boot-failure counter. */
   boot_failures: number;
   /** Chip (die) temperature, degrees Celsius; absent if the sensor cannot be read. */
@@ -143,19 +160,41 @@ export interface Diagnostics {
   /** USB state (M2). */
   usb_state: UsbState;
   /** BLE stack facts. */
-  ble: { ready: boolean; connected: number; bonded: number };
+  ble: {
+    /** True once the BLE host stack has synchronised with the controller. */
+    ready: boolean;
+    /** Number of peripherals currently connected. */
+    connected: number;
+    /** Number of registered (bonded) peripherals. */
+    bonded: number;
+  };
   /** Power management state. */
-  power: { mode: 'active' | 'low'; remote_wakeup: boolean };
+  power: {
+    /** `low` while the host has suspended USB (long BLE interval), else `active`. */
+    mode: 'active' | 'low';
+    /** The "remote wakeup" setting. */
+    remote_wakeup: boolean;
+  };
   /** Keyboard LED bits last sent by the host (Num/Caps/Scroll Lock). */
   keyboard_leds?: number;
   /** Wi-Fi AP facts. */
-  wifi: { ssid: string; clients: number };
+  wifi: {
+    /** SSID of the dongle's access point (`HubBLE-XXXX`). */
+    ssid: string;
+    /** Number of stations currently associated with the AP. */
+    clients: number;
+  };
 }
 
 /** Error body used by every failing endpoint. */
 export interface ApiErrorBody {
   /** The error details. */
-  error: { code: string; message: string };
+  error: {
+    /** Stable machine-readable code, e.g. `bad_request`. */
+    code: string;
+    /** Human-readable explanation (English). */
+    message: string;
+  };
 }
 
 /** Server → client WebSocket message. */
@@ -168,6 +207,28 @@ export interface WsMessage {
 
 /** Security badge of a bonded device (green = passkey + LE SC, yellow = verified Just Works, red = legacy). */
 export type SecurityLevel = 'green' | 'yellow' | 'red' | 'unknown';
+
+/** Negotiated BLE connection parameters of one device. */
+export interface ConnectionParams {
+  /** Connection interval, milliseconds. */
+  interval_ms: number;
+  /** Peripheral latency: connection events the peripheral may skip. */
+  latency: number;
+  /** Supervision timeout, milliseconds. */
+  timeout_ms: number;
+}
+
+/** Quarantine challenge shown while a Just Works device is being verified. */
+export interface PairingChallenge {
+  /** `clicks`: perform the mouse-click sequence; `code`: type the code on the keyboard. */
+  kind: 'clicks' | 'code';
+  /** The click sequence (`L`/`R`/`M`) or the code to type. */
+  value: string;
+  /** How many steps the user has completed. */
+  progress: number;
+  /** Total number of steps. */
+  length: number;
+}
 
 /** Round-trip statistics of one device, microseconds (BLE notify entry to USB report queued). */
 export interface LatencyStats {
@@ -204,7 +265,7 @@ export interface Device {
   /** Last RSSI in dBm, or null if not connected. */
   rssi: number | null;
   /** Negotiated connection parameters. */
-  connection: { interval_ms: number; latency: number; timeout_ms: number };
+  connection: ConnectionParams;
   /** Number of reconnections since boot. */
   reconnects: number;
   /** Seconds since the device was last seen. */
@@ -257,7 +318,7 @@ export interface Pairing {
   /** 6-digit passkey to type on the keyboard, when present. */
   passkey?: string;
   /** Quarantine challenge, when present. */
-  challenge?: { kind: 'clicks' | 'code'; value: string; progress: number; length: number };
+  challenge?: PairingChallenge;
 }
 
 /** One advertising HID device found by the scan. */
@@ -370,35 +431,76 @@ export interface WifiNetwork {
 
 /** Compatibility report (`GET /api/v1/devices/{id}/report`, schema `docs/api/device-report.schema.json`). */
 export interface DeviceReport {
+  /** Constant marker identifying the file format. */
   format: 'hubble-device-report';
+  /** Report schema version (see `docs/api/device-report.schema.json`). */
   version: 1;
-  firmware: { version: string; board: string };
+  /** The dongle that produced the report. */
+  firmware: {
+    /** Firmware version string. */
+    version: string;
+    /** Board identifier, e.g. `s3_zero`. */
+    board: string;
+  };
+  /** The peripheral the report describes. */
   device: {
+    /** Kind of device, known once its report map has been parsed. */
     kind: 'keyboard' | 'pointer' | 'unknown';
+    /** Name seen in the advertisement, if any. */
     adv_name: string | null;
+    /** GAP appearance value, if advertised. */
     appearance: number | null;
+    /** Device Information Service: manufacturer name. */
     manufacturer: string | null;
+    /** Device Information Service: model number. */
     model: string | null;
+    /** Device Information Service: firmware revision of the peripheral. */
     fw_revision: string | null;
+    /** Device Information Service: PnP ID, or null if the peripheral has none. */
     pnp: {
+      /** Vendor ID source (1 = Bluetooth SIG, 2 = USB-IF). */
       vendor_id_source: number;
+      /** Vendor ID. */
       vendor_id: number;
+      /** Product ID. */
       product_id: number;
+      /** Product version. */
       version: number;
     } | null;
+    /** The raw HID report map, hex encoded. Useful as a parser test fixture. */
     report_map_hex: string;
+    /** Outcome of the dongle's report-map parser. */
     parse: {
+      /** Parser result code (0 = OK). */
       result: number;
+      /** Number of input fields the parser extracted. */
       fields: number;
+      /** True if the boot-protocol fallback is used instead of the parsed map. */
       boot_fallback: boolean;
+      /** Usage page of the primary application collection. */
       primary_page: number;
+      /** Usage of the primary application collection. */
       primary_usage: number;
+      /** True if the map contains a pointer (mouse) application. */
       has_pointer: boolean;
     };
+    /** Security badge of the bond. */
     security: SecurityLevel;
-    connection: { interval_ms: number; latency: number; timeout_ms: number };
+    /** Negotiated connection parameters at export time. */
+    connection: ConnectionParams;
+    /** True if the peripheral exposes a Battery Service. */
     battery_reported: boolean;
-    latency_us: { count: number; avg: number; p95: number; max: number };
+    /** Latency statistics in microseconds. */
+    latency_us: {
+      /** Number of samples. */
+      count: number;
+      /** Average. */
+      avg: number;
+      /** 95th percentile. */
+      p95: number;
+      /** Maximum. */
+      max: number;
+    };
   };
   /** Optional text the user typed. */
   notes?: string | null;

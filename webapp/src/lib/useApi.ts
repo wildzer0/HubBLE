@@ -22,7 +22,10 @@ export interface ApiState<T> {
 export function useApi<T>(
   load: () => Promise<T>,
   intervalMs = 0,
-): ApiState<T> & { reload: () => void } {
+): ApiState<T> & {
+  /** Reload the data now. */
+  reload: () => void;
+} {
   const [state, setState] = useState<ApiState<T>>({ data: null, failed: false });
   const [tick, setTick] = useState(0);
 

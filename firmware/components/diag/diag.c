@@ -20,7 +20,12 @@
 /** Microseconds per second. */
 #define US_PER_S 1000000LL
 
-/** @brief Map an esp_reset_reason_t to text. */
+/**
+ * @brief Map an esp_reset_reason_t to text.
+ *
+ * @param r Reset reason from ESP-IDF.
+ * @return Constant string.
+ */
 static const char *reset_reason_text(esp_reset_reason_t r) {
     switch (r) {
     case ESP_RST_POWERON:
@@ -46,7 +51,12 @@ static const char *reset_reason_text(esp_reset_reason_t r) {
     }
 }
 
-/** @brief Copy partition facts into a diag_partition_t (zeroed if @p p is NULL). */
+/**
+ * @brief Copy partition facts into a diag_partition_t (zeroed if @p p is NULL).
+ *
+ * @param d Destination structure (zeroed first).
+ * @param p Partition to describe, or NULL.
+ */
 static void fill_partition(diag_partition_t *d, const esp_partition_t *p) {
     memset(d, 0, sizeof(*d));
     if (p != NULL) {

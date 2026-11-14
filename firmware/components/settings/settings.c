@@ -129,7 +129,13 @@ bool settings_is_setup_done(void) {
     return s_ready && nvs_get_str(s_nvs, KEY_AP_PASS, NULL, &len) == ESP_OK;
 }
 
-/** @brief Read a u32 or return a default (helper). */
+/**
+ * @brief Read a u32 or return a default (helper).
+ *
+ * @param key NVS key.
+ * @param def Default returned when the key is missing.
+ * @return The stored value or @p def.
+ */
 static uint32_t get_u32(const char *key, uint32_t def) {
     uint32_t v = def;
     if (s_ready && nvs_get_u32(s_nvs, key, &v) != ESP_OK) {
@@ -153,7 +159,13 @@ bool settings_window_valid(uint32_t seconds) {
     return seconds >= SETTINGS_WINDOW_MIN_S && seconds <= SETTINGS_WINDOW_MAX_S;
 }
 
-/** @brief Validate and store a u32 setting (helper). */
+/**
+ * @brief Validate and store a u32 setting (helper).
+ *
+ * @param key NVS key.
+ * @param seconds New value; validated against the allowed range.
+ * @return ESP_OK, ESP_ERR_INVALID_ARG if out of range, or an NVS error.
+ */
 static esp_err_t set_window(const char *key, uint32_t seconds) {
     if (!settings_window_valid(seconds)) {
         return ESP_ERR_INVALID_ARG;
@@ -232,7 +244,13 @@ esp_err_t settings_set_prerelease_channel(bool prerelease) {
     return err == ESP_OK ? nvs_commit(s_nvs) : err;
 }
 
-/** @brief Read a boolean setting stored as u8. */
+/**
+ * @brief Read a boolean setting stored as u8.
+ *
+ * @param key NVS key.
+ * @param def Default when the key is missing.
+ * @return The stored value or @p def.
+ */
 static bool get_flag(const char *key, bool def) {
     uint8_t v = def ? 1 : 0;
     if (s_ready && nvs_get_u8(s_nvs, key, &v) != ESP_OK) {
@@ -241,7 +259,13 @@ static bool get_flag(const char *key, bool def) {
     return v != 0;
 }
 
-/** @brief Store a boolean setting as u8. */
+/**
+ * @brief Store a boolean setting as u8.
+ *
+ * @param key NVS key.
+ * @param value New boolean value.
+ * @return ESP_OK or an NVS error.
+ */
 static esp_err_t set_flag(const char *key, bool value) {
     if (!s_ready) {
         return ESP_ERR_INVALID_STATE;

@@ -40,8 +40,7 @@ typedef struct {
     bool force_on;           /**< One-shot request to switch the AP on (e.g. Ctrl + Alt combo). */
     bool force_off;          /**< One-shot request to switch the AP off now (web app button). */
     bool host_suspended;     /**< The host suspended the USB bus: AP off (unless an OTA runs). */
-    bool usb_alive; /**< A configuration session over USB is in use: keeps the configuration window open, never the AP.
-                     */
+    bool usb_alive;          /**< A USB configuration session is active: keeps the window open, never the AP. */
 } ap_policy_inputs_t;
 
 /** Result of one evaluation. */
