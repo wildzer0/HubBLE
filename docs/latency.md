@@ -35,13 +35,22 @@ is roughly: **peripheral wait (0..7.5 ms) + added latency (measured) + USB polli
 
 ## Results
 
-No hardware measurements exist yet: they require the board and the real peripherals (`docs/testing/m3.md` section F,
-`docs/testing/stability.md` S4). Fill the table when they are done; do not publish figures that were not measured.
+The first real measurements come from two device reports exported from the web app (firmware 1.3.0, board `s3_zero`,
+two devices connected at the same time). They show the **added latency inside the dongle** only (see "What the dongle
+measures"); the state of the Wi-Fi access point during the session was not recorded, and the 95th percentile is
+quantised to the 250 us histogram buckets. They say nothing yet about four devices or about the radio under load.
 
-| Device | Interval accepted | Added latency avg / p95 / max (AP off) | Same with AP on | Date, build |
+| Device | Interval / latency / timeout accepted | Added latency avg / p95 / max (us) | Samples | Same with AP on |
 |---|---|---|---|---|
-| YUNZII B68 | | | | |
-| ProtoArc EM06 | | | | |
+| OBLIO keyboard | 7.5 ms / 48 / 3000 ms (set by the keyboard) | 198 / 500 / 1401 | 1546 | not measured |
+| ProtoArc EM06 | 7.5 ms / 0 / 2000 ms | 163 / 250 / 811 | 16255 | not measured |
+
+The keyboard replaces the requested peripheral latency (0) and timeout (2 s) with its own update request and the dongle
+accepts it. This does not slow down key presses, since the keyboard wakes itself; it can delay output reports to the
+keyboard (for example the Caps Lock LED) by up to 48 connection intervals (about 360 ms).
+
+Still to measure (`docs/testing/m3.md` section F, `docs/testing/stability.md` S4): AP on, four devices at once, and an
+independent end-to-end figure.
 
 ## Typing filter
 
