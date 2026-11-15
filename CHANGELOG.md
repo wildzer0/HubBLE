@@ -6,6 +6,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-15
+
+First stable release of the 1.4 line; it rolls up 1.3.1-rc.1 to rc.4 and 1.4.0-rc.1 to rc.3 (see those sections below).
+
+### Added
+
+- Up to **8 devices can be paired**, of which at most **4 are connected and forwarded at the same time**; the others wait
+  offline and connect when a place frees up (`GET /devices` reports `max` and `max_links`).
+- **Download crash dump** on the System page (`GET /api/v1/coredump`), and a boot-log line when a dump is stored.
+- Diagnostics in the BLE log: interval, latency and timeout of every link plus the internal heap when a connect is
+  refused, on every connection and after every disconnect.
+
+### Changed
+
+- From three registered devices on, all links run at 15 ms instead of 7.5 ms and the existing links are slowed down
+  before a new one is created: the controller cannot fit a third link next to two at 7.5 ms. With one or two devices
+  the 7.5 ms target is unchanged.
+- The per-device HOGP state lives in PSRAM; the static device table in internal RAM drops from 13 KB to 2.5 KB.
+
+### Fixed
+
+- Pairing or reconnecting a third device failed while two were connected, and could drop the others.
+- A peripheral that was switched off and on again did not reconnect until the dongle was replugged (the background
+  connect kept a stale allow-list).
+- Forgetting a device over the USB link failed with "Unexpected Content-Type".
+- The device registry is read whatever number of slots it was written with, so a rollback or an update no longer
+  forgets the paired devices.
+- A pairing that the controller refuses is reported as `controller_busy` instead of a security failure and does not
+  count towards the pairing lock; the keyboard and click challenge no longer loses a first character after a mistake.
+- The BLE log buffer is no longer flooded by repeated refused background connects (back-off of 1, 2, 5, 10 s).
+
 ## [1.4.0-rc.3] - 2026-11-15
 
 ### Fixed
