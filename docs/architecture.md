@@ -63,6 +63,12 @@ controller could carry more links. The reasons behind it:
 - **Latency budget.** The goal is at most 15 ms added latency with a 7.5 ms connection interval. Every connection needs
   radio time in each interval, and Bluetooth shares the radio with Wi-Fi, so each extra device makes the worst case
   worse.
+- **Radio time per link.** Field logs (v1.3.1-rc.1 to rc.3) showed that the ESP32-S3 controller cannot fit a third
+  link next to two that run at 7.5 ms: it refuses `LE Create Connection` (`0x0D`) and `LE Connection Update` (`0x12`)
+  whatever the interval asked for, while links at 15 ms leave room. From three registered devices on, all links therefore
+  use a 15 ms interval and the existing ones are slowed down before a new one is created (`target_itvl_locked()` in
+  `ble_central.c`). With one or two devices the 7.5 ms target is unchanged. A 15 ms interval adds about 4 ms on average
+  (7.5 ms worst case) and halves the pointer report rate of a trackball.
 - **Real use.** Four covers a keyboard, a mouse or trackball and two more peripherals, which is what the dongle is for.
 - **Fixed memory.** The forwarding path has no dynamic allocation after start-up: filters, merge state and registry are
   static arrays sized by the slot count.

@@ -6,6 +6,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.3.1-rc.4] - 2026-11-15
+
+### Fixed
+
+- Pairing or reconnecting a third device failed while two others were connected, and the third link dropped the others
+  after a while. The log showed the cause: the controller cannot fit a third link next to two at 7.5 ms (it refuses
+  Create Connection with 0x0D and also the Connection Update back to 7.5 ms with 0x12), whereas links at 15 ms leave
+  room. From three registered devices on every link now uses 15 ms, and the existing links are slowed down to it before a
+  new connection is created. With one or two devices the 7.5 ms target is unchanged.
+- A mistake in the keyboard or click challenge that equals its first character no longer swallows that character: the
+  sequence now restarts at position 1 instead of 0.
+
+### Changed
+
+- Diagnostics: the BLE log prints the interval, latency and timeout of every link plus the internal heap when a
+  connect is refused, on every connection and after every disconnect. A refused background connect backs off
+  (1, 2, 5, 10 s) and is logged only the first time and then every tenth time, so it no longer floods the 16 KB log
+  buffer.
+
 ## [1.3.1-rc.3] - 2026-11-15
 
 ### Fixed

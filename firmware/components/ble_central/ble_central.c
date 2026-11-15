@@ -21,6 +21,7 @@
 #include <string.h>
 
 #include "device_registry.h"
+#include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
@@ -77,6 +78,16 @@ static const char *TAG = "ble";
 /** How long to wait for the controller to stop scanning before connecting, and the polling step. */
 #define SCAN_STOP_WAIT_MS 200
 #define SCAN_STOP_STEP_MS 10
+/** Delays (s) between background connects that the controller keeps refusing, then it stays at the last one. */
+#define BG_BACKOFF_S {1, 2, 5, 10}
+/** From this many registered devices (incl. a pairing candidate) the links cannot all run at 7.5 ms: see
+ *  target_itvl_locked(). */
+#define MULTI_LINK_DEVICES 3
+/** Interval used from MULTI_LINK_DEVICES devices on: 12 x 1.25 = 15 ms. */
+#define MULTI_LINK_ITVL 12
+/** Attempts (and spacing) to slow the existing links down before a new connection is created. */
+#define SLOW_TRIES    8
+#define SLOW_RETRY_MS 250
 /** Widest connection interval tried when the controller refuses to schedule a new link: 48 x 1.25 = 60 ms. */
 #define CREATE_ITVL_MAX 48
 /** Largest report copied out of a notification. */
@@ -122,6 +133,8 @@ static bool s_bg_active;                     /**< A background connect is in pro
 /** Interval (1.25 ms units) used to CREATE connections, 0 = the profile. Widened while the controller refuses to fit a
  *  new link into the schedule of the existing ones (HCI 0x0D); the link is then moved to the profile by an update. */
 static uint16_t s_create_itvl;
+static uint8_t s_slow_tries; /**< Rounds spent waiting for the existing links to slow down. */
+static uint8_t s_bg_fails; /**< Consecutive refused background connects (drives the retry back-off and the log rate). */
 static uint8_t s_own_addr_type; /**< Own address type from ble_hs_id_infer_auto(). */
 static volatile uint8_t s_leds; /**< Last keyboard LED state from the host. */
 /** Connection parameters currently requested (7.5 ms profile until the power task asks otherwise). */
@@ -137,10 +150,37 @@ static esp_timer_handle_t s_stats_timer;     /**< Periodic RSSI/parameter refres
 
 static void reconcile(void);
 static int gap_event(struct ble_gap_event *event, void *arg);
+static void refresh_link(int slot);
+static uint16_t create_itvl_locked(void);
 
 /** Take / release the registry mutex that protects the device table (never held across NimBLE calls that block). */
 #define LOCK()   xSemaphoreTake(s_mu, portMAX_DELAY)
 #define UNLOCK() xSemaphoreGive(s_mu)
+
+/**
+ * @brief Log the parameters of every live link and the internal heap, to explain drops and refused connects.
+ *
+ * Shows the figures that decide whether the controller can keep several links alive: interval, latency and timeout of
+ * each link (as negotiated, read back from the controller) and the free / largest / lowest-ever internal heap block
+ * (a controller allocation that fails is reported as "limited resources" too). Thread-safety: takes s_mu.
+ *
+ * @param when Short label for the log line (what triggered it).
+ */
+static void log_links(const char *when) {
+    LOCK();
+    for (int i = 0; i < BLE_CENTRAL_MAX_DEVICES; i++) {
+        if (s_dev[i].conn != NO_CONN) {
+            refresh_link(i);
+            ESP_LOGW(TAG, "%s: link slot %d: interval %.2f ms, latency %u, timeout %u ms", when, i,
+                     s_dev[i].itvl * 1.25, (unsigned)s_dev[i].latency, (unsigned)s_dev[i].timeout * 10u);
+        }
+    }
+    UNLOCK();
+    ESP_LOGW(TAG, "%s: internal heap free %u, largest block %u, lowest ever %u", when,
+             (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
+             (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL),
+             (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL));
+}
 
 /**
  * @brief Log what the radio is doing, to explain a refused Create Connection.
@@ -158,10 +198,11 @@ static void log_radio_state(const char *what, int rc) {
         links += s_dev[i].conn != NO_CONN;
     }
     bool bg = s_bg_active;
-    const unsigned itvl = s_create_itvl > s_profile.itvl ? s_create_itvl : s_profile.itvl;
+    const unsigned itvl = create_itvl_locked();
     UNLOCK();
     ESP_LOGW(TAG, "%s failed (rc=%d): links=%d itvl=%u bg_connect=%d host_scan=%d host_connect=%d", what, rc, links,
              itvl, bg, ble_gap_disc_active(), ble_gap_conn_active());
+    log_links(what);
 }
 
 /**
@@ -220,6 +261,79 @@ static int slot_by_conn(uint16_t conn) {
 }
 
 /**
+ * @brief Interval (1.25 ms units) every link should run at. Caller holds s_mu.
+ *
+ * The profile interval (7.5 ms, or the long one of the low-power mode), except that from MULTI_LINK_DEVICES registered
+ * devices on it is at least MULTI_LINK_ITVL. Field logs showed that the ESP controller cannot fit a third link next to
+ * two that run at 7.5 ms: it refuses LE Create Connection (0x0D) and LE Connection Update (0x12) whatever the interval
+ * asked for, while links at 15 ms leave room for more. Registered, not connected, devices count: they reconnect later.
+ *
+ * @return Interval in 1.25 ms units.
+ */
+static uint16_t target_itvl_locked(void) {
+    unsigned registered = 0;
+    for (int i = 0; i < BLE_CENTRAL_MAX_DEVICES; i++) {
+        registered += s_reg[i].used ? 1u : 0u;
+    }
+    return (registered >= MULTI_LINK_DEVICES && s_profile.itvl < MULTI_LINK_ITVL) ? MULTI_LINK_ITVL : s_profile.itvl;
+}
+
+/**
+ * @brief Interval used to create the next connection: the target, or wider after a refusal. Caller holds s_mu.
+ *
+ * @return Interval in 1.25 ms units.
+ */
+static uint16_t create_itvl_locked(void) {
+    const uint16_t target = target_itvl_locked();
+    return s_create_itvl > target ? s_create_itvl : target;
+}
+
+/**
+ * @brief Ask the live links that run faster than the target interval to slow down.
+ *
+ * A new connection only fits once the existing ones leave room (see target_itvl_locked()), so reconcile() calls this
+ * first and waits. The central owns the update procedure, so the peripherals cannot refuse it; a controller that
+ * rejects it anyway is logged and, after SLOW_TRIES rounds, ignored so a connect is still attempted.
+ * Thread-safety: takes s_mu; the controller calls are made outside it.
+ *
+ * @return true if some link was asked to slow down (the caller should retry later), false if all are fine.
+ */
+static bool slow_down_links(void) {
+    uint16_t handles[BLE_CENTRAL_MAX_DEVICES];
+    size_t n = 0;
+    LOCK();
+    const uint16_t target = target_itvl_locked();
+    const uint16_t latency = s_profile.latency;
+    const uint16_t timeout = s_profile.timeout;
+    for (int i = 0; i < BLE_CENTRAL_MAX_DEVICES; i++) {
+        if (s_dev[i].conn != NO_CONN) {
+            refresh_link(i);
+            if (s_dev[i].itvl != 0 && s_dev[i].itvl < target) {
+                handles[n++] = s_dev[i].conn;
+            }
+        }
+    }
+    const bool giveup = n != 0 && s_slow_tries >= SLOW_TRIES;
+    if (n == 0 || giveup) {
+        s_slow_tries = 0;
+    } else {
+        s_slow_tries++;
+    }
+    UNLOCK();
+    if (n == 0 || giveup) {
+        return false;
+    }
+    for (size_t i = 0; i < n; i++) {
+        struct ble_gap_upd_params up = {
+            .itvl_min = target, .itvl_max = target, .latency = latency, .supervision_timeout = timeout};
+        const int rc = ble_gap_update_params(handles[i], &up);
+        ESP_LOGI(TAG, "slowing link %u down to %.2f ms before adding another (rc=%d)", (unsigned)handles[i],
+                 target * 1.25, rc);
+    }
+    return true;
+}
+
+/**
  * @brief Connection parameters requested for every link (7.5 ms interval by default, CLAUDE.md §3.3).
  *
  * @param[out] p Receives the parameters.
@@ -231,11 +345,13 @@ static void conn_params(struct ble_gap_conn_params *p) {
      * time from the connected devices and from the Wi-Fi AP. Pairing keeps the fast scan. */
     p->scan_itvl = pairing_active(&s_fsm) ? SCAN_ITVL : SCAN_ITVL_BUSY;
     p->scan_window = SCAN_WINDOW;
-    const uint16_t itvl = s_create_itvl > s_profile.itvl ? s_create_itvl : s_profile.itvl;
-    p->itvl_min = itvl;
-    p->itvl_max = itvl;
+    LOCK();
+    const uint16_t itvl = create_itvl_locked();
     p->latency = s_profile.latency;
     p->supervision_timeout = s_profile.timeout;
+    UNLOCK();
+    p->itvl_min = itvl;
+    p->itvl_max = itvl;
 }
 
 /**
@@ -249,7 +365,7 @@ static void conn_params(struct ble_gap_conn_params *p) {
  */
 static bool widen_create_itvl(void) {
     LOCK();
-    const uint16_t cur = s_create_itvl > s_profile.itvl ? s_create_itvl : s_profile.itvl;
+    const uint16_t cur = create_itvl_locked();
     const bool widen = cur < CREATE_ITVL_MAX;
     if (widen) {
         s_create_itvl = (uint16_t)(cur * 2 > CREATE_ITVL_MAX ? CREATE_ITVL_MAX : cur * 2);
@@ -502,18 +618,22 @@ static void on_connected(uint16_t conn_handle, void *arg) {
 
     /* Ask for the target interval (the central may set it directly), then encrypt. For a bonded device this
      * re-uses the stored LTK; for the pairing candidate it starts bonding. */
-    struct ble_gap_upd_params up = {.itvl_min = s_profile.itvl,
-                                    .itvl_max = s_profile.itvl,
-                                    .latency = s_profile.latency,
-                                    .supervision_timeout = s_profile.timeout};
-    const int urc = ble_gap_update_params(conn_handle, &up);
     LOCK();
-    if (s_create_itvl != 0) {
-        ESP_LOGI(TAG, "slot %d: connected with a %.2f ms interval, asked for %.2f ms (rc=%d)", slot,
-                 s_create_itvl * 1.25, s_profile.itvl * 1.25, urc);
+    const uint16_t target = target_itvl_locked();
+    struct ble_gap_upd_params up = {
+        .itvl_min = target, .itvl_max = target, .latency = s_profile.latency, .supervision_timeout = s_profile.timeout};
+    const uint16_t created = create_itvl_locked();
+    UNLOCK();
+    const int urc = (created == target) ? 0 : ble_gap_update_params(conn_handle, &up); /* Already at the target. */
+    LOCK();
+    if (created != target) {
+        ESP_LOGI(TAG, "slot %d: connected with a %.2f ms interval, asked for %.2f ms (rc=%d)", slot, created * 1.25,
+                 target * 1.25, urc);
     }
     s_create_itvl = 0; /* The next connection starts from the profile again. */
+    s_bg_fails = 0;
     UNLOCK();
+    log_links("connected");
     int rc = ble_gap_security_initiate(conn_handle);
     if (rc != 0) {
         ESP_LOGW(TAG, "slot %d: security initiate failed (%d)", slot, rc);
@@ -547,6 +667,7 @@ static void on_disconnected(uint16_t conn_handle, int reason) {
     }
     /* Reasons worth knowing: 0x08 supervision timeout (radio trouble), 0x13 the peer hung up, 0x16 we hung up. */
     ESP_LOGI(TAG, "slot %d disconnected, reason 0x%02x", slot, (unsigned)(reason & 0xff));
+    log_links("after disconnect");
     if (s_cbs.on_link != NULL) {
         s_cbs.on_link((unsigned)slot, false); /* Releases any key the device was holding. */
     }
@@ -840,6 +961,12 @@ static void reconcile(void) {
     if (!s_synced) {
         return;
     }
+    /* Existing links must leave room before another one is created (they are slowed to the multi-link interval). */
+    if (slow_down_links()) {
+        esp_timer_stop(s_reconnect_timer);
+        esp_timer_start_once(s_reconnect_timer, SLOW_RETRY_MS * 1000);
+        return;
+    }
     struct ble_gap_conn_params p;
     conn_params(&p);
 
@@ -919,11 +1046,21 @@ static void reconcile(void) {
         LOCK();
         s_bg_active = false;
         UNLOCK();
-        log_radio_state("background connect", rc);
+        LOCK();
+        const unsigned fails = ++s_bg_fails;
+        UNLOCK();
+        /* Log the first refusal and then every tenth: a refused connect repeats forever and would flood the ring
+         * buffer, hiding the events (drops, pairing) that explain it. */
+        if (fails == 1 || fails % 10 == 0) {
+            log_radio_state("background connect", rc);
+        }
         if (rc == BLE_HS_HCI_ERR(BLE_ERR_CONN_REJ_RESOURCES) || rc == BLE_HS_EBUSY) {
+            static const unsigned BACKOFF_S[] = BG_BACKOFF_S;
+            const unsigned last = sizeof(BACKOFF_S) / sizeof(BACKOFF_S[0]) - 1;
             widen_create_itvl();
             esp_timer_stop(s_reconnect_timer);
-            esp_timer_start_once(s_reconnect_timer, RECONNECT_DELAY_MS * 1000);
+            esp_timer_start_once(s_reconnect_timer,
+                                 (uint64_t)BACKOFF_S[fails - 1 < last ? fails - 1 : last] * 1000000u);
         }
     }
 }
@@ -1467,6 +1604,7 @@ void ble_central_set_conn_profile(uint16_t itvl_units, uint16_t latency, uint16_
     s_profile.itvl = itvl_units;
     s_profile.latency = latency;
     s_profile.timeout = timeout_10ms;
+    const uint16_t target = target_itvl_locked();
     for (int i = 0; i < BLE_CENTRAL_MAX_DEVICES; i++) {
         if (s_dev[i].conn != NO_CONN) {
             handles[n++] = s_dev[i].conn;
@@ -1477,13 +1615,14 @@ void ble_central_set_conn_profile(uint16_t itvl_units, uint16_t latency, uint16_
      * harmless: the link just keeps the old parameters (the stats timer shows what was really negotiated). */
     for (size_t i = 0; i < n; i++) {
         struct ble_gap_upd_params up = {
-            .itvl_min = itvl_units, .itvl_max = itvl_units, .latency = latency, .supervision_timeout = timeout_10ms};
+            .itvl_min = target, .itvl_max = target, .latency = latency, .supervision_timeout = timeout_10ms};
         const int rc = ble_gap_update_params(handles[i], &up);
         if (rc != 0) {
             ESP_LOGW(TAG, "connection update rejected locally (%d)", rc);
         }
     }
-    ESP_LOGI(TAG, "connection profile: %.2f ms, latency %u", itvl_units * 1.25, (unsigned)latency);
+    ESP_LOGI(TAG, "connection profile: %.2f ms (asked %.2f ms), latency %u", target * 1.25, itvl_units * 1.25,
+             (unsigned)latency);
 }
 
 /** @copydoc ble_central_has_keyboard */

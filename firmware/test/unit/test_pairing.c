@@ -133,6 +133,23 @@ void test_mouse_challenge_wrong_clicks_fail(void) {
     TEST_ASSERT_EQUAL(FAIL_CHALLENGE, p.fail);
 }
 
+/** A mistake that equals the first character of the code must not swallow it: the sequence restarts at position 1. */
+void test_challenge_mistake_equal_to_first_char_restarts_at_one(void) {
+    pairing_t p;
+    pairing_init(&p, false);
+    to_pairing(&p, 0, false, false);
+    pairing_on_secured(&p, 1, false, true);
+    pairing_on_hid_ready(&p, 2, false, rng_seq);
+    memcpy(p.challenge.text, "LRRLMR", 7);
+    p.challenge.len = 6;
+    const uint8_t clicks[] = {0x01, 0x01, 0x02, 0x02, 0x01, 0x04, 0x02}; /* L, L (wrong, but restarts), R R L M R */
+    for (unsigned i = 0; i < sizeof(clicks); i++) {
+        pairing_input_buttons(&p, 3, clicks[i]);
+        pairing_input_buttons(&p, 3, 0);
+    }
+    TEST_ASSERT_EQUAL(PAIR_BONDED, p.state); /* No physical confirmation needed here: verified -> bonded. */
+}
+
 void test_mouse_sequence_never_all_same(void) {
     pairing_t p;
     pairing_init(&p, false);
@@ -317,6 +334,7 @@ int main(void) {
     RUN_TEST(test_mouse_quarantine_challenge);
     RUN_TEST(test_held_button_counts_once);
     RUN_TEST(test_mouse_challenge_wrong_clicks_fail);
+    RUN_TEST(test_challenge_mistake_equal_to_first_char_restarts_at_one);
     RUN_TEST(test_mouse_sequence_never_all_same);
     RUN_TEST(test_keyboard_challenge);
     RUN_TEST(test_keyboard_challenge_rollover_keys_use_edges);

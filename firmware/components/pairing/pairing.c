@@ -263,7 +263,9 @@ static void challenge_input(pairing_t *p, uint32_t now_ms, char ch) {
         }
         return;
     }
-    c->pos = 0; /* A wrong input restarts the sequence. */
+    /* A wrong input restarts the sequence, but a key that is the first character of the code starts it again at
+     * once (otherwise a mistake on the first character would swallow that character). */
+    c->pos = (c->text[0] == ch) ? 1 : 0;
     if (++c->mistakes >= CHALLENGE_MAX_MISTAKES) {
         pairing_fail(p, now_ms, FAIL_CHALLENGE);
     }
