@@ -2,7 +2,7 @@
 
 Pairing can only be started from the web app, lasts at most 60 s (connect + pair) and pairs one device at a time.
 The dongle's IO capability is **DisplayOnly** and bonding uses **LE Secure Connections** whenever the peripheral
-supports them. At most four devices can be paired; forget one to add another.
+supports them. At most eight devices can be paired, and four of them can be connected at the same time; forget one to add another.
 
 ## Security levels
 

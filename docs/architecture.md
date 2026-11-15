@@ -50,12 +50,18 @@ Pure-logic code never includes ESP-IDF headers so it runs in the Unity host test
 
 | Limit | Value | Where |
 |---|---|---|
-| Peripherals connected and paired at the same time | **4** | `BLE_CENTRAL_MAX_DEVICES` (`ble_central.h`), `REG_SLOTS` (`device_registry.h`) |
+| Peripherals paired | **8** | `BLE_CENTRAL_MAX_DEVICES` (`ble_central.h`), `REG_SLOTS` (`device_registry.h`) |
+| Peripherals connected (forwarded to the host) at the same time | **4** | `BLE_CENTRAL_MAX_LINKS` (`ble_central.h`) |
 | NimBLE connections | 5 (the four devices + one pairing candidate) | `CONFIG_BT_NIMBLE_MAX_CONNECTIONS` |
-| NimBLE bond store | 8 entries | `CONFIG_BT_NIMBLE_MAX_BONDS` |
+| NimBLE bond store | 10 entries | `CONFIG_BT_NIMBLE_MAX_BONDS` |
+| Allow-list (background reconnect) | 8 entries | `CONFIG_BT_NIMBLE_WHITELIST_SIZE` |
 
-"Paired" and "connectable" are the same thing here: every paired device owns one of the four registry slots, and the
-slot index is its source index in the USB merge. To pair a fifth device one of the four must be forgotten first.
+Every paired device owns one of the eight registry slots, and the slot index is its source index in the USB merge. At
+most four are connected at once: while four links are up the background connect is off, and the paired devices that are
+not connected wait. When one of the four goes away (switched off, out of range, forgotten) the allow-list connect
+restarts and the first waiting device that advertises takes the free place (first come, first served). A device paired
+while four others are connected completes the pairing, then is disconnected and stays paired but offline until a place
+is free. A registry written by firmware up to 1.3.x (four slots) is read as is.
 
 The limit of four is a **design decision of the project brief** (`CLAUDE.md` §1.1 and §3.3), not a hardware limit; the
 controller could carry more links. The reasons behind it:

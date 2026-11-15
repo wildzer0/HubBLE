@@ -670,6 +670,7 @@ static esp_err_t devices_get(httpd_req_t *req) {
         }
     }
     cJSON_AddNumberToObject(r, "max", BLE_CENTRAL_MAX_DEVICES);
+    cJSON_AddNumberToObject(r, "max_links", BLE_CENTRAL_MAX_LINKS);
     return send_json(req, r);
 }
 

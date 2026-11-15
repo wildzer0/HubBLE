@@ -104,7 +104,8 @@ const LOCK_AFTER = 3;
 /** Seconds of the pairing lock. */
 const LOCK_S = 60;
 /** Maximum devices. */
-const MAX_DEVICES = 4;
+const MAX_DEVICES = 8;
+const MAX_LINKS = 4;
 
 /** What the mocked "check for updates" finds (set with `POST /api/v1/mock/ota`). */
 export type OtaScenario = 'available' | 'downgrade' | 'up_to_date' | 'wifi_failed' | 'confirm';
@@ -324,7 +325,10 @@ function handlePairing(req: MockRequest): MockResponse | null {
 function handleDevices(req: MockRequest): MockResponse | null {
   const { method, path } = req;
   if (method === 'GET' && path === '/api/v1/devices') {
-    return { status: 200, json: { devices: state.devices, max: MAX_DEVICES } };
+    return {
+      status: 200,
+      json: { devices: state.devices, max: MAX_DEVICES, max_links: MAX_LINKS },
+    };
   }
   const m = /^\/api\/v1\/devices\/([0-9a-f]{12})(\/report-map|\/report)?$/.exec(path);
   if (!m) return null;

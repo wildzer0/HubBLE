@@ -376,7 +376,8 @@ static void on_req_head(const uint8_t *payload, size_t len) {
     int n = snprintf(head, sizeof(head),
                      "%s %s HTTP/1.1\r\nHost: " API_HOST "\r\nX-HubBLE: 1\r\nAccept: */*\r\nConnection: close\r\n",
                      method->valuestring, path->valuestring);
-    if (strcmp(method->valuestring, "GET") != 0 && strcmp(method->valuestring, "DELETE") != 0) {
+    /* DELETE needs it too: the guard checks the content type of every state-changing call, body or not. */
+    if (strcmp(method->valuestring, "GET") != 0) {
         const char *type = cJSON_IsString(ct) && strlen(ct->valuestring) < 60 ? ct->valuestring : "application/json";
         n += snprintf(head + n, sizeof(head) - (size_t)n, "Content-Type: %s\r\nContent-Length: %u\r\n", type,
                       (unsigned)body_len);

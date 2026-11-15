@@ -87,6 +87,8 @@ before starting, and re-read the relevant milestone before working on it.
 ### 1.1 Goals
 1. Up to **4 BLE HID peripherals** (keyboards, mice, trackballs) connected
    **simultaneously**, forwarded to the host as one composite USB HID device.
+   > **Changed (user decision, 2026-11-15):** up to **8 devices can be paired**, of which at most **4 are connected at
+   > the same time**; the others wait offline until a place is free.
 2. **Zero host requirements**: works in BIOS/UEFI, at login screens, on locked
    corporate PCs, on any OS.
 3. **Secure pairing**, Logitech-style physical verification (§3.4).

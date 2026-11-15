@@ -6,6 +6,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.4.0-rc.1] - 2026-11-15
+
+### Fixed
+
+- Forgetting a device over the USB link failed with "Unexpected Content-Type": the link sent DELETE requests without a
+  Content-Type, which the API's CSRF guard requires on every state-changing call.
+
+### Changed
+
+- Up to **8 devices can be paired** (was 4) while at most **4 are connected and forwarded at the same time**. Paired
+  devices beyond the fourth wait offline and connect when a place frees up; a device paired while four are connected
+  completes the pairing and then stays offline. The registry written by older firmware (four slots) is migrated on
+  load; the NimBLE bond store grows to 10 entries and the allow-list to 8. `GET /devices` reports `max` (8) and the new
+  `max_links` (4).
+
 ## [1.3.1-rc.4] - 2026-11-15
 
 ### Fixed

@@ -88,7 +88,7 @@ describe('mock API: devices, pairing, settings', () => {
     });
 
   it('lists, renames and forgets devices', () => {
-    expect(handleMock(get('/api/v1/devices')).json).toMatchObject({ max: 4 });
+    expect(handleMock(get('/api/v1/devices')).json).toMatchObject({ max: 8, max_links: 4 });
     expect(send('PATCH', '/api/v1/devices/c0ffee000001', { name: 'X' }).status).toBe(200);
     expect(send('PATCH', '/api/v1/devices/c0ffee000001', { name: '' }).status).toBe(400);
     expect(handleMock(get('/api/v1/devices/c0ffee000001/report-map')).status).toBe(200);

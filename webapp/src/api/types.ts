@@ -280,8 +280,10 @@ export interface Device {
 export interface DeviceList {
   /** Registered devices. */
   devices: Device[];
-  /** Maximum number of devices (4). */
+  /** Maximum number of paired devices (8). */
   max: number;
+  /** Maximum number of devices connected at the same time (4). */
+  max_links: number;
 }
 
 /** States of the pairing state machine. */

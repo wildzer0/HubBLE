@@ -482,7 +482,7 @@ components:
       type: object
       properties:
         id: { type: string, description: "12 hex digits (the address)" }
-        slot: { type: integer, minimum: 0, maximum: 3 }
+        slot: { type: integer, minimum: 0, maximum: 7 }
         name: { type: string }
         type: { type: string, enum: [keyboard, pointer, unknown] }
         connected: { type: boolean }
@@ -499,7 +499,8 @@ components:
       type: object
       properties:
         devices: { type: array, items: { $ref: '#/components/schemas/Device' } }
-        max: { type: integer, example: 4 }
+        max: { type: integer, example: 8, description: Paired devices the dongle can hold }
+        max_links: { type: integer, example: 4, description: Devices that can be connected (and forwarded) at the same time }
     Pairing:
       type: object
       properties:

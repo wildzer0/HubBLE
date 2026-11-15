@@ -1,6 +1,6 @@
 /**
  * @file ble_central.h
- * @brief NimBLE central: scanning, bonding, allow-list auto-reconnect and up to 4 HID peripherals.
+ * @brief NimBLE central: scanning, bonding, allow-list auto-reconnect; up to 8 paired and 4 connected HID peripherals.
  *
  * Responsibilities (CLAUDE.md §3.3): own the NimBLE host; keep a persistent registry of up to
  * BLE_CENTRAL_MAX_DEVICES bonded peripherals (each with a stable slot used as the merge source index);
@@ -29,8 +29,10 @@
 extern "C" {
 #endif
 
-/** Maximum bonded peripherals connected simultaneously (CLAUDE.md §3.3). */
-#define BLE_CENTRAL_MAX_DEVICES 4
+/** Maximum paired (bonded and registered) peripherals; each owns a slot, the slot index is its merge source index. */
+#define BLE_CENTRAL_MAX_DEVICES 8
+/** Maximum peripherals connected (and forwarded to the host) at the same time (CLAUDE.md §3.3). */
+#define BLE_CENTRAL_MAX_LINKS 4
 /** Devices remembered in the scan list during pairing. */
 #define BLE_CENTRAL_MAX_SCAN 12
 /** Maximum length of a device name (including NUL). */

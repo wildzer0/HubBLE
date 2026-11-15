@@ -26,11 +26,13 @@ esp_err_t registry_load(reg_rec_t recs[REG_SLOTS]) {
         return err;
     }
     size_t len = sizeof(reg_rec_t) * REG_SLOTS;
-    reg_rec_t tmp[REG_SLOTS];
+    reg_rec_t tmp[REG_SLOTS] = {0};
     err = nvs_get_blob(h, REG_KEY, tmp, &len);
     nvs_close(h);
-    if (err == ESP_OK && len == sizeof(tmp)) {
-        memcpy(recs, tmp, sizeof(tmp));
+    /* The registry used to hold REG_SLOTS_V1 records: accept that size too (the extra slots stay empty), otherwise
+     * every device paired with an older firmware would be forgotten on update. Any other size resets the registry. */
+    if (err == ESP_OK && (len == sizeof(tmp) || len == sizeof(reg_rec_t) * REG_SLOTS_V1)) {
+        memcpy(recs, tmp, len);
         for (int i = 0; i < REG_SLOTS; i++) {
             recs[i].name[REG_NAME_MAX - 1] = '\0'; /* Never trust stored strings. */
         }

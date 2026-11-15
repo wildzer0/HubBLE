@@ -261,6 +261,19 @@ static int slot_by_conn(uint16_t conn) {
 }
 
 /**
+ * @brief Number of live connections (including a pairing candidate). Caller holds s_mu.
+ *
+ * @return Connections currently up.
+ */
+static unsigned live_links_locked(void) {
+    unsigned n = 0;
+    for (int i = 0; i < BLE_CENTRAL_MAX_DEVICES; i++) {
+        n += s_dev[i].conn != NO_CONN ? 1u : 0u;
+    }
+    return n;
+}
+
+/**
  * @brief Interval (1.25 ms units) every link should run at. Caller holds s_mu.
  *
  * The profile interval (7.5 ms, or the long one of the low-power mode), except that from MULTI_LINK_DEVICES registered
@@ -426,11 +439,13 @@ static void pair_sync(void) {
     ble_addr_t addr = s_pair.addr;
     uint16_t conn = s_dev[slot].conn;
     dev_t *d = &s_dev[slot];
+    bool over_limit = false; /* The new device is the fifth live link: it is kept paired but not connected. */
     d->pending = false;
     if (st == PAIR_BONDED) {
         s_reg[slot].sec = (uint8_t)s_fsm.level;
         s_reg[slot].kbd = hogp_is_keyboard(&d->hogp) ? 1 : 0;
         save_registry();
+        over_limit = live_links_locked() > BLE_CENTRAL_MAX_LINKS;
         ESP_LOGI(TAG, "pairing done, slot %d, security level %d", slot, (int)s_fsm.level);
     } else {
         ESP_LOGW(TAG, "pairing failed (reason %d)", (int)s_fsm.fail);
@@ -447,6 +462,10 @@ static void pair_sync(void) {
             ble_gap_conn_cancel();
         }
         ble_store_util_delete_peer(&addr); /* Never keep a bond of a pairing that did not complete. */
+    } else if (over_limit && conn != NO_CONN) {
+        ESP_LOGI(TAG, "slot %d paired, but %d devices are already connected: it stays offline until one leaves", slot,
+                 BLE_CENTRAL_MAX_LINKS);
+        ble_gap_terminate(conn, BLE_ERR_REM_USER_CONN_TERM);
     } else if (s_cbs.on_link != NULL) {
         s_cbs.on_link((unsigned)slot, true);
         hogp_write_leds(&s_dev[slot].hogp, s_leds);
@@ -602,6 +621,13 @@ static void on_connected(uint16_t conn_handle, void *arg) {
         UNLOCK();
         ESP_LOGW(TAG, "connection from an unregistered device refused");
         ble_gap_terminate(conn_handle, BLE_ERR_REM_USER_CONN_TERM); /* Allow-list only (CLAUDE.md §3.3). */
+        return;
+    }
+    if (arg == ARG_BACKGROUND && live_links_locked() >= BLE_CENTRAL_MAX_LINKS) {
+        /* Another device got the last place while this connect was in flight: it stays paired but offline. */
+        UNLOCK();
+        ESP_LOGI(TAG, "slot %d: all %d places are taken, dropping the link", slot, BLE_CENTRAL_MAX_LINKS);
+        ble_gap_terminate(conn_handle, BLE_ERR_REM_USER_CONN_TERM);
         return;
     }
     dev_t *dv = &s_dev[slot];
@@ -1012,7 +1038,12 @@ static void reconcile(void) {
         UNLOCK();
         return;
     }
-    /* 3. Background: allow-list = registered, bonded, currently disconnected devices. */
+    /* 3. Background: allow-list = registered, bonded, currently disconnected devices; none while every place is
+     * taken (paired devices beyond BLE_CENTRAL_MAX_LINKS wait until one of the connected ones goes away). */
+    if (live_links_locked() >= BLE_CENTRAL_MAX_LINKS) {
+        UNLOCK();
+        return;
+    }
     ble_addr_t bonded[BLE_CENTRAL_MAX_DEVICES + 4];
     int nbonded = 0;
     ble_store_util_bonded_peers(bonded, &nbonded, (int)(sizeof(bonded) / sizeof(bonded[0])));
@@ -1022,7 +1053,7 @@ static void reconcile(void) {
         if (!s_reg[i].used || s_dev[i].pending || s_dev[i].conn != NO_CONN) {
             continue;
         }
-        for (int b = 0; b < nbonded; b++) {
+        for (int b = 0; b < nbonded && nwl < CONFIG_BT_NIMBLE_WHITELIST_SIZE; b++) {
             if (memcmp(bonded[b].val, s_reg[i].addr, 6) == 0) {
                 wl[nwl].type = s_reg[i].addr_type;
                 memcpy(wl[nwl].val, s_reg[i].addr, 6);

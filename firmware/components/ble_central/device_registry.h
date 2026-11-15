@@ -14,7 +14,9 @@
 #include "esp_err.h"
 
 /** Number of registry slots (equals BLE_CENTRAL_MAX_DEVICES). */
-#define REG_SLOTS 4
+#define REG_SLOTS 8
+/** Slots of the first registry format (up to firmware 1.3.x), still accepted when loading. */
+#define REG_SLOTS_V1 4
 /** Longest stored device name, including the terminating NUL. */
 #define REG_NAME_MAX 32
 
