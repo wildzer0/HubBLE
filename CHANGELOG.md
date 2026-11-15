@@ -37,6 +37,12 @@ First stable release of the 1.4 line; it rolls up 1.3.1-rc.1 to rc.4 and 1.4.0-r
   count towards the pairing lock; the keyboard and click challenge no longer loses a first character after a mistake.
 - The BLE log buffer is no longer flooded by repeated refused background connects (back-off of 1, 2, 5, 10 s).
 
+### Known issues
+
+- A Logitech MX Keys Mini that is switched off and on again while two other paired devices are connected may not
+  reconnect (the other devices reconnect fine); it does when the other keyboard is disconnected first. Under
+  investigation: the BLE log of a failed attempt is needed.
+
 ## [1.4.0-rc.3] - 2026-11-15
 
 ### Fixed
