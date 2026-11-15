@@ -133,6 +133,7 @@ static bool s_bg_active;                     /**< A background connect is in pro
 /** Interval (1.25 ms units) used to CREATE connections, 0 = the profile. Widened while the controller refuses to fit a
  *  new link into the schedule of the existing ones (HCI 0x0D); the link is then moved to the profile by an update. */
 static uint16_t s_create_itvl;
+static uint8_t s_bg_mask;    /**< Slots in the allow-list of the background connect now pending. */
 static uint8_t s_slow_tries; /**< Rounds spent waiting for the existing links to slow down. */
 static uint8_t s_bg_fails; /**< Consecutive refused background connects (drives the retry back-off and the log rate). */
 static uint8_t s_own_addr_type; /**< Own address type from ble_hs_id_infer_auto(). */
@@ -979,6 +980,42 @@ static int scan_event(struct ble_gap_event *event, void *arg) {
 }
 
 /**
+ * @brief Build the allow-list of the background connect: registered, bonded, currently disconnected devices.
+ *
+ * Caller holds s_mu. Empty while every place (BLE_CENTRAL_MAX_LINKS) is taken: paired devices beyond it wait until
+ * one of the connected ones goes away.
+ *
+ * @param[out] wl  Receives the allow-list entries.
+ * @param[out] nwl Receives how many entries @p wl holds.
+ * @return Bit mask of the slots in the list (bit i = slot i), 0 if the list is empty.
+ */
+static uint8_t bg_allowlist_locked(ble_addr_t wl[BLE_CENTRAL_MAX_DEVICES], uint8_t *nwl) {
+    *nwl = 0;
+    if (live_links_locked() >= BLE_CENTRAL_MAX_LINKS) {
+        return 0;
+    }
+    ble_addr_t bonded[BLE_CENTRAL_MAX_DEVICES + 4];
+    int nbonded = 0;
+    ble_store_util_bonded_peers(bonded, &nbonded, (int)(sizeof(bonded) / sizeof(bonded[0])));
+    uint8_t mask = 0;
+    for (int i = 0; i < BLE_CENTRAL_MAX_DEVICES; i++) {
+        if (!s_reg[i].used || s_dev[i].pending || s_dev[i].conn != NO_CONN) {
+            continue;
+        }
+        for (int b = 0; b < nbonded && *nwl < CONFIG_BT_NIMBLE_WHITELIST_SIZE; b++) {
+            if (memcmp(bonded[b].val, s_reg[i].addr, 6) == 0) {
+                wl[*nwl].type = s_reg[i].addr_type;
+                memcpy(wl[*nwl].val, s_reg[i].addr, 6);
+                (*nwl)++;
+                mask |= (uint8_t)(1u << i);
+                break;
+            }
+        }
+    }
+    return mask;
+}
+
+/**
  * @brief Decide what the single outgoing connection attempt should be, and start it. Safe to call any time.
  *
  * Priority: a requested pairing connect > nothing while scanning > background allow-list connect.
@@ -1034,38 +1071,36 @@ static void reconcile(void) {
         return;
     }
     /* 2. Scanning or pairing in progress: no background connect. */
-    if (s_fsm.state == PAIR_SCANNING || s_fsm.state == PAIR_CONNECTING || s_fsm.state == PAIR_PAIRING || s_bg_active) {
+    if (s_fsm.state == PAIR_SCANNING || s_fsm.state == PAIR_CONNECTING || s_fsm.state == PAIR_PAIRING) {
         UNLOCK();
         return;
     }
-    /* 3. Background: allow-list = registered, bonded, currently disconnected devices; none while every place is
-     * taken (paired devices beyond BLE_CENTRAL_MAX_LINKS wait until one of the connected ones goes away). */
-    if (live_links_locked() >= BLE_CENTRAL_MAX_LINKS) {
-        UNLOCK();
-        return;
-    }
-    ble_addr_t bonded[BLE_CENTRAL_MAX_DEVICES + 4];
-    int nbonded = 0;
-    ble_store_util_bonded_peers(bonded, &nbonded, (int)(sizeof(bonded) / sizeof(bonded[0])));
     ble_addr_t wl[BLE_CENTRAL_MAX_DEVICES];
     uint8_t nwl = 0;
-    for (int i = 0; i < BLE_CENTRAL_MAX_DEVICES; i++) {
-        if (!s_reg[i].used || s_dev[i].pending || s_dev[i].conn != NO_CONN) {
-            continue;
+    const uint8_t mask = bg_allowlist_locked(wl, &nwl);
+    if (s_bg_active) {
+        /* A pending connect only listens for the devices that were in its allow-list when it started. If one of the
+         * registered devices has dropped since (or a place was taken), the list is stale: without a restart that
+         * device would never be able to reconnect, as long as some other paired device stays away. */
+        const bool stale = mask != s_bg_mask;
+        UNLOCK();
+        if (stale) {
+            ESP_LOGI(TAG, "allow-list changed (0x%02x -> 0x%02x): restarting the background connect", s_bg_mask, mask);
+            if (ble_gap_conn_cancel() == BLE_HS_EALREADY) {
+                LOCK();
+                s_bg_active = false; /* Nothing was pending after all: no CONNECT event will come. */
+                UNLOCK();
+                reconcile();
+            } /* Otherwise the CONNECT-failed event re-enters reconcile() and starts the new list. */
         }
-        for (int b = 0; b < nbonded && nwl < CONFIG_BT_NIMBLE_WHITELIST_SIZE; b++) {
-            if (memcmp(bonded[b].val, s_reg[i].addr, 6) == 0) {
-                wl[nwl].type = s_reg[i].addr_type;
-                memcpy(wl[nwl].val, s_reg[i].addr, 6);
-                nwl++;
-                break;
-            }
-        }
+        return;
     }
+    /* 3. Background connect with that allow-list (none while there is nobody to connect or every place is taken). */
     if (nwl == 0) {
         UNLOCK();
         return;
     }
+    s_bg_mask = mask;
     s_bg_active = true;
     UNLOCK();
     int rc = ble_gap_wl_set(wl, nwl);

@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.4.0-rc.3] - 2026-11-15
+
+### Fixed
+
+- A peripheral that was switched off and on again did not reconnect until the dongle was unplugged. The background
+  connect listens only for the devices that were in its allow-list when it started; as long as another paired device
+  stayed away (so the connect never ended), a device that had been connected at that moment and then dropped was never
+  added. The pending connect is now restarted whenever the allow-list it needs differs from the one it has (a device
+  dropped, a device connected, or every place taken), and the log says so (`allow-list changed`).
+
 ## [1.4.0-rc.2] - 2026-11-15
 
 ### Fixed
