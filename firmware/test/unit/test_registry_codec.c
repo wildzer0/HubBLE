@@ -60,9 +60,10 @@ void test_partial_record_is_rejected(void) {
 }
 
 void test_empty_and_null_are_rejected(void) {
-    reg_rec_t out[REG_SLOTS];
-    TEST_ASSERT_FALSE(registry_decode(out, 0, out));
-    TEST_ASSERT_FALSE(registry_decode(NULL, sizeof(out), out));
+    reg_rec_t in[REG_SLOTS], out[REG_SLOTS];
+    make(in, REG_SLOTS);
+    TEST_ASSERT_FALSE(registry_decode(in, 0, out));
+    TEST_ASSERT_FALSE(registry_decode(NULL, sizeof(in), out));
 }
 
 void test_names_are_terminated(void) {
