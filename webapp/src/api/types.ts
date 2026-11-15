@@ -295,6 +295,7 @@ export type PairFailure =
   | 'legacy_rejected'
   | 'security_failed'
   | 'no_hid_service'
+  | 'controller_busy'
   | 'challenge_failed';
 
 /** Pairing status object (REST and `pairing.*` WebSocket events). */

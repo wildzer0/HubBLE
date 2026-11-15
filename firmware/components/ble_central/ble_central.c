@@ -71,6 +71,12 @@ static const char *TAG = "ble";
 /** Retries and spacing when starting a scan right after cancelling the background connect. */
 #define SCAN_RETRIES  10
 #define SCAN_RETRY_MS 20
+/** Retries and spacing when the controller rejects LE Create Connection (limited resources / busy). */
+#define CONNECT_RETRIES  5
+#define CONNECT_RETRY_MS 150
+/** How long to wait for the controller to stop scanning before connecting, and the polling step. */
+#define SCAN_STOP_WAIT_MS 200
+#define SCAN_STOP_STEP_MS 10
 /** Largest report copied out of a notification. */
 #define MAX_REPORT_COPY 96
 
@@ -96,6 +102,7 @@ typedef struct {
     ble_addr_t addr;                              /**< Candidate address (NimBLE order). */
     int slot;                                     /**< Reserved slot or -1. */
     bool connect_requested;                       /**< Waiting for the background connect to stop before connecting. */
+    uint8_t connect_tries;                        /**< Create Connection attempts rejected so far for this pairing. */
     ble_scan_result_t scan[BLE_CENTRAL_MAX_SCAN]; /**< Scan list. */
     size_t nscan;                                 /**< Entries in the scan list. */
     uint16_t appearance;                          /**< GAP appearance of the candidate (0 if not advertised). */
@@ -125,6 +132,27 @@ static esp_timer_handle_t s_stats_timer;     /**< Periodic RSSI/parameter refres
 
 static void reconcile(void);
 static int gap_event(struct ble_gap_event *event, void *arg);
+
+/**
+ * @brief Log what the radio is doing, to explain a refused Create Connection.
+ *
+ * The controller answers "limited resources" (HCI 0x0D) for several different reasons (activity limit, a scan or
+ * initiator it still considers active); these figures tell them apart in the field.
+ *
+ * @param what Short description of the failed operation.
+ * @param rc   NimBLE return code.
+ */
+static void log_radio_state(const char *what, int rc) {
+    int links = 0;
+    LOCK();
+    for (int i = 0; i < BLE_CENTRAL_MAX_DEVICES; i++) {
+        links += s_dev[i].conn != NO_CONN;
+    }
+    bool bg = s_bg_active;
+    UNLOCK();
+    ESP_LOGW(TAG, "%s failed (rc=%d): links=%d bg_connect=%d host_scan=%d host_connect=%d", what, rc, links, bg,
+             ble_gap_disc_active(), ble_gap_conn_active());
+}
 
 /** Take / release the registry mutex that protects the device table (never held across NimBLE calls that block). */
 #define LOCK()   xSemaphoreTake(s_mu, portMAX_DELAY)
@@ -794,8 +822,22 @@ static void reconcile(void) {
         UNLOCK();
         int rc = ble_gap_connect(s_own_addr_type, &addr, BLE_PAIRING_TIMEOUT_MS, &p, gap_event, ARG_PAIRING);
         if (rc != 0) {
-            ESP_LOGW(TAG, "pairing connect failed to start (%d)", rc);
-            pair_fail(FAIL_SECURITY);
+            log_radio_state("pairing connect", rc);
+            LOCK();
+            const bool retry =
+                rc == BLE_HS_HCI_ERR(BLE_ERR_CONN_REJ_RESOURCES) || rc == BLE_HS_EBUSY || rc == BLE_HS_EALREADY;
+            const bool again = retry && s_pair.connect_tries++ < CONNECT_RETRIES && s_fsm.state == PAIR_CONNECTING;
+            if (again) {
+                s_pair.connect_requested = true; /* The timer re-enters reconcile(), which tries again. */
+            }
+            UNLOCK();
+            if (again) {
+                esp_timer_stop(s_reconnect_timer);
+                esp_timer_start_once(s_reconnect_timer, CONNECT_RETRY_MS * 1000);
+            } else {
+                /* A refusal by our own controller is not a security failure: report it as such. */
+                pair_fail(retry ? FAIL_CONTROLLER : FAIL_SECURITY);
+            }
         }
         return;
     }
@@ -838,7 +880,11 @@ static void reconcile(void) {
         LOCK();
         s_bg_active = false;
         UNLOCK();
-        ESP_LOGW(TAG, "background connect not started (%d)", rc);
+        log_radio_state("background connect", rc);
+        if (rc == BLE_HS_HCI_ERR(BLE_ERR_CONN_REJ_RESOURCES) || rc == BLE_HS_EBUSY) {
+            esp_timer_stop(s_reconnect_timer);
+            esp_timer_start_once(s_reconnect_timer, RECONNECT_DELAY_MS * 1000);
+        }
     }
 }
 
@@ -1139,10 +1185,15 @@ esp_err_t ble_central_pair(const uint8_t addr[6], uint8_t addr_type, bool allow_
     s_pair.addr = a;
     s_pair.slot = slot;
     s_pair.connect_requested = true;
+    s_pair.connect_tries = 0;
     UNLOCK();
     ble_store_util_delete_peer(&a);
     if (scanning) {
         ble_gap_disc_cancel();
+        /* The controller must really have stopped scanning before it accepts Create Connection. */
+        for (int waited = 0; ble_gap_disc_active() && waited < SCAN_STOP_WAIT_MS; waited += SCAN_STOP_STEP_MS) {
+            vTaskDelay(pdMS_TO_TICKS(SCAN_STOP_STEP_MS));
+        }
     }
     changed(-1);
     reconcile();

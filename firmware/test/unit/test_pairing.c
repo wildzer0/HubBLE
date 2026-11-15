@@ -231,6 +231,18 @@ void test_lock_after_three_failures(void) {
     TEST_ASSERT_EQUAL(PAIR_START_OK, pairing_begin_pair(&p, t + PAIR_LOCK_MS + 10, false, false));
 }
 
+/** A refusal by our own controller must not lock pairing: it says nothing about the peer. */
+void test_controller_failure_does_not_lock(void) {
+    pairing_t p;
+    pairing_init(&p, false);
+    for (int i = 0; i < PAIR_MAX_FAILURES + 2; i++) {
+        pairing_begin_pair(&p, 0, false, false);
+        pairing_fail(&p, 0, FAIL_CONTROLLER);
+        TEST_ASSERT_EQUAL(FAIL_CONTROLLER, p.fail);
+    }
+    TEST_ASSERT_FALSE(p.locked);
+}
+
 void test_cancel_does_not_count_and_success_resets(void) {
     pairing_t p;
     pairing_init(&p, false);
@@ -317,6 +329,7 @@ int main(void) {
     RUN_TEST(test_busy_and_scan_to_pair);
     RUN_TEST(test_scan_done_returns_to_idle);
     RUN_TEST(test_events_in_wrong_state_are_ignored);
+    RUN_TEST(test_controller_failure_does_not_lock);
     RUN_TEST(test_usage_to_char);
     return UNITY_END();
 }

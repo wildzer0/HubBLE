@@ -149,8 +149,9 @@ void pairing_fail(pairing_t *p, uint32_t now_ms, pair_fail_t reason) {
     p->has_passkey = false;
     p->phase_timeout_ms = 0;
     memset(&p->challenge, 0, sizeof(p->challenge));
-    if (reason != FAIL_CANCELLED && reason != FAIL_NONE) {
-        /* Rate limiting (CLAUDE.md §3.12): the third consecutive failure locks pairing for 60 s. */
+    if (reason != FAIL_CANCELLED && reason != FAIL_NONE && reason != FAIL_CONTROLLER) {
+        /* Rate limiting (CLAUDE.md §3.12): the third consecutive failure locks pairing for 60 s. A local controller
+         * fault says nothing about the peer or an attacker, so it is not counted. */
         if (++p->failures >= PAIR_MAX_FAILURES) {
             p->locked = true;
             p->locked_until_ms = now_ms + PAIR_LOCK_MS;

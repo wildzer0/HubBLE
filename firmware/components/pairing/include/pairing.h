@@ -46,13 +46,14 @@ typedef enum {
 
 /** Why a pairing failed. */
 typedef enum {
-    FAIL_NONE = 0,  /**< No failure. */
-    FAIL_TIMEOUT,   /**< A phase timed out. */
-    FAIL_CANCELLED, /**< The user cancelled (not counted for the lock). */
-    FAIL_LEGACY,    /**< Legacy pairing refused by policy. */
-    FAIL_SECURITY,  /**< Encryption/SMP failed or the link dropped. */
-    FAIL_NO_HID,    /**< No usable HID service. */
-    FAIL_CHALLENGE, /**< Too many wrong challenge inputs. */
+    FAIL_NONE = 0,   /**< No failure. */
+    FAIL_TIMEOUT,    /**< A phase timed out. */
+    FAIL_CANCELLED,  /**< The user cancelled (not counted for the lock). */
+    FAIL_LEGACY,     /**< Legacy pairing refused by policy. */
+    FAIL_SECURITY,   /**< Encryption/SMP failed or the link dropped. */
+    FAIL_NO_HID,     /**< No usable HID service. */
+    FAIL_CHALLENGE,  /**< Too many wrong challenge inputs. */
+    FAIL_CONTROLLER, /**< The BLE controller refused to start the connection (local fault, not the peer). */
 } pair_fail_t;
 
 /** Challenge kinds. */

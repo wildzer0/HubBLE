@@ -268,6 +268,8 @@ export const it: Record<MessageKey, string> = {
   'pair.fail.legacy_rejected':
     'Il dispositivo supporta solo il pairing legacy, rifiutato di default. Attiva l’opzione e riprova se accetti il rischio.',
   'pair.fail.security_failed': 'Pairing fallito: lo scambio di sicurezza non è stato completato.',
+  'pair.fail.controller_busy':
+    'Pairing fallito: la radio Bluetooth del dongle ha rifiutato di avviare la connessione. Riprova; se persiste, scarica i log.',
   'pair.fail.no_hid_service': 'Il dispositivo non offre un servizio HID.',
   'pair.fail.challenge_failed': 'Verifica fallita. Il dispositivo è stato rimosso.',
   'tester.heading': 'Prova input',

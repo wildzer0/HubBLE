@@ -504,7 +504,7 @@ components:
       type: object
       properties:
         state: { type: string, enum: [idle, scanning, connecting, pairing, quarantine, confirm, bonded, failed] }
-        reason: { type: string, enum: [timeout, cancelled, legacy_rejected, security_failed, no_hid_service, challenge_failed] }
+        reason: { type: string, enum: [timeout, cancelled, legacy_rejected, security_failed, no_hid_service, challenge_failed, controller_busy] }
         level: { type: string, enum: [green, yellow, red, unknown] }
         device: { type: string }
         remaining_s: { type: integer }

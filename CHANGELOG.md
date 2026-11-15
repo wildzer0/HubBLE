@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.3.1-rc.1] - 2026-11-15
+
+### Fixed
+
+- Pairing a second device while a keyboard was already connected failed at once with "security exchange not completed":
+  the BLE controller rejected LE Create Connection (`BLE_ERR_CONN_REJ_RESOURCES`, 525) and every failure was reported as
+  a security failure. The firmware now waits until the scan has really stopped, retries the connect a few times, logs the
+  radio state (links, scan, connect) when it is refused, and reports a distinct `controller_busy` reason that does not
+  count towards the 3-failure pairing lock. A refused background reconnect is retried after 1 s.
+
 ### Changed
 
 - Documentation only, no firmware behaviour change: every firmware function, macro, struct field and enum value now has a

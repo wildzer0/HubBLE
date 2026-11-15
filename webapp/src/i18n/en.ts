@@ -258,6 +258,8 @@ export const en = {
   'pair.fail.legacy_rejected':
     'The device only supports legacy pairing, which is rejected by default. Enable the override and try again if you accept the risk.',
   'pair.fail.security_failed': 'Pairing failed: the security exchange was not completed.',
+  'pair.fail.controller_busy':
+    'Pairing failed: the Bluetooth radio of the dongle refused to start the connection. Try again; if it persists, download the logs.',
   'pair.fail.no_hid_service': 'The device does not offer a HID service.',
   'pair.fail.challenge_failed': 'The check failed. The device was removed.',
   'tester.heading': 'Input tester',

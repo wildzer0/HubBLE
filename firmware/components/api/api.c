@@ -928,6 +928,8 @@ static const char *fail_name(pair_fail_t f) {
         return "no_hid_service";
     case FAIL_CHALLENGE:
         return "challenge_failed";
+    case FAIL_CONTROLLER:
+        return "controller_busy";
     case FAIL_NONE:
     default:
         return "none";
