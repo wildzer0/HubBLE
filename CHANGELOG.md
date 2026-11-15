@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.3.1-rc.3] - 2026-11-15
+
+### Fixed
+
+- The controller still refused a third connection at every interval up to 60 ms, so the schedule was not the cause: the
+  controller was built with ESP-IDF's default of 6 activities (`CONFIG_BT_CTRL_BLE_MAX_ACT`) while the project allows 5
+  connections plus scan and initiator. It is now 10 (the maximum) and the boot log prints the effective limits.
+
 ## [1.3.1-rc.2] - 2026-11-15
 
 ### Fixed

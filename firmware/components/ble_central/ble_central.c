@@ -1035,6 +1035,8 @@ esp_err_t ble_central_init(const ble_central_cbs_t *cbs) {
         return ESP_ERR_NO_MEM;
     }
 
+    ESP_LOGI(TAG, "controller limits: %d activities, %d host connections", CONFIG_BT_CTRL_BLE_MAX_ACT_EFF,
+             CONFIG_BT_NIMBLE_MAX_CONNECTIONS);
     err = nimble_port_init();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "nimble_port_init failed: %s", esp_err_to_name(err));

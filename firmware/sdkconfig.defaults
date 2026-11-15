@@ -37,6 +37,10 @@ CONFIG_BT_NIMBLE_ROLE_PERIPHERAL=n
 CONFIG_BT_NIMBLE_ROLE_BROADCASTER=n
 CONFIG_BT_NIMBLE_ROLE_OBSERVER=y
 CONFIG_BT_NIMBLE_MAX_CONNECTIONS=5
+# Controller "activities" (connections + scan + initiator + advertising). ESP-IDF asks to set this together with the
+# connection count; the default (6) is too small for 4 devices + 1 pairing candidate + scan/initiator, and the
+# controller answered LE Create Connection with "limited resources" once two links existed. 10 is the maximum.
+CONFIG_BT_CTRL_BLE_MAX_ACT=10
 CONFIG_BT_NIMBLE_MAX_BONDS=8
 CONFIG_BT_NIMBLE_NVS_PERSIST=y
 CONFIG_BT_NIMBLE_SM_LEGACY=y
