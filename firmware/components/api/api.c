@@ -17,7 +17,9 @@
 #include "cJSON.h"
 #include "diag.h"
 #include "esp_app_desc.h"
+#include "esp_core_dump.h"
 #include "esp_log.h"
+#include "esp_partition.h"
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "http_guard.h"
@@ -363,6 +365,40 @@ static esp_err_t logs_get(httpd_req_t *req) {
             return ESP_FAIL;
         }
         cursor = next;
+    }
+    return httpd_resp_send_chunk(req, NULL, 0);
+}
+
+/**
+ * GET /api/v1/coredump: the crash dump stored in flash by the last panic (CLAUDE.md §3.11), as a binary download.
+ *
+ * Answers 404 when no valid dump is stored. The dump is an ESP-IDF core file (decode it with `esp-coredump` and the
+ * matching firmware ELF). It is a snapshot of RAM at the time of the crash, so it may contain whatever the dongle was
+ * handling then, including recent input reports: share it with care. The dongle never uploads it by itself.
+ *
+ * @param req HTTP request being served.
+ * @return ESP_OK once the response was sent, otherwise an error from the HTTP server.
+ */
+static esp_err_t coredump_get(httpd_req_t *req) {
+    size_t addr = 0;
+    size_t size = 0;
+    const esp_partition_t *part =
+        esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_COREDUMP, NULL);
+    if (part == NULL || esp_core_dump_image_check() != ESP_OK || esp_core_dump_image_get(&addr, &size) != ESP_OK ||
+        addr < part->address || addr + size > part->address + part->size) {
+        return send_error(req, "404 Not Found", "no_coredump", "No crash dump is stored");
+    }
+    httpd_resp_set_type(req, "application/octet-stream");
+    httpd_resp_set_hdr(req, "Content-Disposition", "attachment; filename=\"hubble.core\"");
+    httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+    uint8_t buf[LOG_CHUNK];
+    for (size_t off = 0; off < size;) {
+        const size_t n = size - off < sizeof(buf) ? size - off : sizeof(buf);
+        if (esp_partition_read(part, addr - part->address + off, buf, n) != ESP_OK ||
+            httpd_resp_send_chunk(req, (const char *)buf, (ssize_t)n) != ESP_OK) {
+            return ESP_FAIL;
+        }
+        off += n;
     }
     return httpd_resp_send_chunk(req, NULL, 0);
 }
@@ -1594,6 +1630,7 @@ esp_err_t api_register(httpd_handle_t server) {
         {.uri = "/api/v1/ota/status", .method = HTTP_GET, .handler = ota_status_get},
         {.uri = "/api/v1/diagnostics", .method = HTTP_GET, .handler = diagnostics_get},
         {.uri = "/api/v1/logs", .method = HTTP_GET, .handler = logs_get},
+        {.uri = "/api/v1/coredump", .method = HTTP_GET, .handler = coredump_get},
         {.uri = "/api/v1/settings/wifi-password", .method = HTTP_POST, .handler = wifi_password_post},
         {.uri = "/api/v1/ota/upload", .method = HTTP_POST, .handler = ota_upload_post},
         {.uri = "/api/v1/system/reboot", .method = HTTP_POST, .handler = reboot_post},

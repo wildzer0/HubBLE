@@ -20,7 +20,7 @@ import { apiFetch } from '../api/transport';
 import { useT } from '../i18n/context';
 import { formatBytes, formatDuration } from '../lib/format';
 import { parseBackup } from '../lib/backup';
-import { downloadText } from '../lib/download';
+import { downloadBytes, downloadText } from '../lib/download';
 import { isLimitedBrowser } from '../lib/embeddedBrowser';
 import { useApi } from '../lib/useApi';
 
@@ -37,6 +37,7 @@ const MAX_LOG_LINES = 200;
 function LiveLog() {
   const t = useT();
   const [lines, setLines] = useState<string[]>([]);
+  const [dumpNone, setDumpNone] = useState(false);
 
   // Show what was logged before the page opened (the dongle keeps the last lines in RAM): without it the panel
   // is empty exactly when something has just gone wrong.
@@ -92,7 +93,30 @@ function LiveLog() {
         }}
       >
         {t('system.logs_download')}
+      </button>{' '}
+      <button
+        type="button"
+        class="btn"
+        onClick={() => {
+          setDumpNone(false);
+          apiFetch('/api/v1/coredump')
+            .then(async (r) => {
+              if (!r.ok) {
+                setDumpNone(true);
+                return;
+              }
+              downloadBytes('hubble.core', await r.arrayBuffer());
+            })
+            .catch(() => undefined);
+        }}
+      >
+        {t('system.coredump_download')}
       </button>
+      {dumpNone && (
+        <p class="hint" role="status">
+          {t('system.coredump_none')}
+        </p>
+      )}
     </section>
   );
 }

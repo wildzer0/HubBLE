@@ -50,6 +50,8 @@ export const en = {
   'system.logs': 'Live log',
   'system.logs_empty': 'No log lines yet.',
   'system.logs_download': 'Download log',
+  'system.coredump_download': 'Download crash dump',
+  'system.coredump_none': 'No crash dump is stored.',
   'system.actions': 'Actions',
   'system.reboot': 'Reboot',
   'system.reboot_download': 'Reboot to USB download mode',

@@ -6,6 +6,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.4.0-rc.2] - 2026-11-15
+
+### Fixed
+
+- v1.4.0-rc.1 failed to start on a real dongle and rolled back, and the older firmware then discarded the paired
+  devices because it could not read the eight-slot registry (`ESP_ERR_NVS_INVALID_LENGTH`). The registry is now read
+  whatever number of slots it was written with (fewer: the rest stays empty; more: the extra ones are ignored; a corrupt
+  size gives an empty registry as before), with host tests. The paired devices of a dongle that rolled back come back
+  as long as nothing was paired or forgotten in between.
+- Internal RAM: the per-device HOGP state (3 KB each) is allocated once at start-up in PSRAM instead of being static
+  for every slot. The static device table drops from 26 KB (rc.1) and 13 KB (rc.4) to 2.5 KB. The cause of the rc.1
+  start-up failure is not confirmed (the leading suspect is the 16 KB of extra internal RAM that eight slots needed).
+
+### Added
+
+- `GET /api/v1/coredump` and a **Download crash dump** button on the System page: the crash dump that the last panic
+  stored in flash (CLAUDE.md §3.11). The boot log says when one is stored.
+
 ## [1.4.0-rc.1] - 2026-11-15
 
 ### Fixed

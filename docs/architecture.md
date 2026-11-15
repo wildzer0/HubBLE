@@ -61,7 +61,9 @@ most four are connected at once: while four links are up the background connect 
 not connected wait. When one of the four goes away (switched off, out of range, forgotten) the allow-list connect
 restarts and the first waiting device that advertises takes the free place (first come, first served). A device paired
 while four others are connected completes the pairing, then is disconnected and stays paired but offline until a place
-is free. A registry written by firmware up to 1.3.x (four slots) is read as is.
+is free. The registry is read whatever number of slots it was written with (`registry_decode()` in `registry_codec.c`), so
+moving between firmware versions with different slot counts does not forget the paired devices. The per-device HOGP
+state is allocated in PSRAM at start-up, not statically, to spare internal RAM.
 
 The limit of four is a **design decision of the project brief** (`CLAUDE.md` §1.1 and §3.3), not a hardware limit; the
 controller could carry more links. The reasons behind it:

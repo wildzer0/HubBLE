@@ -54,6 +54,8 @@ export const it: Record<MessageKey, string> = {
   'system.logs': 'Log in tempo reale',
   'system.logs_empty': 'Ancora nessuna riga di log.',
   'system.logs_download': 'Scarica il log',
+  'system.coredump_download': 'Scarica il crash dump',
+  'system.coredump_none': 'Nessun crash dump memorizzato.',
   'system.actions': 'Azioni',
   'system.reboot': 'Riavvia',
   'system.reboot_download': 'Riavvia in modalità download USB',

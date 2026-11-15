@@ -12,23 +12,7 @@
 #include <stdint.h>
 
 #include "esp_err.h"
-
-/** Number of registry slots (equals BLE_CENTRAL_MAX_DEVICES). */
-#define REG_SLOTS 8
-/** Slots of the first registry format (up to firmware 1.3.x), still accepted when loading. */
-#define REG_SLOTS_V1 4
-/** Longest stored device name, including the terminating NUL. */
-#define REG_NAME_MAX 32
-
-/** One registry record. */
-typedef struct {
-    uint8_t used;            /**< 1 when the slot is assigned. */
-    uint8_t addr_type;       /**< BLE address type. */
-    uint8_t sec;             /**< sec_level_t of the bond (security badge). */
-    uint8_t kbd;             /**< 1 if the device is a keyboard (can confirm pairings). */
-    uint8_t addr[6];         /**< Address in NimBLE order (least significant byte first). */
-    char name[REG_NAME_MAX]; /**< Device name. */
-} reg_rec_t;
+#include "registry_codec.h"
 
 /**
  * @brief Load the registry from NVS (empty if none).

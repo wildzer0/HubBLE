@@ -106,7 +106,7 @@ typedef struct {
     uint32_t reconnects;  /**< Link count since boot. */
     uint32_t last_seen_s; /**< Uptime seconds of the last report. */
     lat_stats_t lat;      /**< Latency statistics. */
-    hogp_t hogp;          /**< HOGP client (valid while connected). */
+    hogp_t *hogp;         /**< HOGP client state (3 KB): allocated once at init, in PSRAM when there is one. */
 } dev_t;
 
 /** Pairing flow state. */
@@ -443,7 +443,7 @@ static void pair_sync(void) {
     d->pending = false;
     if (st == PAIR_BONDED) {
         s_reg[slot].sec = (uint8_t)s_fsm.level;
-        s_reg[slot].kbd = hogp_is_keyboard(&d->hogp) ? 1 : 0;
+        s_reg[slot].kbd = hogp_is_keyboard(d->hogp) ? 1 : 0;
         save_registry();
         over_limit = live_links_locked() > BLE_CENTRAL_MAX_LINKS;
         ESP_LOGI(TAG, "pairing done, slot %d, security level %d", slot, (int)s_fsm.level);
@@ -468,7 +468,7 @@ static void pair_sync(void) {
         ble_gap_terminate(conn, BLE_ERR_REM_USER_CONN_TERM);
     } else if (s_cbs.on_link != NULL) {
         s_cbs.on_link((unsigned)slot, true);
-        hogp_write_leds(&s_dev[slot].hogp, s_leds);
+        hogp_write_leds(s_dev[slot].hogp, s_leds);
     }
     changed(slot);
     changed(-1);
@@ -531,7 +531,7 @@ static void hogp_ready(hogp_t *h, void *ctx) {
         /* The "keyboard" flag is stored with the bond. Older firmware classified some mice (those with a shortcut-key
          * collection) as keyboards, so re-evaluate it on every connection: a stale flag would make a new pairing wait
          * for a physical confirmation from a keyboard that does not exist. */
-        const uint8_t kbd = hogp_is_keyboard(&s_dev[slot].hogp) ? 1 : 0;
+        const uint8_t kbd = hogp_is_keyboard(s_dev[slot].hogp) ? 1 : 0;
         if (s_reg[slot].used && s_reg[slot].kbd != kbd) {
             s_reg[slot].kbd = kbd;
             save_registry();
@@ -540,7 +540,7 @@ static void hogp_ready(hogp_t *h, void *ctx) {
     if (was_pending) {
         /* The advertised appearance decides, then the report map: many mice also declare a keyboard collection
          * (shortcut keys) and many keyboards also declare a mouse, so neither alone is reliable. */
-        const bool kbd_challenge = hid_norm_pairing_is_keyboard(s_pair.appearance, &s_dev[slot].hogp.layout);
+        const bool kbd_challenge = hid_norm_pairing_is_keyboard(s_pair.appearance, &s_dev[slot].hogp->layout);
         pairing_on_hid_ready(&s_fsm, now_ms(), kbd_challenge, hw_rng);
     }
     UNLOCK();
@@ -550,7 +550,7 @@ static void hogp_ready(hogp_t *h, void *ctx) {
         return;
     }
     /* Make the keyboard's lock LEDs match the host immediately. */
-    hogp_write_leds(&s_dev[slot].hogp, s_leds);
+    hogp_write_leds(s_dev[slot].hogp, s_leds);
     if (s_cbs.on_link != NULL) {
         s_cbs.on_link((unsigned)slot, true);
     }
@@ -684,7 +684,7 @@ static void on_disconnected(uint16_t conn_handle, int reason) {
         pending = s_dev[slot].pending;
         s_dev[slot].conn = NO_CONN;
         s_dev[slot].ready = false;
-        s_dev[slot].hogp.state = HOGP_IDLE; /* A new link may reuse this connection handle. */
+        s_dev[slot].hogp->state = HOGP_IDLE; /* A new link may reuse this connection handle. */
         s_dev[slot].rssi = 0;
     }
     UNLOCK();
@@ -753,8 +753,8 @@ static void on_encrypted(uint16_t conn_handle, int status) {
         changed(-1);
     }
     LOCK();
-    const bool running = s_dev[slot].hogp.conn == conn_handle &&
-                         (s_dev[slot].hogp.state == HOGP_BUSY || s_dev[slot].hogp.state == HOGP_READY);
+    const bool running = s_dev[slot].hogp->conn == conn_handle &&
+                         (s_dev[slot].hogp->state == HOGP_BUSY || s_dev[slot].hogp->state == HOGP_READY);
     UNLOCK();
     if (running) {
         /* Some peripherals re-encrypt right after pairing. Restarting discovery from scratch in the middle of the
@@ -762,9 +762,9 @@ static void on_encrypted(uint16_t conn_handle, int status) {
         ESP_LOGI(TAG, "slot %d: encryption changed again, HID discovery already running", slot);
         return;
     }
-    int rc = hogp_start(&s_dev[slot].hogp, conn_handle, &s_hogp_cbs, (void *)(intptr_t)slot);
+    int rc = hogp_start(s_dev[slot].hogp, conn_handle, &s_hogp_cbs, (void *)(intptr_t)slot);
     if (rc != 0) {
-        hogp_failed(&s_dev[slot].hogp, rc, (void *)(intptr_t)slot);
+        hogp_failed(s_dev[slot].hogp, rc, (void *)(intptr_t)slot);
     }
 }
 
@@ -794,13 +794,13 @@ static void on_notify(struct ble_gap_event *ev) {
         s_pair_diag_left--;
         ESP_LOGI(TAG, "pairing candidate notification: handle 0x%04x, %u bytes, %s",
                  (unsigned)ev->notify_rx.attr_handle, (unsigned)OS_MBUF_PKTLEN(ev->notify_rx.om),
-                 hogp_find_report(&dv->hogp, ev->notify_rx.attr_handle, &probe) ? "subscribed input report"
-                                                                                : "NOT a subscribed input report");
+                 hogp_find_report(dv->hogp, ev->notify_rx.attr_handle, &probe) ? "subscribed input report"
+                                                                               : "NOT a subscribed input report");
     }
     uint8_t id = 0;
     uint8_t buf[MAX_REPORT_COPY];
     uint16_t len = OS_MBUF_PKTLEN(ev->notify_rx.om);
-    if (hogp_is_battery(&dv->hogp, ev->notify_rx.attr_handle)) {
+    if (hogp_is_battery(dv->hogp, ev->notify_rx.attr_handle)) {
         uint8_t level;
         if (len >= 1 && os_mbuf_copydata(ev->notify_rx.om, 0, 1, &level) == 0 && level <= 100) {
             if (dv->battery != level) {
@@ -811,13 +811,13 @@ static void on_notify(struct ble_gap_event *ev) {
         UNLOCK();
         return;
     }
-    if (!hogp_find_report(&dv->hogp, ev->notify_rx.attr_handle, &id) || len == 0 || len > sizeof(buf) ||
+    if (!hogp_find_report(dv->hogp, ev->notify_rx.attr_handle, &id) || len == 0 || len > sizeof(buf) ||
         os_mbuf_copydata(ev->notify_rx.om, 0, len, buf) != 0) {
         UNLOCK();
         return;
     }
     dv->last_seen_s = (uint32_t)(rx_us / 1000000);
-    const hid_layout_t *layout = &dv->hogp.layout;
+    const hid_layout_t *layout = &dv->hogp->layout;
     UNLOCK();
     /* The layout is immutable while the device is ready, so using it after unlocking is safe: it is only
      * rewritten by hogp_start() on a new connection, which cannot run concurrently with this event (same task). */
@@ -1127,7 +1127,7 @@ static void stats_timer_cb(void *arg) {
             const bool ready = s_dev[i].ready;
             UNLOCK();
             if (ready) {
-                hogp_read_battery(&s_dev[i].hogp);
+                hogp_read_battery(s_dev[i].hogp);
             }
         }
         int8_t rssi;
@@ -1183,6 +1183,15 @@ esp_err_t ble_central_init(const ble_central_cbs_t *cbs) {
         return ESP_ERR_NO_MEM;
     }
     for (int i = 0; i < BLE_CENTRAL_MAX_DEVICES; i++) {
+        /* The HOGP state is by far the largest part of a slot. Keeping it in PSRAM leaves the scarce internal RAM to
+         * Wi-Fi, Bluetooth and USB; it is allocated once here, never freed, so no callback can ever see it vanish. */
+        s_dev[i].hogp = heap_caps_calloc(1, sizeof(hogp_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        if (s_dev[i].hogp == NULL) {
+            s_dev[i].hogp = heap_caps_calloc(1, sizeof(hogp_t), MALLOC_CAP_8BIT);
+        }
+        if (s_dev[i].hogp == NULL) {
+            return ESP_ERR_NO_MEM;
+        }
         s_dev[i].conn = NO_CONN;
         s_dev[i].battery = BLE_BATTERY_UNKNOWN;
         lat_stats_reset(&s_dev[i].lat);
@@ -1252,8 +1261,8 @@ bool ble_central_get_device(unsigned slot, ble_device_info_t *out) {
         out->addr_type = s_reg[slot].addr_type;
         out->connected = d->conn != NO_CONN;
         out->ready = d->ready;
-        out->keyboard = d->ready && hogp_is_keyboard(&d->hogp);
-        out->boot_fallback = d->ready && d->hogp.boot_fallback;
+        out->keyboard = d->ready && hogp_is_keyboard(d->hogp);
+        out->boot_fallback = d->ready && d->hogp->boot_fallback;
         out->battery = d->battery;
         out->security = (sec_level_t)s_reg[slot].sec;
         out->rssi = d->rssi;
@@ -1484,7 +1493,7 @@ bool ble_central_get_report_info(unsigned slot, ble_report_info_t *out) {
     const dev_t *d = &s_dev[slot];
     const bool ok = s_reg[slot].used && !d->pending && d->ready;
     if (ok) {
-        const hogp_t *h = &d->hogp;
+        const hogp_t *h = d->hogp;
         out->keyboard = hid_norm_is_keyboard(&h->layout);
         out->pointer = hid_norm_is_pointer(&h->layout);
         out->boot_fallback = h->boot_fallback;
@@ -1586,9 +1595,9 @@ size_t ble_central_get_report_map(unsigned slot, uint8_t *out, size_t cap) {
     }
     LOCK();
     size_t n = 0;
-    if (s_dev[slot].ready && s_dev[slot].hogp.map_len > 0) {
-        n = s_dev[slot].hogp.map_len < cap ? s_dev[slot].hogp.map_len : cap;
-        memcpy(out, s_dev[slot].hogp.map, n);
+    if (s_dev[slot].ready && s_dev[slot].hogp->map_len > 0) {
+        n = s_dev[slot].hogp->map_len < cap ? s_dev[slot].hogp->map_len : cap;
+        memcpy(out, s_dev[slot].hogp->map, n);
     }
     UNLOCK();
     return n;
@@ -1611,7 +1620,7 @@ void ble_central_write_leds(uint8_t leds) {
         bool ready = s_dev[i].ready;
         UNLOCK();
         if (ready) {
-            hogp_write_leds(&s_dev[i].hogp, leds);
+            hogp_write_leds(s_dev[i].hogp, leds);
         }
     }
 }

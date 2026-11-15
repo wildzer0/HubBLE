@@ -144,6 +144,20 @@ paths:
           content:
             text/plain:
               schema: { type: string }
+  /api/v1/coredump:
+    get:
+      summary: Download the crash dump stored by the last panic
+      description: |
+        An ESP-IDF core file (decode with `esp-coredump` and the matching firmware ELF). It is a RAM snapshot and may
+        contain recent input reports: share it with care.
+      responses:
+        '200':
+          description: Binary core file
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        '404':
+          description: No valid crash dump is stored (error code `no_coredump`)
   /api/v1/settings/wifi-password:
     post:
       summary: Change the Wi-Fi access point password

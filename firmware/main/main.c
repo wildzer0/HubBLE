@@ -16,6 +16,7 @@
 #include "bridge.h"
 #include "captive_portal.h"
 #include "esp_app_desc.h"
+#include "esp_core_dump.h"
 #include "esp_log.h"
 #include "esp_system.h"
 #include "esp_timer.h"
@@ -206,6 +207,10 @@ void app_main(void) {
     ESP_LOGI(TAG, "running slot %s, pending verify: %s, rollback happened: %s", ota.running_slot,
              ota.pending_verify ? "yes" : "no", ota.rollback_happened ? "yes" : "no");
     boot_led(ota.rollback_happened);
+    if (esp_core_dump_image_check() == ESP_OK) {
+        /* There is no serial console on a release build: say it here so the log of the next boot points at it. */
+        ESP_LOGW(TAG, "a crash dump from an earlier boot is stored in flash: System page > Download crash dump");
+    }
 
     size_t web_len = 0;
     const uint8_t *web = web_assets_get(&web_len);

@@ -645,6 +645,11 @@ export function handleMock(req: MockRequest): MockResponse {
         return { status: 200, json: mockOta() };
       case '/api/v1/diagnostics':
         return { status: 200, json: mockDiagnostics() };
+      case '/api/v1/coredump':
+        return {
+          status: 404,
+          json: { error: { code: 'no_coredump', message: 'No crash dump is stored' } },
+        };
       case '/api/v1/logs':
         return {
           status: 200,

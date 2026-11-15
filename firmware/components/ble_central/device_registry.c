@@ -25,18 +25,18 @@ esp_err_t registry_load(reg_rec_t recs[REG_SLOTS]) {
     if (err != ESP_OK) {
         return err;
     }
-    size_t len = sizeof(reg_rec_t) * REG_SLOTS;
-    reg_rec_t tmp[REG_SLOTS] = {0};
-    err = nvs_get_blob(h, REG_KEY, tmp, &len);
-    nvs_close(h);
-    /* The registry used to hold REG_SLOTS_V1 records: accept that size too (the extra slots stay empty), otherwise
-     * every device paired with an older firmware would be forgotten on update. Any other size resets the registry. */
-    if (err == ESP_OK && (len == sizeof(tmp) || len == sizeof(reg_rec_t) * REG_SLOTS_V1)) {
-        memcpy(recs, tmp, len);
-        for (int i = 0; i < REG_SLOTS; i++) {
-            recs[i].name[REG_NAME_MAX - 1] = '\0'; /* Never trust stored strings. */
+    /* Ask for the stored size first: a buffer that is too small is an error for NVS, and the number of slots changed
+     * between firmware versions. Twice our capacity is more than any version has written. */
+    uint8_t blob[sizeof(reg_rec_t) * REG_SLOTS * 2];
+    size_t len = 0;
+    err = nvs_get_blob(h, REG_KEY, NULL, &len);
+    if (err == ESP_OK && len <= sizeof(blob)) {
+        err = nvs_get_blob(h, REG_KEY, blob, &len);
+        if (err == ESP_OK) {
+            registry_decode(blob, len, recs); /* A corrupt blob yields an empty registry, as before. */
         }
     }
+    nvs_close(h);
     return err == ESP_ERR_NVS_NOT_FOUND ? ESP_OK : err;
 }
 

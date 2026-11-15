@@ -142,3 +142,6 @@ if(HUBBLE_FUZZ)
     target_include_directories(fuzz_ota_manifest PRIVATE ${COMP}/ota_manifest/include ${COMP}/semver/include
                                ${cjson_SOURCE_DIR})
 endif()
+
+hubble_add_test(test_registry_codec unit/test_registry_codec.c ${COMP}/ble_central/registry_codec.c)
+target_include_directories(test_registry_codec PRIVATE ${COMP}/ble_central)
