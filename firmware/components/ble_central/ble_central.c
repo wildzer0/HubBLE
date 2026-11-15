@@ -77,6 +77,8 @@ static const char *TAG = "ble";
 /** How long to wait for the controller to stop scanning before connecting, and the polling step. */
 #define SCAN_STOP_WAIT_MS 200
 #define SCAN_STOP_STEP_MS 10
+/** Widest connection interval tried when the controller refuses to schedule a new link: 48 x 1.25 = 60 ms. */
+#define CREATE_ITVL_MAX 48
 /** Largest report copied out of a notification. */
 #define MAX_REPORT_COPY 96
 
@@ -117,8 +119,11 @@ static pairing_t s_fsm;                      /**< Pairing state machine (pure, h
 static ble_central_cbs_t s_cbs;              /**< Bridge callbacks. */
 static volatile bool s_synced;               /**< Host synchronised with the controller. */
 static bool s_bg_active;                     /**< A background connect is in progress. */
-static uint8_t s_own_addr_type;              /**< Own address type from ble_hs_id_infer_auto(). */
-static volatile uint8_t s_leds;              /**< Last keyboard LED state from the host. */
+/** Interval (1.25 ms units) used to CREATE connections, 0 = the profile. Widened while the controller refuses to fit a
+ *  new link into the schedule of the existing ones (HCI 0x0D); the link is then moved to the profile by an update. */
+static uint16_t s_create_itvl;
+static uint8_t s_own_addr_type; /**< Own address type from ble_hs_id_infer_auto(). */
+static volatile uint8_t s_leds; /**< Last keyboard LED state from the host. */
 /** Connection parameters currently requested (7.5 ms profile until the power task asks otherwise). */
 static struct {
     uint16_t itvl;    /**< Connection interval, 1.25 ms units. */
@@ -153,9 +158,10 @@ static void log_radio_state(const char *what, int rc) {
         links += s_dev[i].conn != NO_CONN;
     }
     bool bg = s_bg_active;
+    const unsigned itvl = s_create_itvl > s_profile.itvl ? s_create_itvl : s_profile.itvl;
     UNLOCK();
-    ESP_LOGW(TAG, "%s failed (rc=%d): links=%d bg_connect=%d host_scan=%d host_connect=%d", what, rc, links, bg,
-             ble_gap_disc_active(), ble_gap_conn_active());
+    ESP_LOGW(TAG, "%s failed (rc=%d): links=%d itvl=%u bg_connect=%d host_scan=%d host_connect=%d", what, rc, links,
+             itvl, bg, ble_gap_disc_active(), ble_gap_conn_active());
 }
 
 /**
@@ -225,10 +231,31 @@ static void conn_params(struct ble_gap_conn_params *p) {
      * time from the connected devices and from the Wi-Fi AP. Pairing keeps the fast scan. */
     p->scan_itvl = pairing_active(&s_fsm) ? SCAN_ITVL : SCAN_ITVL_BUSY;
     p->scan_window = SCAN_WINDOW;
-    p->itvl_min = s_profile.itvl;
-    p->itvl_max = s_profile.itvl;
+    const uint16_t itvl = s_create_itvl > s_profile.itvl ? s_create_itvl : s_profile.itvl;
+    p->itvl_min = itvl;
+    p->itvl_max = itvl;
     p->latency = s_profile.latency;
     p->supervision_timeout = s_profile.timeout;
+}
+
+/**
+ * @brief Widen the interval used to create connections after the controller refused one (HCI 0x0D).
+ *
+ * The ESP controller must fit every link into one time schedule; with a 7.5 ms interval on the links that already
+ * exist there may be no room for another one, while a longer interval fits. Doubles the interval up to
+ * CREATE_ITVL_MAX. Thread-safety: takes s_mu.
+ *
+ * @return true if the interval was widened (so a retry is worthwhile), false if already at the maximum.
+ */
+static bool widen_create_itvl(void) {
+    LOCK();
+    const uint16_t cur = s_create_itvl > s_profile.itvl ? s_create_itvl : s_profile.itvl;
+    const bool widen = cur < CREATE_ITVL_MAX;
+    if (widen) {
+        s_create_itvl = (uint16_t)(cur * 2 > CREATE_ITVL_MAX ? CREATE_ITVL_MAX : cur * 2);
+    }
+    UNLOCK();
+    return widen;
 }
 
 /**
@@ -479,7 +506,14 @@ static void on_connected(uint16_t conn_handle, void *arg) {
                                     .itvl_max = s_profile.itvl,
                                     .latency = s_profile.latency,
                                     .supervision_timeout = s_profile.timeout};
-    ble_gap_update_params(conn_handle, &up);
+    const int urc = ble_gap_update_params(conn_handle, &up);
+    LOCK();
+    if (s_create_itvl != 0) {
+        ESP_LOGI(TAG, "slot %d: connected with a %.2f ms interval, asked for %.2f ms (rc=%d)", slot,
+                 s_create_itvl * 1.25, s_profile.itvl * 1.25, urc);
+    }
+    s_create_itvl = 0; /* The next connection starts from the profile again. */
+    UNLOCK();
     int rc = ble_gap_security_initiate(conn_handle);
     if (rc != 0) {
         ESP_LOGW(TAG, "slot %d: security initiate failed (%d)", slot, rc);
@@ -827,6 +861,11 @@ static void reconcile(void) {
             const bool retry =
                 rc == BLE_HS_HCI_ERR(BLE_ERR_CONN_REJ_RESOURCES) || rc == BLE_HS_EBUSY || rc == BLE_HS_EALREADY;
             const bool again = retry && s_pair.connect_tries++ < CONNECT_RETRIES && s_fsm.state == PAIR_CONNECTING;
+            UNLOCK();
+            if (again && rc == BLE_HS_HCI_ERR(BLE_ERR_CONN_REJ_RESOURCES)) {
+                widen_create_itvl();
+            }
+            LOCK();
             if (again) {
                 s_pair.connect_requested = true; /* The timer re-enters reconcile(), which tries again. */
             }
@@ -882,6 +921,7 @@ static void reconcile(void) {
         UNLOCK();
         log_radio_state("background connect", rc);
         if (rc == BLE_HS_HCI_ERR(BLE_ERR_CONN_REJ_RESOURCES) || rc == BLE_HS_EBUSY) {
+            widen_create_itvl();
             esp_timer_stop(s_reconnect_timer);
             esp_timer_start_once(s_reconnect_timer, RECONNECT_DELAY_MS * 1000);
         }

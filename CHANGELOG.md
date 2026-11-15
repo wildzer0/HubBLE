@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.3.1-rc.2] - 2026-11-15
+
+### Fixed
+
+- With two devices connected, the controller refused every further connection (pairing and background reconnect,
+  `BLE_ERR_CONN_REJ_RESOURCES`, `links=2` in the log) although nothing else was scanning or connecting: it could not fit
+  another 7.5 ms link into its schedule. A refused connect is now retried with a doubling interval (7.5, 15, 30, 60 ms)
+  and the link is then asked to move to the configured profile; the log shows the interval used and the result of that
+  update.
+
 ## [1.3.1-rc.1] - 2026-11-15
 
 ### Fixed
