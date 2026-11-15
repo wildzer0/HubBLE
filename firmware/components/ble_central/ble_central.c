@@ -133,6 +133,10 @@ static esp_timer_handle_t s_stats_timer;     /**< Periodic RSSI/parameter refres
 static void reconcile(void);
 static int gap_event(struct ble_gap_event *event, void *arg);
 
+/** Take / release the registry mutex that protects the device table (never held across NimBLE calls that block). */
+#define LOCK()   xSemaphoreTake(s_mu, portMAX_DELAY)
+#define UNLOCK() xSemaphoreGive(s_mu)
+
 /**
  * @brief Log what the radio is doing, to explain a refused Create Connection.
  *
@@ -153,10 +157,6 @@ static void log_radio_state(const char *what, int rc) {
     ESP_LOGW(TAG, "%s failed (rc=%d): links=%d bg_connect=%d host_scan=%d host_connect=%d", what, rc, links, bg,
              ble_gap_disc_active(), ble_gap_conn_active());
 }
-
-/** Take / release the registry mutex that protects the device table (never held across NimBLE calls that block). */
-#define LOCK()   xSemaphoreTake(s_mu, portMAX_DELAY)
-#define UNLOCK() xSemaphoreGive(s_mu)
 
 /**
  * @brief Format an address (NimBLE order) as 12 hex digits in display order (most significant first).
