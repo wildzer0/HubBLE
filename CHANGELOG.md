@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-11-18
+
+### Fixed
+
+- Keyboards that query the central right after connecting (seen with the NuPhy Air60 V2: a Read By Type request on the
+  ATT channel) were dropped after 30 s, because the ATT server was compiled out and the request went unanswered. The
+  NimBLE peripheral role is now enabled so that the ATT/GATT server answers; no services or advertising are used.
+
 ## [1.4.0] - 2026-11-15
 
 First stable release of the 1.4 line; it rolls up 1.3.1-rc.1 to rc.4 and 1.4.0-rc.1 to rc.3 (see those sections below).

@@ -29,11 +29,14 @@ CONFIG_LWIP_MAX_SOCKETS=16
 CONFIG_ESP_CONSOLE_NONE=y
 CONFIG_TINYUSB_HID_COUNT=3
 
-# BLE: NimBLE as central only, up to 4 HID peripherals + 1 pairing candidate (CLAUDE.md §3.3).
+# BLE: NimBLE central, up to 4 HID peripherals + 1 pairing candidate (CLAUDE.md §3.3).
 CONFIG_BT_ENABLED=y
 CONFIG_BT_NIMBLE_ENABLED=y
 CONFIG_BT_NIMBLE_ROLE_CENTRAL=y
-CONFIG_BT_NIMBLE_ROLE_PERIPHERAL=n
+# The peripheral role is only enabled to get NimBLE's ATT/GATT *server*: some keyboards (NuPhy Air60 V2) send a Read By
+# Type request to the central right after connecting; with no ATT server it is dropped unanswered, and the keyboard
+# terminates the link (reason 0x13) when its 30 s ATT transaction timeout expires. No services or advertising are used.
+CONFIG_BT_NIMBLE_ROLE_PERIPHERAL=y
 CONFIG_BT_NIMBLE_ROLE_BROADCASTER=n
 CONFIG_BT_NIMBLE_ROLE_OBSERVER=y
 CONFIG_BT_NIMBLE_MAX_CONNECTIONS=5
