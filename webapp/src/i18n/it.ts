@@ -102,6 +102,7 @@ export const it: Record<MessageKey, string> = {
   'device.slave_latency': 'Latenza periferica',
   'device.timeout': 'Timeout di supervisione',
   'device.reconnects': 'Riconnessioni',
+  'device.last_disconnect': 'Ultima disconnessione',
   'device.last_seen': 'Ultimo contatto',
   'device.seconds_ago': '{s} s fa',
   'device.lat_min': 'Minima',

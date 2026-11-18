@@ -631,6 +631,38 @@ static const char *sec_name(sec_level_t s) {
 }
 
 /**
+ * @brief Human-readable name of an HCI disconnect reason (Core Spec Vol 1 Part F).
+ *
+ * Only the reasons that matter when a peripheral drops: anything else is reported as "other" and the number is
+ * still in the JSON.
+ *
+ * @param reason HCI error code.
+ * @return Static string.
+ */
+static const char *disconnect_reason_name(int reason) {
+    switch (reason) {
+    case 0x08:
+        return "supervision_timeout";
+    case 0x13:
+        return "remote_terminated";
+    case 0x14:
+        return "remote_low_resources";
+    case 0x15:
+        return "remote_power_off";
+    case 0x16:
+        return "local_terminated";
+    case 0x22:
+        return "ll_response_timeout";
+    case 0x3D:
+        return "mic_failure";
+    case 0x3E:
+        return "connection_failed_to_establish";
+    default:
+        return "other";
+    }
+}
+
+/**
  * @brief Build the JSON object describing a device.
  *
  * @param d Device snapshot.
@@ -660,6 +692,13 @@ static cJSON *device_json(const ble_device_info_t *d) {
     cJSON_AddNumberToObject(conn, "latency", d->conn_latency);
     cJSON_AddNumberToObject(conn, "timeout_ms", d->conn_timeout_10ms * 10);
     cJSON_AddNumberToObject(o, "reconnects", d->reconnects);
+    if (d->last_disconnect_reason == BLE_DISCONNECT_NONE) {
+        cJSON_AddNullToObject(o, "last_disconnect");
+    } else {
+        cJSON *ld = cJSON_AddObjectToObject(o, "last_disconnect");
+        cJSON_AddNumberToObject(ld, "reason", d->last_disconnect_reason);
+        cJSON_AddStringToObject(ld, "name", disconnect_reason_name(d->last_disconnect_reason));
+    }
     cJSON_AddNumberToObject(o, "last_seen_s", d->last_seen_s);
     cJSON *lat = cJSON_AddObjectToObject(o, "latency_us");
     cJSON_AddNumberToObject(lat, "count", d->latency.count);

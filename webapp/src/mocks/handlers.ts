@@ -56,6 +56,7 @@ function initialDevices(): Device[] {
   const base = {
     boot_fallback: false,
     reconnects: 0,
+    last_disconnect: null,
     last_seen_s: 0,
     connection: { interval_ms: 7.5, latency: 0, timeout_ms: 2000 },
   };
@@ -210,6 +211,7 @@ function bond(): void {
     rssi: t.rssi,
     connection: { interval_ms: 7.5, latency: 0, timeout_ms: 2000 },
     reconnects: 0,
+    last_disconnect: null,
     last_seen_s: 0,
     latency_us: { count: 0, min: 0, avg: 0, p95: 0, max: 0 },
     security: level,

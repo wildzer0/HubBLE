@@ -506,6 +506,13 @@ components:
         rssi: { type: integer, nullable: true }
         connection: { $ref: '#/components/schemas/ConnectionParams' }
         reconnects: { type: integer }
+        last_disconnect:
+          type: object
+          nullable: true
+          description: HCI reason of the last disconnect since boot (null if none)
+          properties:
+            reason: { type: integer }
+            name: { type: string }
         last_seen_s: { type: integer }
         latency_us: { $ref: '#/components/schemas/LatencyStats' }
         security: { type: string, enum: [green, yellow, red, unknown] }

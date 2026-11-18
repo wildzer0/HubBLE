@@ -39,6 +39,8 @@ extern "C" {
 #define BLE_CENTRAL_NAME_MAX 32
 /** Battery level value meaning "unknown". */
 #define BLE_BATTERY_UNKNOWN 0xFF
+/** last_disconnect_reason value meaning "this device has not disconnected since boot". */
+#define BLE_DISCONNECT_NONE (-1)
 /** Maximum time of the connect + pair phase (CLAUDE.md §3.4: 60 s). */
 #define BLE_PAIRING_TIMEOUT_MS 60000
 
@@ -72,6 +74,7 @@ typedef struct {
     uint16_t conn_latency;           /**< Negotiated peripheral latency (events). */
     uint16_t conn_timeout_10ms;      /**< Supervision timeout, in 10 ms units. */
     uint32_t reconnects;             /**< Connections since boot. */
+    int16_t last_disconnect_reason;  /**< HCI reason of the last disconnect since boot, or BLE_DISCONNECT_NONE. */
     uint32_t last_seen_s;            /**< Uptime seconds of the last report/notification. */
     lat_summary_t latency;           /**< Notification -> USB report latency summary. */
 } ble_device_info_t;

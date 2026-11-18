@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.4.2] - 2026-11-18
+
+### Added
+
+- The reason of the last disconnect of each device (`last_disconnect` in `GET /devices`, shown on the Device detail
+  page), to diagnose peripherals that drop the link.
+
 ## [1.4.1] - 2026-11-18
 
 ### Fixed

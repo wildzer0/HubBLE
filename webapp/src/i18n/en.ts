@@ -97,6 +97,7 @@ export const en = {
   'device.slave_latency': 'Peripheral latency',
   'device.timeout': 'Supervision timeout',
   'device.reconnects': 'Reconnects',
+  'device.last_disconnect': 'Last disconnect',
   'device.last_seen': 'Last seen',
   'device.seconds_ago': '{s} s ago',
   'device.lat_min': 'Minimum',

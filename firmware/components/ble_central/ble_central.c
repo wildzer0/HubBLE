@@ -104,6 +104,7 @@ typedef struct {
     uint16_t latency;     /**< Peripheral latency. */
     uint16_t timeout;     /**< Supervision timeout, 10 ms units. */
     uint32_t reconnects;  /**< Link count since boot. */
+    int16_t last_disc;    /**< HCI reason of the last disconnect since boot, or BLE_DISCONNECT_NONE. */
     uint32_t last_seen_s; /**< Uptime seconds of the last report. */
     lat_stats_t lat;      /**< Latency statistics. */
     hogp_t *hogp;         /**< HOGP client state (3 KB): allocated once at init, in PSRAM when there is one. */
@@ -687,6 +688,7 @@ static void on_disconnected(uint16_t conn_handle, int reason) {
         s_dev[slot].ready = false;
         s_dev[slot].hogp->state = HOGP_IDLE; /* A new link may reuse this connection handle. */
         s_dev[slot].rssi = 0;
+        s_dev[slot].last_disc = (int16_t)(reason & 0xff);
     }
     UNLOCK();
     if (slot < 0) {
@@ -1229,6 +1231,7 @@ esp_err_t ble_central_init(const ble_central_cbs_t *cbs) {
         }
         s_dev[i].conn = NO_CONN;
         s_dev[i].battery = BLE_BATTERY_UNKNOWN;
+        s_dev[i].last_disc = BLE_DISCONNECT_NONE;
         lat_stats_reset(&s_dev[i].lat);
     }
     s_pair.slot = -1;
@@ -1305,6 +1308,7 @@ bool ble_central_get_device(unsigned slot, ble_device_info_t *out) {
         out->conn_latency = d->latency;
         out->conn_timeout_10ms = d->timeout;
         out->reconnects = d->reconnects;
+        out->last_disconnect_reason = d->last_disc;
         out->last_seen_s = d->last_seen_s;
         lat_stats_summary(&d->lat, &out->latency);
     }

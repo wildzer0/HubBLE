@@ -244,6 +244,14 @@ export interface LatencyStats {
   max: number;
 }
 
+/** Why a device's link last ended. */
+export interface DisconnectInfo {
+  /** HCI error code (0x13 = the peripheral hung up, 0x08 = supervision timeout). */
+  reason: number;
+  /** Short snake_case name of the reason. */
+  name: string;
+}
+
 /** A bonded device from `GET /api/v1/devices`. */
 export interface Device {
   /** 12 hex digits (the address). */
@@ -268,6 +276,8 @@ export interface Device {
   connection: ConnectionParams;
   /** Number of reconnections since boot. */
   reconnects: number;
+  /** HCI reason of the last disconnect since boot, or null if none. */
+  last_disconnect: DisconnectInfo | null;
   /** Seconds since the device was last seen. */
   last_seen_s: number;
   /** Forwarding latency statistics. */

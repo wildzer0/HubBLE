@@ -181,6 +181,12 @@ export function DeviceDetail({ id }: { id: string }) {
           {row(t('device.rssi'), d.rssi === null ? '–' : `${String(d.rssi)} dBm`)}
           {row(t('device.battery'), d.battery === null ? '–' : `${String(d.battery)} %`)}
           {row(t('device.reconnects'), d.reconnects)}
+          {row(
+            t('device.last_disconnect'),
+            d.last_disconnect === null
+              ? '–'
+              : `${d.last_disconnect.name} (0x${d.last_disconnect.reason.toString(16).padStart(2, '0')})`,
+          )}
           {row(t('device.last_seen'), t('device.seconds_ago', { s: d.last_seen_s }))}
         </dl>
       </section>
