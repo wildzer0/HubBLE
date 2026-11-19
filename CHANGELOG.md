@@ -6,9 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-11-19
+
+Same content as 1.5.0, which was tagged but never published: its CI failed on an end-to-end test that matched the "Unlock
+input" button when looking for "Lock input" (a test bug, not a product one). Only that test changed.
+
 ## [1.5.0] - 2026-11-19
 
-New features (input lock, phone touchpad), diagnostics for the problems still open, and a fix for devices in slots 4 to 7.
+Not published (see 1.5.1). New features (input lock, phone touchpad), diagnostics for the problems still open, and a fix for devices in slots 4 to 7.
 
 ### Added
 

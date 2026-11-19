@@ -63,9 +63,9 @@ test('the compatibility report is shown before anything is shared and can be dow
 test('input lock: lock from the dashboard, banner, unlock', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByTestId('locked-banner')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Lock input' }).click();
+  await page.getByRole('button', { name: 'Lock input', exact: true }).click();
   await expect(page.getByTestId('locked-banner')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Lock input' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Lock input', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Unlock input' }).click();
   await expect(page.getByTestId('locked-banner')).toHaveCount(0);
 });
@@ -82,7 +82,7 @@ test('phone touchpad: off by default, switch on for a while, switch off', async 
 
 test('phone touchpad is refused while the input is locked', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Lock input' }).click();
+  await page.getByRole('button', { name: 'Lock input', exact: true }).click();
   await expect(page.getByTestId('locked-banner')).toBeVisible();
   await page.goto('/#/remote');
   await expect(page.getByTestId('remote-locked')).toBeVisible();
