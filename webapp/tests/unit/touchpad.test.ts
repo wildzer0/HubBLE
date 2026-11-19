@@ -36,6 +36,28 @@ describe('Touchpad', () => {
     expect((f[0] as { dx: number }).dx).toBeGreaterThan((s[0] as { dx: number }).dx * 2);
   });
 
+  it('one odd interval does not make the pointer jump', () => {
+    const steady = new Touchpad({ gain: 1, accel: 3, maxBoost: 10 });
+    const jittery = new Touchpad({ gain: 1, accel: 3, maxBoost: 10 });
+    steady.start([p(1, 0, 0)], 0);
+    jittery.start([p(1, 0, 0)], 0);
+    let x = 0;
+    for (let i = 1; i <= 10; i++) {
+      x += 4;
+      steady.move([p(1, x, 0)], i * 16);
+    }
+    x = 0;
+    for (let i = 1; i <= 9; i++) {
+      x += 4;
+      jittery.move([p(1, x, 0)], i * 16);
+    }
+    x += 4;
+    // The same 4 px, but the event came 1 ms after the previous one instead of 16 ms.
+    const spike = jittery.move([p(1, x, 0)], 9 * 16 + 1);
+    const normal = steady.move([p(1, 44, 0)], 11 * 16);
+    expect((spike[0] as { dx: number }).dx).toBeLessThan((normal[0] as { dx: number }).dx * 1.6);
+  });
+
   it('the speed boost is capped', () => {
     const pad = new Touchpad({ gain: 1, accel: 100, maxBoost: 3 });
     pad.start([p(1, 0, 0)], 0);

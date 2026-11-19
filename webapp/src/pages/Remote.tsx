@@ -173,6 +173,7 @@ function Pad({ link, settings }: { link: RemoteLink; settings: RemoteSettings })
     [settings.speed, settings.naturalScroll],
   );
   const pointers = useRef(new Map<number, Point>());
+  const area = useRef<HTMLDivElement>(null);
   const [touching, setTouching] = useState(false);
   const strip = useRef<{ y: number; t: number } | null>(null);
 
@@ -210,9 +211,24 @@ function Pad({ link, settings }: { link: RemoteLink; settings: RemoteSettings })
     },
     [link],
   );
+  // `touch-action: none` is not honoured everywhere (iOS Safari still scrolls or bounces the page): cancel the touch
+  // moves too, with a non-passive listener, and keep a pinch from zooming the page.
+  useEffect(() => {
+    const el = area.current;
+    if (!el) return;
+    const stop = (e: Event) => {
+      e.preventDefault();
+    };
+    el.addEventListener('touchmove', stop, { passive: false });
+    el.addEventListener('gesturestart', stop);
+    return () => {
+      el.removeEventListener('touchmove', stop);
+      el.removeEventListener('gesturestart', stop);
+    };
+  }, []);
 
   return (
-    <div class="padwrap">
+    <div class="padwrap" ref={area}>
       <div
         class={`touchpad${touching ? ' touching' : ''}`}
         role="application"
@@ -568,9 +584,20 @@ export function Remote() {
   const left = status?.remote_s ?? 0;
   const locked = status?.locked === true;
   const on = left > 0 && !locked;
+  const padMode = on && mode === 'pad';
+
+  // In pad mode the page must not move at all: no scrolling, no pull-to-refresh, no rubber band.
+  useEffect(() => {
+    if (!padMode) return;
+    const root = document.documentElement;
+    root.classList.add('remote-lock');
+    return () => {
+      root.classList.remove('remote-lock');
+    };
+  }, [padMode]);
 
   return (
-    <div class="remote">
+    <div class={`remote${padMode ? ' padmode' : ''}`}>
       <div class="remote-head">
         <a class="back" href="#/dashboard">
           <Icon name="back" />

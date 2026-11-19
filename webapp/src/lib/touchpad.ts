@@ -51,6 +51,11 @@ export interface TouchpadOptions {
   gain: number;
   /** How much a faster finger adds: the speed is multiplied by `1 + accel * v` (v in pixels per ms). */
   accel: number;
+  /** Pointer events closer together than this (ms) are treated as this far apart when estimating the speed: touch
+   *  timestamps jitter by a few ms, and a tiny interval would make the speed, and with it the pointer, jump. */
+  minDt: number;
+  /** Weight (0 to 1) of the newest speed sample in the smoothed speed; lower is smoother. */
+  smoothing: number;
   /** The speed multiplier never exceeds this. */
   maxBoost: number;
   /** Scroll speed: wheel units per screen pixel. */
@@ -70,6 +75,8 @@ export const DEFAULT_TOUCHPAD: TouchpadOptions = {
   gain: 2.4,
   accel: 2.2,
   maxBoost: 6,
+  minDt: 8,
+  smoothing: 0.35,
   scrollGain: 0.35,
   tapMs: 250,
   tapSlop: 10,
@@ -100,6 +107,7 @@ export class Touchpad {
   private readonly opts: TouchpadOptions;
   private last: { x: number; y: number } | null = null;
   private lastT = 0;
+  private speed = 0;
   private startT = 0;
   private travel = 0;
   private maxFingers = 0;
@@ -129,6 +137,7 @@ export class Touchpad {
     const out: TouchAction[] = [];
     if (this.fingers === 0) {
       this.startT = t;
+      this.speed = 0;
       this.travel = 0;
       this.maxFingers = 0;
       if (pts.length === 1 && this.lastTapEnd !== null && t - this.lastTapEnd <= this.opts.dragMs) {
@@ -156,12 +165,14 @@ export class Touchpad {
     const c = centroid(pts);
     const dx = c.x - this.last.x;
     const dy = c.y - this.last.y;
-    const dt = Math.max(1, t - this.lastT);
+    const dt = Math.max(this.opts.minDt, t - this.lastT);
     this.last = c;
     this.lastT = t;
     this.travel += Math.abs(dx) + Math.abs(dy);
     if (!this.dragging && this.travel <= this.opts.tapSlop) return []; // Still a candidate tap: hold the pointer still.
-    const speed = Math.hypot(dx, dy) / dt; // pixels per ms
+    // Low-pass filter: a single odd interval must not change the pointer speed.
+    this.speed += (Math.hypot(dx, dy) / dt - this.speed) * this.opts.smoothing; // pixels per ms
+    const speed = this.speed;
     if (pts.length >= 2) {
       const sign = this.opts.naturalScroll ? 1 : -1;
       const boost = Math.min(2.5, 1 + speed);

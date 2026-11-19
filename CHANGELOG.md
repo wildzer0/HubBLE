@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-11-19
+
+### Fixed
+
+- Phone touchpad: the pointer moved in jerks. The browser could take a swipe for a page scroll (pull to refresh, rubber
+  band) because `touch-action: none` is not honoured everywhere: in pad mode the page now cannot scroll or bounce
+  (no scrolling, `overscroll-behavior: none`, touch moves cancelled, pinch ignored) and fits the screen. The speed used
+  for the pointer acceleration was computed from single event pairs, so a few ms of timestamp jitter made the pointer
+  jump; it is now low-pass filtered and the interval has a floor of 8 ms.
+
 ## [1.6.0] - 2026-11-19
 
 ### Changed

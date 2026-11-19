@@ -803,6 +803,19 @@ main.immersive {
   /* The pad takes what is left of the screen: the top bar is about 3.4 rem, the page padding 2 rem. */
   min-height: calc(100dvh - 5.6rem);
 }
+/* Pad mode: the page itself never scrolls or bounces, so a swipe on the pad cannot pull the page to refresh. */
+html.remote-lock,
+html.remote-lock body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+.remote.padmode {
+  height: calc(100dvh - 5.6rem);
+  min-height: 0;
+}
+.remote.padmode .padwrap {
+  min-height: 8rem;
+}
 .remote-head {
   display: flex;
   align-items: center;

@@ -113,3 +113,30 @@ test('phone touchpad: the speed setting is remembered', async ({ page }) => {
   await page.getByText('Settings').click();
   await expect(page.getByTestId('remote-speed')).toHaveValue('5');
 });
+
+test('phone touchpad: the page cannot scroll or be pulled to refresh while the pad is used', async ({
+  page,
+}) => {
+  await page.goto('/#/remote');
+  await page.getByTestId('remote-enable').click();
+  await expect(page.getByTestId('touchpad')).toBeVisible();
+  await expect(page.locator('html')).toHaveClass(/remote-lock/);
+  const overscroll = await page.evaluate(
+    () => getComputedStyle(document.documentElement).overscrollBehaviorY,
+  );
+  expect(overscroll).toBe('none');
+  const touchAction = await page
+    .getByTestId('touchpad')
+    .evaluate((el) => getComputedStyle(el).touchAction);
+  expect(touchAction).toBe('none');
+  // A touch move on the pad is cancelled, so the browser cannot take it for a page scroll.
+  const cancelled = await page.getByTestId('touchpad').evaluate((el) => {
+    const ev = new Event('touchmove', { bubbles: true, cancelable: true });
+    el.dispatchEvent(ev);
+    return ev.defaultPrevented;
+  });
+  expect(cancelled).toBe(true);
+  // Leaving the page releases the lock.
+  await page.getByRole('tab', { name: 'Keyboard' }).click();
+  await expect(page.locator('html')).not.toHaveClass(/remote-lock/);
+});
