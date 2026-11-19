@@ -75,7 +75,7 @@ test('phone touchpad: off by default, switch on for a while, switch off', async 
   await expect(page.getByTestId('touchpad')).toHaveCount(0);
   await page.getByTestId('remote-enable').click();
   await expect(page.getByTestId('touchpad')).toBeVisible();
-  await expect(page.getByTestId('remote-timer')).toContainText('left');
+  await expect(page.getByTestId('remote-timer')).toContainText('On');
   await page.getByTestId('remote-stop').click();
   await expect(page.getByTestId('touchpad')).toHaveCount(0);
 });
@@ -87,4 +87,29 @@ test('phone touchpad is refused while the input is locked', async ({ page }) => 
   await page.goto('/#/remote');
   await expect(page.getByTestId('remote-locked')).toBeVisible();
   await expect(page.getByTestId('remote-enable')).toHaveCount(0);
+});
+
+test('phone keyboard: sticky modifiers arm, lock and release', async ({ page }) => {
+  await page.goto('/#/remote');
+  await page.getByTestId('remote-enable').click();
+  await page.getByRole('tab', { name: 'Keyboard' }).click();
+  const ctrl = page.getByRole('button', { name: /^Ctrl/ });
+  await expect(ctrl).toHaveAttribute('data-state', 'off');
+  await ctrl.click();
+  await expect(ctrl).toHaveAttribute('data-state', 'once');
+  await expect(page.getByRole('status').filter({ hasText: 'Next key: Ctrl' })).toBeVisible();
+  await ctrl.click();
+  await expect(ctrl).toHaveAttribute('data-state', 'locked');
+  await ctrl.click();
+  await expect(ctrl).toHaveAttribute('data-state', 'off');
+});
+
+test('phone touchpad: the speed setting is remembered', async ({ page }) => {
+  await page.goto('/#/remote');
+  await page.getByTestId('remote-enable').click();
+  await page.getByText('Settings').click();
+  await page.getByTestId('remote-speed').fill('5');
+  await page.reload();
+  await page.getByText('Settings').click();
+  await expect(page.getByTestId('remote-speed')).toHaveValue('5');
 });

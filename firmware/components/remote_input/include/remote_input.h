@@ -15,7 +15,8 @@
  *
  * Messages (JSON, `event` plus fields): `remote.move` {dx, dy}; `remote.scroll` {dx, dy} (dy > 0 scrolls up);
  * `remote.buttons` {b} (bit 0 left, 1 right, 2 middle: the buttons held now); `remote.key` {m, k: [usages]} (the
- * modifiers and keys held now; empty releases); `remote.text` {t} (typed with the US layout, see ascii_hid.h).
+ * modifiers and keys held now; empty releases); `remote.text` {t, m} (typed with the US layout, see ascii_hid.h, with
+ * the modifier byte `m` held for every character).
  *
  * Dependencies: usb_hid, bridge (lock), cJSON. Threading: remote_input_handle() runs in the HTTP server task; one
  * private task types and watches; the enable state is guarded by a critical section.

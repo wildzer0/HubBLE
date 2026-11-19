@@ -21,6 +21,12 @@
 #define STEP_MAX 2000
 /** Characters waiting to be typed; a message carries at most a few dozen, the page waits between chunks. */
 #define TEXT_QUEUE_LEN 256
+
+/** One character to type with the modifiers that go with it. */
+typedef struct {
+    char c;       /**< Character (ASCII). */
+    uint8_t mods; /**< Modifier byte held while it is typed (added to Shift where the character needs it). */
+} text_item_t;
 /** Time a typed key stays down, and the pause before the next one, ms: slow enough for any host to register it. */
 #define KEY_DOWN_MS  12
 #define KEY_PAUSE_MS 12
@@ -132,9 +138,12 @@ void remote_input_handle(const char *event, const cJSON *msg) {
         s_last_hold_us = esp_timer_get_time();
     } else if (strcmp(event, "remote.text") == 0 && s_text_queue != NULL) {
         const cJSON *t = cJSON_GetObjectItemCaseSensitive(msg, "t");
+        const uint8_t mods = (uint8_t)field(msg, "m", 0xFF);
         if (cJSON_IsString(t)) {
             for (const char *p = t->valuestring; *p != '\0'; p++) {
-                xQueueSend(s_text_queue, p, 0); /* A full queue drops the rest: better than blocking the HTTP task. */
+                const text_item_t item = {.c = *p, .mods = mods};
+                xQueueSend(s_text_queue, &item,
+                           0); /* A full queue drops the rest: better than blocking the HTTP task. */
             }
         }
     }
@@ -143,14 +152,15 @@ void remote_input_handle(const char *event, const cJSON *msg) {
 /**
  * @brief Type one character (key down, pause, key up). Unmapped characters are skipped.
  *
- * @param c Character.
+ * @param item Character and the modifiers to hold with it (so an armed Ctrl + "c" is Ctrl + C).
  */
-static void type_char(char c) {
+static void type_char(const text_item_t *item) {
     ascii_hid_key_t k;
-    if (!ascii_hid_lookup(c, &k)) {
+    if (!ascii_hid_lookup(item->c, &k)) {
         return;
     }
-    usb_hid_keyboard(HID_SRC_REMOTE, k.modifiers, &k.usage, 1);
+    const uint8_t mods = (uint8_t)(k.modifiers | item->mods);
+    usb_hid_keyboard(HID_SRC_REMOTE, mods, &k.usage, 1);
     vTaskDelay(pdMS_TO_TICKS(KEY_DOWN_MS));
     usb_hid_keyboard(HID_SRC_REMOTE, 0, NULL, 0);
     vTaskDelay(pdMS_TO_TICKS(KEY_PAUSE_MS));
@@ -164,10 +174,10 @@ static void type_char(char c) {
 static void remote_task(void *arg) {
     (void)arg;
     for (;;) {
-        char c;
-        if (xQueueReceive(s_text_queue, &c, pdMS_TO_TICKS(WATCH_MS)) == pdTRUE) {
+        text_item_t item;
+        if (xQueueReceive(s_text_queue, &item, pdMS_TO_TICKS(WATCH_MS)) == pdTRUE) {
             if (active()) {
-                type_char(c);
+                type_char(&item);
             } else {
                 xQueueReset(s_text_queue); /* Locked or expired while text was waiting: drop it. */
             }
@@ -185,7 +195,7 @@ static void remote_task(void *arg) {
 
 /** @copydoc remote_input_init */
 esp_err_t remote_input_init(void) {
-    s_text_queue = xQueueCreate(TEXT_QUEUE_LEN, sizeof(char));
+    s_text_queue = xQueueCreate(TEXT_QUEUE_LEN, sizeof(text_item_t));
     if (s_text_queue == NULL) {
         return ESP_ERR_NO_MEM;
     }

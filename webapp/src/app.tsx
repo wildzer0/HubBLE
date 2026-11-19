@@ -206,7 +206,7 @@ export function App() {
     <LocaleContext.Provider value={locale}>
       <SkipLink />
       <TopBar />
-      <main id="main" tabIndex={-1}>
+      <main id="main" tabIndex={-1} class={route === 'remote' ? 'immersive' : undefined}>
         {needsUsb && <UsbGate onConnected={connected} />}
         {!needsUsb && (
           <>
@@ -224,7 +224,7 @@ export function App() {
           </>
         )}
       </main>
-      {route !== 'setup' && !needsUsb && <TabBar route={route} />}
+      {route !== 'setup' && route !== 'remote' && !needsUsb && <TabBar route={route} />}
     </LocaleContext.Provider>
   );
 }

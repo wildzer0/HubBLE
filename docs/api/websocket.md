@@ -88,7 +88,7 @@ dropped without an answer. Frames are at most 128 bytes. Each message also count
 | `remote.scroll` | `dx`, `dy` | Scroll; `dy` > 0 scrolls up (content follows a finger that moves down). |
 | `remote.buttons` | `b` | The buttons held **now**: bit 0 left, bit 1 right, bit 2 middle. 0 releases. |
 | `remote.key` | `m`, `k` | The modifier byte and up to six key usages held **now**; empty releases. |
-| `remote.text` | `t` | Characters to type, one key press each, US layout (see below). |
+| `remote.text` | `t`, `m` | Characters to type, one key press each, US layout (see below), with the modifier byte `m` (optional) held for each. |
 
 `remote.buttons` and `remote.key` describe a state: while something is held the page repeats the message (about every
 0.5 s). If nothing arrives for **1.5 s** the dongle releases it, so a closed page or a lost Wi-Fi never leaves a button

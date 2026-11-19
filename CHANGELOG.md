@@ -6,6 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-11-19
+
+### Changed
+
+- **Phone touchpad redesigned.** The pointer accelerates with the finger (a flick crosses a large screen, a slow
+  movement stays precise) and the speed has five levels; before, the speed at its maximum was only just usable. New:
+  tap-and-drag for drag and drop (a second quick tap is a double click), a scroll strip, a middle button, vibration on a
+  click, natural scrolling and a Mac switch (⌘ shortcuts) in the settings. The keyboard has sticky modifiers (tap for the
+  next key, tap again to keep on) that also apply to typed letters, keys that repeat while held, an inverted-T of arrows
+  and shortcuts (copy, paste, cut, undo, select all, switch window). `remote.text` accepts a modifier byte `m`.
+
 ## [1.5.1] - 2026-11-19
 
 Same content as 1.5.0, which was tagged but never published: its CI failed on an end-to-end test that matched the "Unlock
