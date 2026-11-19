@@ -62,6 +62,8 @@ typedef struct {
 #define POWER_TASK_STACK 3072
 #define POWER_TASK_PRIO  5
 
+_Static_assert(BLE_CENTRAL_MAX_DEVICES == HID_MERGE_DEVICE_SOURCES, "every device slot needs its own merge source");
+
 static void (*s_on_changed)(int slot);
 static TaskHandle_t s_power_task; /**< Task that applies BLE connection profile changes on suspend/resume. */
 /** Poll period of the filter task while an element waits for its hold time, ms. */
@@ -85,6 +87,14 @@ static input_filter_t s_kf[BLE_CENTRAL_MAX_DEVICES]; /**< Per source: keys and m
 static input_filter_t s_bf[BLE_CENTRAL_MAX_DEVICES]; /**< Per source: mouse buttons. */
 static filter_out_t s_out[BLE_CENTRAL_MAX_DEVICES];  /**< Per source: what was last sent. */
 static TaskHandle_t s_filter_task;                   /**< Ticks the filters while something waits for its hold time. */
+
+/** Input lock: while true nothing from the peripherals reaches the host. Written by the combo task and the web API. */
+static volatile bool s_locked;
+/** Raw keyboard state of each device (before the lock, the filter and the lock-pair stripping); BLE host task writes,
+ *  the combo task reads. A torn read can at worst delay a 2 s hold by one poll. */
+static volatile uint8_t s_raw_mods[BLE_CENTRAL_MAX_DEVICES];
+/** Raw key array of each device (see s_raw_mods). */
+static volatile uint8_t s_raw_keys[BLE_CENTRAL_MAX_DEVICES][HID_KBD_MAX_KEYS];
 
 /** Last buttons byte of each pointing device (for the keyboard-less gesture); written by the BLE host task. */
 static volatile uint8_t s_mouse_buttons[BLE_CENTRAL_MAX_DEVICES];
@@ -206,7 +216,7 @@ static void filter_task(void *arg) {
     for (;;) {
         ulTaskNotifyTake(pdTRUE, pending ? pdMS_TO_TICKS(FILTER_TICK_MS) : portMAX_DELAY);
         pending = false;
-        if (!s_filter_on) {
+        if (!s_filter_on || s_locked) {
             continue;
         }
         for (unsigned slot = 0; slot < BLE_CENTRAL_MAX_DEVICES; slot++) {
@@ -236,6 +246,29 @@ static void filter_task(void *arg) {
             }
         }
     }
+}
+
+/** @copydoc bridge_set_locked */
+void bridge_set_locked(bool locked) {
+    if (locked == s_locked) {
+        return;
+    }
+    s_locked = locked;
+    if (locked) {
+        /* Let go of everything the host currently sees as held, so no key or button stays stuck while locked. */
+        for (unsigned i = 0; i < BLE_CENTRAL_MAX_DEVICES; i++) {
+            usb_hid_release_source(i);
+        }
+    }
+    ESP_LOGW(TAG, "input %s", locked ? "LOCKED: nothing is forwarded to the host" : "unlocked");
+    if (s_on_changed != NULL) {
+        s_on_changed(-1); /* Lets the web app refresh its status. */
+    }
+}
+
+/** @copydoc bridge_is_locked */
+bool bridge_is_locked(void) {
+    return s_locked;
 }
 
 /** @copydoc bridge_set_input_filter */
@@ -297,9 +330,23 @@ static void on_report(unsigned slot, const hid_layout_t *layout, uint8_t report_
     if (ev.has_mouse && slot < BLE_CENTRAL_MAX_DEVICES) {
         s_mouse_buttons[slot] = ev.buttons; /* For the keyboard-less gesture (left + right held). */
     }
+    if (ev.has_keyboard && slot < BLE_CENTRAL_MAX_DEVICES) {
+        s_raw_mods[slot] = ev.modifiers; /* For the lock gesture, which must see the keys even while locked. */
+        for (unsigned i = 0; i < HID_KBD_MAX_KEYS; i++) {
+            s_raw_keys[slot][i] = ev.keys[i];
+        }
+        if (combo_lock_pair_down(ev.keys, HID_KBD_MAX_KEYS)) {
+            /* Esc + Backspace is held: the host must not see it, or Backspace would auto-repeat there for the whole
+             * hold and delete text. The pair has no other use. */
+            memset(ev.keys, 0, sizeof(ev.keys));
+        }
+    }
     if (s_tap_active != NULL && s_tap_queue != NULL && s_tap_active()) {
         const tap_item_t item = {.slot = (uint8_t)slot, .ev = ev};
         xQueueSend(s_tap_queue, &item, 0); /* Never blocks: drop when full. */
+    }
+    if (s_locked) {
+        return; /* Locked: nothing reaches the host, and nothing wakes it either. */
     }
     if (ev.has_keyboard) {
         if (s_filter_on) {
@@ -377,6 +424,10 @@ static void combo_task(void *arg) {
     combo_init(&combo, settings_get_shift_hold_ms()); /* Setting; applies from the next boot. */
     combo_mouse_init(&mouse_combo, settings_get_shift_hold_ms());
     combo_button_init(&button);
+    combo_lock_t lock_gesture[BLE_CENTRAL_MAX_DEVICES];
+    for (unsigned i = 0; i < BLE_CENTRAL_MAX_DEVICES; i++) {
+        combo_lock_init(&lock_gesture[i]);
+    }
     const int button_gpio = board_get_info()->button_gpio;
     gpio_config_t io = {.pin_bit_mask = 1ULL << button_gpio, .mode = GPIO_MODE_INPUT, .pull_up_en = GPIO_PULLUP_ENABLE};
     const bool have_button = gpio_config(&io) == ESP_OK;
@@ -390,6 +441,16 @@ static void combo_task(void *arg) {
         uint8_t buttons = 0;
         for (unsigned i = 0; i < BLE_CENTRAL_MAX_DEVICES; i++) {
             buttons |= s_mouse_buttons[i];
+        }
+        for (unsigned i = 0; i < BLE_CENTRAL_MAX_DEVICES; i++) {
+            uint8_t raw[HID_KBD_MAX_KEYS];
+            for (unsigned j = 0; j < HID_KBD_MAX_KEYS; j++) {
+                raw[j] = s_raw_keys[i][j];
+            }
+            if (combo_lock_update(&lock_gesture[i], now_ms, s_raw_mods[i], raw, HID_KBD_MAX_KEYS)) {
+                ESP_LOGI(TAG, "Esc + Backspace held: input %s", s_locked ? "unlocked" : "locked");
+                bridge_set_locked(!s_locked);
+            }
         }
         const bool boot_pressed = have_button && gpio_get_level(button_gpio) == 0;
         const bool by_button = combo_button_update(&button, now_ms, boot_pressed);

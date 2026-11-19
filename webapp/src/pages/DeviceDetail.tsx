@@ -1,10 +1,12 @@
 /**
  * @file DeviceDetail.tsx
  * @description Device detail page (CLAUDE.md §3.7 page 4): rename, forget, connection parameters,
- * statistics, session-only battery history and report-map export (for debugging and test fixtures).
+ * statistics, report-map export (for debugging and test fixtures).
  */
-import { useEffect, useState } from 'preact/hooks';
+import type { ComponentChildren } from 'preact';
+import { useState } from 'preact/hooks';
 import { ApiError, forgetDevice, getDevice, getReportMap, renameDevice } from '../api/client';
+import { BatteryGauge } from '../components/BatteryGauge';
 import { ConfirmButton } from '../components/ConfirmButton';
 import { ReportCard } from '../components/ReportCard';
 import { SecurityBadge } from '../components/SecurityBadge';
@@ -15,36 +17,8 @@ import { useApi } from '../lib/useApi';
 
 /** Refresh period of the device data. */
 const REFRESH_MS = 2000;
-/** Battery samples kept for the session chart. */
-const MAX_SAMPLES = 120;
 /** Maximum device name length accepted by the firmware. */
 const NAME_MAX = 31;
-
-/**
- * Tiny line chart of the battery history of this session.
- *
- * - `samples`: Battery percentages, oldest first.
- * @returns An SVG, or null with fewer than two samples.
- */
-function BatteryChart({ samples }: { samples: number[] }) {
-  const t = useT();
-  if (samples.length < 2) return <p class="hint">{t('device.history_wait')}</p>;
-  const w = 200;
-  const h = 40;
-  const pts = samples
-    .map((v, i) => `${String((i / (samples.length - 1)) * w)},${String(h - (v / 100) * h)}`)
-    .join(' ');
-  return (
-    <svg
-      viewBox={`0 0 ${String(w)} ${String(h)}`}
-      role="img"
-      aria-label={t('device.history')}
-      class="chart"
-    >
-      <polyline points={pts} fill="none" stroke="currentColor" stroke-width="2" />
-    </svg>
-  );
-}
 
 /**
  * Render the device detail page.
@@ -56,15 +30,7 @@ export function DeviceDetail({ id }: { id: string }) {
   const t = useT();
   const { data: d, failed, reload } = useApi(() => getDevice(id), REFRESH_MS);
   const [name, setName] = useState<string | null>(null);
-  const [samples, setSamples] = useState<number[]>([]);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-
-  useEffect(() => {
-    if (d?.battery != null) {
-      const v = d.battery;
-      setSamples((s) => [...s, v].slice(-MAX_SAMPLES));
-    }
-  }, [d]);
 
   if (!d) {
     return (
@@ -116,7 +82,7 @@ export function DeviceDetail({ id }: { id: string }) {
     }
   };
 
-  const row = (k: string, v: string | number, testId?: string) => (
+  const row = (k: string, v: ComponentChildren, testId?: string) => (
     <div class="row">
       <dt>{k}</dt>
       <dd data-testid={testId}>{v}</dd>
@@ -179,7 +145,7 @@ export function DeviceDetail({ id }: { id: string }) {
           {row(t('device.slave_latency'), d.connection.latency)}
           {row(t('device.timeout'), `${String(d.connection.timeout_ms)} ms`)}
           {row(t('device.rssi'), d.rssi === null ? '–' : `${String(d.rssi)} dBm`)}
-          {row(t('device.battery'), d.battery === null ? '–' : `${String(d.battery)} %`)}
+          {row(t('device.battery'), <BatteryGauge pct={d.battery} large />)}
           {row(t('device.reconnects'), d.reconnects)}
           {row(
             t('device.last_disconnect'),
@@ -205,13 +171,6 @@ export function DeviceDetail({ id }: { id: string }) {
             {row(t('device.lat_max'), `${(d.latency_us.max / 1000).toFixed(2)} ms`)}
           </dl>
         )}
-      </section>
-
-      <section class="card" aria-labelledby="hist-h">
-        <h3 class="card-title" id="hist-h">
-          {t('device.history')}
-        </h3>
-        <BatteryChart samples={samples} />
       </section>
 
       <section class="card" aria-labelledby="map-h">

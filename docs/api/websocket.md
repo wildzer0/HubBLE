@@ -29,7 +29,8 @@ Every message is `{ "event": "<name>", "data": <payload> }`.
 `CLAUDE.md` §4.2 also lists an `ap.timeout` event. It does not exist as a separate message: the remaining time of the
 access point is the `ap_timeout_s` field of `system.status` (`null` when no countdown runs).
 
-Client → server messages are `hello`, `input.subscribe` and `input.unsubscribe`. Anything else is ignored.
+Client → server messages are `hello`, `input.subscribe`, `input.unsubscribe` and the `remote.*` touchpad messages
+(see [Phone touchpad](#phone-touchpad)). Anything else is ignored.
 
 ## Limits
 
@@ -73,3 +74,23 @@ slows down the USB forwarding path. Quarantined (unpaired) devices are not shown
   `confirm`, `downloading`, `installed`, `error`), `error` (when `state` is `error`), `channel`, `release`
   (`version`, `min_version`, `notes_url`, `size`, `signed`, `downgrade`), `received`/`total` while downloading and
   `confirm_remaining_s` while waiting for the physical confirmation. Sent on every state change and download step.
+
+## Phone touchpad
+
+The phone can act as a touchpad and keyboard for the host. The dongle accepts these messages only on a **WebSocket**
+connection (never from the USB link), only while the window opened by `POST /api/v1/remote/enable` is open (5 minutes,
+off after a restart, `remote_s` in `GET /status` is what is left) and never while the input is locked. Otherwise they are
+dropped without an answer. Frames are at most 128 bytes. Each message also counts as a heartbeat.
+
+| Message | Fields | Meaning |
+|---|---|---|
+| `remote.move` | `dx`, `dy` | Move the pointer by that many host units (clamped to ±2000). |
+| `remote.scroll` | `dx`, `dy` | Scroll; `dy` > 0 scrolls up (content follows a finger that moves down). |
+| `remote.buttons` | `b` | The buttons held **now**: bit 0 left, bit 1 right, bit 2 middle. 0 releases. |
+| `remote.key` | `m`, `k` | The modifier byte and up to six key usages held **now**; empty releases. |
+| `remote.text` | `t` | Characters to type, one key press each, US layout (see below). |
+
+`remote.buttons` and `remote.key` describe a state: while something is held the page repeats the message (about every
+0.5 s). If nothing arrives for **1.5 s** the dongle releases it, so a closed page or a lost Wi-Fi never leaves a button
+or key stuck on the host. `remote.text` is typed with the keys of a US keyboard; the host maps them with its own layout,
+so letters and digits are right everywhere while punctuation may differ.

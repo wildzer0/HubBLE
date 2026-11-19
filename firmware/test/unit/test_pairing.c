@@ -82,6 +82,7 @@ void test_confirm_times_out(void) {
     pairing_tick(&p, 2 + PAIR_CONFIRM_TIMEOUT_MS);
     TEST_ASSERT_EQUAL(PAIR_FAILED, p.state);
     TEST_ASSERT_EQUAL(FAIL_TIMEOUT, p.fail);
+    TEST_ASSERT_EQUAL(PAIR_CONFIRM, p.fail_state);
 }
 
 void test_mouse_quarantine_challenge(void) {

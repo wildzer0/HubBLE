@@ -15,6 +15,9 @@
 /** Breathing and pulse periods in ms. */
 #define PERIOD_BREATH_MS 3000
 #define PERIOD_AMBER_MS  4000
+/** Intensity (0..255) below which the amber pulse is dark: at that level the green die is already off and the colour
+ *  would look red instead of amber. */
+#define AMBER_MIN_INTENSITY 32
 /** Dim level of the optional "device connected" indicator. */
 #define STATUS_GREEN 40
 
@@ -55,7 +58,9 @@ static bool blink_on(uint32_t t_ms, uint32_t period) {
  */
 static led_rgb_t scale(uint32_t r, uint32_t g, uint32_t b, uint32_t intensity, uint32_t bright) {
     const uint32_t k = intensity * bright; /* 0..25500 */
-    led_rgb_t c = {(uint8_t)(r * k / (FULL * 100)), (uint8_t)(g * k / (FULL * 100)), (uint8_t)(b * k / (FULL * 100))};
+    const uint32_t half = FULL * 100 / 2;  /* Round instead of truncating, so that the hue of dim colours is kept. */
+    led_rgb_t c = {(uint8_t)((r * k + half) / (FULL * 100)), (uint8_t)((g * k + half) / (FULL * 100)),
+                   (uint8_t)((b * k + half) / (FULL * 100))};
     return c;
 }
 
@@ -75,11 +80,15 @@ led_rgb_t led_pattern(const led_inputs_t *in, uint32_t t_ms) {
     if (in->pairing) {
         return blink_on(t_ms, PERIOD_PAIRING_MS) ? scale(0, FULL, FULL, FULL, bright) : off; /* cyan */
     }
+    if (in->locked) {
+        return scale(FULL, 0, 0, FULL, bright); /* solid red: nothing reaches the host */
+    }
     if (in->ap_on) {
         return scale(0, 0, FULL, triangle(t_ms, PERIOD_BREATH_MS), bright); /* blue breathing */
     }
     if (in->connected == 0) {
-        return scale(FULL, 140, 0, triangle(t_ms, PERIOD_AMBER_MS), bright); /* slow amber pulse */
+        const uint32_t level = triangle(t_ms, PERIOD_AMBER_MS);
+        return level < AMBER_MIN_INTENSITY ? off : scale(FULL, 140, 0, level, bright); /* slow amber pulse */
     }
     return in->status_led ? scale(0, STATUS_GREEN, 0, FULL, bright) : off;
 }

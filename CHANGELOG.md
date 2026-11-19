@@ -6,6 +6,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-19
+
+New features (input lock, phone touchpad), diagnostics for the problems still open, and a fix for devices in slots 4 to 7.
+
+### Added
+
+- **Phone touchpad.** The phone acts as touchpad and keyboard (pointer, tap-click, two-finger scroll and right click,
+  held buttons for dragging, a text field, modifier and special keys). Off by default: the Devices page opens a
+  5-minute window (`POST /remote/enable`, `remote_s` in `GET /status`), a restart closes it, it is refused while the
+  input is locked and only WebSocket clients may use it. A held button or key is released if the phone goes quiet.
+- **Input lock.** Esc + Backspace held for 2 s on a keyboard, or the Devices page, stops all input reaching the host
+  (the peripherals stay connected); the same gesture or the page unlocks. Solid red LED while locked. The two keys are
+  kept away from the host while held, and the state is not kept over a restart. New `POST /system/lock` and
+  `/system/unlock`, and `locked` in `GET /status`.
+- The log now survives a software reset (crash, watchdog, restart): the new run continues after the old text, with a
+  `=== boot: reset reason ... ===` marker. A power-on or brown-out reset starts a fresh log (RAM is undefined then),
+  and the marker still names the reason.
+- A failed pairing reports the step it failed in (`failed_in` in the pairing status, shown on the page), and every
+  change of the pairing state is logged. The connection parameters that a peripheral asks for are logged too (they
+  are still accepted as asked).
+
+### Changed
+
+- The battery on the device page is a battery icon with the level and a colour (green, amber up to 30 %, red up to
+  20 %) instead of a line chart without axes that only filled while the page was open; the dashboard cards use it too.
+- The amber "no device" pulse no longer turns red at its dimmest point: it goes dark instead, and dim colours are
+  rounded instead of truncated.
+
+### Known issues
+
+- After the computer sleeps, peripherals may not reconnect, and a pairing challenge sometimes does not appear. Both are
+  under investigation: this release adds the log that survives a restart and the step in which a pairing failed.
+
+### Fixed
+
+- Devices in slots 5 to 7 (and slot 4, which shared the debug source) could not type or move: the USB merge had only
+  five sources for eight device slots. It now has one per slot plus the debug and phone sources.
+- The pairing page showed the result of the previous pairing (for example "paired") when it was opened again.
+
 ## [1.4.2] - 2026-11-18
 
 ### Added

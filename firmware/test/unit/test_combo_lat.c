@@ -148,8 +148,28 @@ void test_button_bounce_and_long_press_are_ignored(void) {
     TEST_ASSERT_FALSE(combo_button_update(&b, 9000, false)); /* held 4 s: not a short press */
 }
 
+/** Esc + Backspace held 2 s, alone, fires once; any extra key or modifier cancels it. */
+static void test_lock_gesture(void) {
+    combo_lock_t c;
+    combo_lock_init(&c);
+    const uint8_t pair[6] = {0x29, 0x2A, 0, 0, 0, 0};
+    const uint8_t three[6] = {0x29, 0x2A, 0x04, 0, 0, 0};
+    const uint8_t esc[6] = {0x29, 0, 0, 0, 0, 0};
+    TEST_ASSERT_FALSE(combo_lock_update(&c, 1000, 0, pair, 6));
+    TEST_ASSERT_FALSE(combo_lock_update(&c, 2999, 0, pair, 6));
+    TEST_ASSERT_TRUE(combo_lock_update(&c, 3000, 0, pair, 6));
+    TEST_ASSERT_FALSE(combo_lock_update(&c, 4000, 0, pair, 6)); /* once per hold */
+    TEST_ASSERT_FALSE(combo_lock_update(&c, 4100, 0, esc, 6));  /* released: re-armed */
+    TEST_ASSERT_FALSE(combo_lock_update(&c, 5000, 0, pair, 6));
+    TEST_ASSERT_FALSE(combo_lock_update(&c, 6000, 0, three, 6));   /* an extra key cancels */
+    TEST_ASSERT_FALSE(combo_lock_update(&c, 9000, 0x01, pair, 6)); /* a modifier cancels */
+    TEST_ASSERT_TRUE(combo_lock_pair_down(three, 6));
+    TEST_ASSERT_FALSE(combo_lock_pair_down(esc, 6));
+}
+
 int main(void) {
     UNITY_BEGIN();
+    RUN_TEST(test_lock_gesture);
     RUN_TEST(test_ap_on_after_hold);
     RUN_TEST(test_one_modifier_or_other_key_does_not_fire);
     RUN_TEST(test_either_side_counts);

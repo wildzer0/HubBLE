@@ -94,6 +94,7 @@ typedef struct {
 typedef struct {
     pair_state_t state;        /**< Current state. */
     pair_fail_t fail;          /**< Reason of the last failure (valid in FAILED). */
+    pair_state_t fail_state;   /**< State the machine was in when it failed (valid in FAILED). */
     sec_level_t level;         /**< Level reached so far (final in BONDED). */
     bool authenticated;        /**< The SMP pairing was authenticated (passkey). */
     bool allow_legacy;         /**< Per-pairing override. */

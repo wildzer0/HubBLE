@@ -671,9 +671,28 @@ progress {
   background: var(--surface-2);
   overflow-wrap: anywhere;
 }
-.chart {
-  width: 100%;
-  color: var(--accent);
+.battery {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-variant-numeric: tabular-nums;
+}
+.battery svg {
+  width: 1.6em;
+  height: 0.75em;
+}
+.battery.large {
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+.battery.ok {
+  color: var(--ok);
+}
+.battery.warn {
+  color: var(--warn);
+}
+.battery.bad {
+  color: var(--bad);
 }
 .sticker {
   display: flex;
@@ -766,4 +785,37 @@ progress {
 .check span:last-child {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.touchpad {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 14rem;
+  margin: 0.75rem 0;
+  border: 2px dashed var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.keyrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+.keyrow .btn {
+  flex: 1 1 auto;
+}
+.hold {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }

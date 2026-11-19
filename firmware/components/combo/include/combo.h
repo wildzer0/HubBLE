@@ -5,6 +5,7 @@
  * Responsibilities (CLAUDE.md §3.5, §3.10): detect, on the MERGED keyboard state of all paired keyboards,
  *  - AP_ON: a Ctrl key and an Alt key (either side) held for the configured time (default 3 s) and nothing else;
  *  - RECOVERY: Ctrl + Alt + Esc held for 10 s and nothing else (Wi-Fi password reset).
+ *  - LOCK: Esc + Backspace (nothing else) held for 2 s: toggle the input lock (see bridge.h).
  * Each combo fires once per hold and re-arms only after the keys are released. The key events themselves
  * are still forwarded to the host: they are harmless (CLAUDE.md §3.5).
  * Dependencies: libc only. Threading: no locking; call from one task.
@@ -26,6 +27,10 @@ extern "C" {
 #define COMBO_MOD_RALT   0x40
 /** Escape key usage (page 0x07). */
 #define COMBO_KEY_ESC 0x29
+/** Backspace key usage (page 0x07). */
+#define COMBO_KEY_BACKSPACE 0x2A
+/** Hold time of the lock gesture, ms. */
+#define COMBO_LOCK_HOLD_MS 2000
 /** Default hold times in ms (CLAUDE.md §3.5 and §3.10). */
 #define COMBO_DEFAULT_AP_HOLD_MS 3000
 #define COMBO_RECOVERY_HOLD_MS   10000
@@ -68,6 +73,44 @@ void combo_init(combo_t *c, uint32_t ap_hold_ms);
  * @return The combo that just completed, or COMBO_NONE.
  */
 combo_event_t combo_update(combo_t *c, uint32_t now_ms, uint8_t modifiers, const uint8_t *keys, unsigned nkeys);
+
+/** Detector of "Esc + Backspace held together", the input-lock gesture of one keyboard. */
+typedef struct {
+    uint32_t since_ms; /**< When exactly the two keys went down together. */
+    bool active;       /**< Exactly Esc and Backspace are down, no modifier. */
+    bool fired;        /**< Already reported for this hold. */
+} combo_lock_t;
+
+/**
+ * @brief Initialise the lock-gesture detector.
+ *
+ * @param c Detector.
+ */
+void combo_lock_init(combo_lock_t *c);
+
+/**
+ * @brief Is this the lock pair: Esc and Backspace both down (other keys and modifiers allowed)?
+ *
+ * The bridge uses it to keep those two keys away from the host while the pair is held, because Backspace would
+ * auto-repeat there for the whole 2 s and delete text.
+ *
+ * @param keys  Key array of one keyboard.
+ * @param nkeys Entries in @p keys.
+ * @return true if both usages are present.
+ */
+bool combo_lock_pair_down(const uint8_t *keys, unsigned nkeys);
+
+/**
+ * @brief Feed the raw key state of ONE keyboard (not the merged one: the pair must be on the same device).
+ *
+ * @param c         Detector.
+ * @param now_ms    Monotonic time in ms (wrap-around safe).
+ * @param modifiers Modifier byte of that keyboard.
+ * @param keys      Its key array.
+ * @param nkeys     Entries in @p keys.
+ * @return true once per hold, when exactly Esc + Backspace (no modifier, no other key) were held COMBO_LOCK_HOLD_MS.
+ */
+bool combo_lock_update(combo_lock_t *c, uint32_t now_ms, uint8_t modifiers, const uint8_t *keys, unsigned nkeys);
 
 /* ---- Gestures that need no keyboard ------------------------------------------------------------------ */
 

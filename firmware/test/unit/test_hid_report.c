@@ -114,6 +114,28 @@ void test_out_of_range_source_is_ignored(void) {
     TEST_ASSERT_FALSE(hid_merge_mouse_pending(&m));
 }
 
+/** Every device slot (0..7), the debug source and the phone have their own source: no collisions, none ignored. */
+void test_every_device_slot_has_its_own_source(void) {
+    hid_merge_t m;
+    hid_merge_init(&m);
+    for (unsigned s = 0; s < HID_MERGE_SOURCES; s++) {
+        const uint8_t key = (uint8_t)(4 + s);
+        hid_merge_set_keyboard(&m, s, 0, &key, 1);
+    }
+    hid_kbd_report_t k;
+    hid_merge_get_keyboard(&m, &k);
+    unsigned n = 0;
+    for (unsigned i = 0; i < HID_KBD_MAX_KEYS; i++) {
+        n += k.keys[i] != 0 ? 1u : 0u;
+    }
+    TEST_ASSERT_EQUAL_UINT(HID_KBD_MAX_KEYS, n); /* more keys than a report holds: the first six sources win */
+    hid_merge_clear_source(&m, HID_MERGE_DEVICE_SOURCES - 1);
+    hid_merge_set_keyboard(&m, HID_MERGE_DEVICE_SOURCES - 1, 0x02, NULL, 0); /* the last device slot is valid */
+    hid_merge_get_keyboard(&m, &k);
+    TEST_ASSERT_EQUAL_HEX8(0x02, k.modifiers);
+    TEST_ASSERT_TRUE(HID_SRC_DEBUG != HID_SRC_REMOTE && HID_SRC_DEBUG >= HID_MERGE_DEVICE_SOURCES);
+}
+
 void test_consumer_first_source_wins_and_range(void) {
     hid_merge_t m;
     hid_merge_init(&m);
@@ -199,6 +221,7 @@ int main(void) {
     RUN_TEST(test_keyboard_ignores_modifier_usages_and_zero);
     RUN_TEST(test_clear_source_releases_keys);
     RUN_TEST(test_out_of_range_source_is_ignored);
+    RUN_TEST(test_every_device_slot_has_its_own_source);
     RUN_TEST(test_consumer_first_source_wins_and_range);
     RUN_TEST(test_system_union_and_mask);
     RUN_TEST(test_mouse_sums_deltas_and_unions_buttons);

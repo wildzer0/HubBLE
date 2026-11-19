@@ -129,6 +129,36 @@ export async function wifiOff(): Promise<void> {
   await request<{ ok: boolean }>('POST', '/api/v1/system/wifi-off', {});
 }
 
+/**
+ * Lock or unlock the input: while locked, nothing from the peripherals is forwarded to the host. Esc + Backspace held for
+ * 2 s on a keyboard does the same. The lock is not kept over a restart.
+ *
+ * @param locked true to lock, false to unlock.
+ */
+export async function setInputLocked(locked: boolean): Promise<void> {
+  await request<{ locked: boolean }>(
+    'POST',
+    locked ? '/api/v1/system/lock' : '/api/v1/system/unlock',
+    {},
+  );
+}
+
+/**
+ * Open (for 5 minutes, again: restart the window) or close the window in which the phone may act as touchpad and
+ * keyboard. Refused with 409 `input_locked` while the input is locked.
+ *
+ * @param enabled true to open, false to close.
+ * @returns Seconds left in the window (0 when closed).
+ */
+export async function setRemoteInput(enabled: boolean): Promise<number> {
+  const r = await request<{ remote_s: number }>(
+    'POST',
+    enabled ? '/api/v1/remote/enable' : '/api/v1/remote/disable',
+    {},
+  );
+  return r.remote_s;
+}
+
 /** Reset the dongle to factory state: settings, Wi-Fi password and all bonds are erased, then it reboots. */
 export async function factoryReset(): Promise<void> {
   await request<{ ok: boolean }>('POST', '/api/v1/system/factory-reset', {});

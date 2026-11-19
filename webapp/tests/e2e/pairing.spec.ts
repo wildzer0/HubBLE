@@ -81,3 +81,20 @@ test('a pairing left behind can be resumed or cancelled from any page', async ({
   await banner.getByRole('button', { name: 'Cancel' }).click();
   await expect(banner).toBeHidden();
 });
+
+test('a finished pairing is not shown again when the page is reopened', async ({
+  page,
+  request,
+}) => {
+  await page.goto('/#/pair');
+  await page.getByRole('button', { name: 'Scan for devices' }).click();
+  await page.getByRole('button', { name: 'Pair with Mock Keyboard' }).click();
+  await mockPairing(request, 'advance'); // passkey typed
+  await mockPairing(request, 'advance'); // Ctrl + Alt held
+  await expect(page.getByTestId('result-ok')).toBeVisible();
+
+  await page.goto('/#/dashboard');
+  await page.goto('/#/pair');
+  await expect(page.getByRole('button', { name: 'Scan for devices' })).toBeVisible();
+  await expect(page.getByTestId('result-ok')).toHaveCount(0);
+});

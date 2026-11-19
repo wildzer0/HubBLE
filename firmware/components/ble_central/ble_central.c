@@ -220,11 +220,32 @@ static void addr_to_id(const uint8_t addr[6], char out[13]) {
 }
 
 /**
+ * @brief Log each change of the pairing state (name only), so a pairing that stalls shows where in the log.
+ *
+ * Thread-safety: takes s_mu; call without it held.
+ */
+static void log_pair_transition(void) {
+    static const char *const NAMES[] = {"idle",       "scanning", "connecting", "pairing",
+                                        "quarantine", "confirm",  "bonded",     "failed"};
+    static pair_state_t last = PAIR_IDLE;
+    LOCK();
+    const pair_state_t now = s_fsm.state;
+    UNLOCK();
+    if (now != last) {
+        ESP_LOGI(TAG, "pairing: %s -> %s", NAMES[last], NAMES[now]);
+        last = now;
+    }
+}
+
+/**
  * @brief Notify the bridge that a slot (or the pairing flow, slot -1) changed. Must be called without s_mu held.
  *
  * @param slot Slot or -1.
  */
 static void changed(int slot) {
+    if (slot < 0) {
+        log_pair_transition();
+    }
     if (s_cbs.on_changed != NULL) {
         s_cbs.on_changed(slot);
     }
@@ -450,7 +471,8 @@ static void pair_sync(void) {
         over_limit = live_links_locked() > BLE_CENTRAL_MAX_LINKS;
         ESP_LOGI(TAG, "pairing done, slot %d, security level %d", slot, (int)s_fsm.level);
     } else {
-        ESP_LOGW(TAG, "pairing failed (reason %d)", (int)s_fsm.fail);
+        ESP_LOGW(TAG, "pairing failed (reason %d, in state %d, HID discovery state %d)", (int)s_fsm.fail,
+                 (int)s_fsm.fail_state, (int)d->hogp->state);
         memset(&s_reg[slot], 0, sizeof(s_reg[0]));
         d->ready = false;
     }
@@ -859,6 +881,15 @@ static int gap_event(struct ble_gap_event *event, void *arg) {
     case BLE_GAP_EVENT_DISCONNECT:
         on_disconnected(event->disconnect.conn.conn_handle, event->disconnect.reason);
         return 0;
+    case BLE_GAP_EVENT_L2CAP_UPDATE_REQ: {
+        /* Log only. The request is accepted as the peripheral made it (the default when there is no handler): the
+         * controller may still refuse it, and the link then keeps its parameters. Overriding it would change the
+         * behaviour of peripherals that work today, so it is left to a decision based on these log lines. */
+        const struct ble_gap_upd_params *peer = event->conn_update_req.peer_params;
+        ESP_LOGI(TAG, "peripheral asked for %.2f-%.2f ms, latency %u, timeout %u ms", peer->itvl_min * 1.25,
+                 peer->itvl_max * 1.25, (unsigned)peer->latency, (unsigned)peer->supervision_timeout * 10u);
+        return 0;
+    }
     case BLE_GAP_EVENT_ENC_CHANGE:
         on_encrypted(event->enc_change.conn_handle, event->enc_change.status);
         return 0;
@@ -1486,6 +1517,7 @@ void ble_central_pairing_status(ble_pairing_status_t *out) {
     LOCK();
     out->state = s_fsm.state;
     out->fail = s_fsm.fail;
+    out->fail_state = s_fsm.fail_state;
     out->level = s_fsm.level;
     out->has_passkey = s_fsm.has_passkey;
     out->passkey = s_fsm.passkey;

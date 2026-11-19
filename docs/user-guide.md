@@ -138,9 +138,39 @@ restore** of the settings (paired devices are never exported, they contain keys)
 
 ## 10. LED
 
-Off when a device is connected. Slow amber pulse: no device. Blue breathing: Wi-Fi on. Cyan blink: pairing. Magenta blink:
-quarantine challenge. Purple blink: update. Three red blinks at start: a rollback happened. The LED is always off while the
-computer sleeps; brightness is configurable (0 turns it off).
+| LED | Meaning |
+|---|---|
+| Off | At least one device is connected (dim green if the status LED is enabled), or the computer sleeps, or brightness is 0 |
+| Slow amber pulse | No device connected |
+| Blue, breathing | Wi-Fi on |
+| Cyan, fast blink | Scanning, pairing, or waiting for the confirmation |
+| Magenta, blink | Quarantine challenge |
+| Purple, fast blink | Update installing |
+| Solid red | Input locked (see below) |
+| White flash at start, then 3 red blinks | A rollback to the previous firmware happened |
+
+Brightness is configurable in Settings (0 turns the LED off). When several states are true at once, the most urgent
+wins: update, then challenge, pairing, lock, Wi-Fi, no device.
+
+## Phone touchpad
+
+On the Devices page, **Phone touchpad** turns the phone into a touchpad and keyboard for the computer the dongle is plugged
+into. It is **off** until you switch it on, then lasts **5 minutes** (you can extend it) and is off again after a restart,
+because anyone who knows the Wi-Fi password could otherwise type on the computer. It does not work while the input is
+locked. One finger moves the pointer, a tap is a left click, two fingers scroll, a two-finger tap is a right click; the
+**Left click** and **Right click** buttons stay down while pressed (hold one and move the pad to drag). The text field types
+what you write; the row below sends Ctrl, Alt, Shift or Win with the next key, and Esc, Tab, Backspace, Enter, Del and the
+arrows. Text is typed as on a **US keyboard**: letters and digits are right on any layout, punctuation may differ on yours.
+The speed of the pointer is a slider on the page.
+
+## Input lock
+
+Locking stops everything from your keyboards and mice from reaching the computer (nothing is typed, moved or woken),
+while the devices stay connected. Hold **Esc + Backspace together for 2 seconds** on a keyboard to lock; do the same to
+unlock. The two keys are not sent to the computer while they are held, so Backspace does not delete anything. You can
+also use **Lock input** / **Unlock input** on the Devices page. The LED is solid red while locked. The lock is not kept
+over a restart, and the Wi-Fi gestures (Ctrl + Alt, left + right mouse buttons, BOOT) still work, so a mouse-only setup
+can always bring the web app up to unlock.
 
 ## Help improve compatibility
 

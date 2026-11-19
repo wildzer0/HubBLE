@@ -30,6 +30,7 @@ connections the dongle must keep alive to wake the host, so its own consumption 
 |---|---|
 | Host suspended, or brightness 0 | off |
 | Update installing | purple, fast blink |
+| Input locked | solid red |
 | Quarantine challenge | magenta blink |
 | Scanning, pairing, waiting for confirmation | cyan, fast blink |
 | Wi-Fi AP on | blue, breathing |

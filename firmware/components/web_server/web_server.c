@@ -27,6 +27,7 @@
 #include "captive_probe.h"
 #include "settings.h"
 #include "web_assets.h"
+#include "remote_input.h"
 #include "wifi_ap.h"
 
 /** Virtual socket descriptor standing for the USB link in the input-tester subscription table. */
@@ -274,6 +275,10 @@ static void handle_client_message(const char *text, int fd) {
         input_subscription(fd, true);
     } else if (cJSON_IsString(ev) && strcmp(ev->valuestring, "input.unsubscribe") == 0) {
         input_subscription(fd, false);
+    } else if (cJSON_IsString(ev) && strncmp(ev->valuestring, "remote.", 7) == 0 && fd != USB_LINK_FD) {
+        /* The phone as touchpad / keyboard: Wi-Fi clients only (the USB link belongs to the host itself). */
+        remote_input_handle(ev->valuestring, j);
+        wifi_ap_note_heartbeat(); /* Using the touchpad keeps the AP alive like the heartbeat does. */
     }
     cJSON_Delete(j);
 }

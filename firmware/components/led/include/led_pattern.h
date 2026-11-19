@@ -3,8 +3,8 @@
  * @brief Pure LED status patterns (CLAUDE.md §3.6): inputs describing the dongle, time -> colour.
  *
  * Priority, highest first: host suspended or LED disabled (off) > OTA (purple fast blink) > quarantine/challenge
- * (magenta blink) > pairing (cyan fast blink) > AP on (blue breathing) > no device connected (slow amber pulse) >
- * device connected (off, or dim green when the "status LED" setting is on).
+ * (magenta blink) > pairing (cyan fast blink) > input locked (solid red) > AP on (blue breathing) > no device connected
+ * (slow amber pulse) > device connected (off, or dim green when the "status LED" setting is on).
  *
  * Dependencies: libc only (host-testable). Threading: stateless.
  */
@@ -23,6 +23,7 @@ typedef struct {
     bool ota_active;     /**< An update is being installed. */
     bool quarantine;     /**< A device is in the quarantine challenge. */
     bool pairing;        /**< Scanning, connecting or pairing. */
+    bool locked;         /**< The input lock is on: solid red. */
     bool ap_on;          /**< The Wi-Fi access point is on. */
     uint32_t connected;  /**< Number of connected peripherals. */
     bool status_led;     /**< Show dim green while at least one device is connected. */

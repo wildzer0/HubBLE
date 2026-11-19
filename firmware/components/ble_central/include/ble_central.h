@@ -177,6 +177,7 @@ ble_pair_state_t ble_central_pair_state(void);
 typedef struct {
     pair_state_t state;                     /**< State. */
     pair_fail_t fail;                       /**< Last failure reason (valid in PAIR_FAILED). */
+    pair_state_t fail_state;                /**< State the pairing was in when it failed (valid in PAIR_FAILED). */
     sec_level_t level;                      /**< Security level reached so far. */
     bool has_passkey;                       /**< A passkey must be typed on the keyboard now. */
     uint32_t passkey;                       /**< The passkey (only while has_passkey). */

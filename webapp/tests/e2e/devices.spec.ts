@@ -59,3 +59,32 @@ test('the compatibility report is shown before anything is shared and can be dow
   await card.getByRole('button', { name: 'Download the report' }).click();
   expect((await download).suggestedFilename()).toMatch(/^hubble-report-.*\.json$/);
 });
+
+test('input lock: lock from the dashboard, banner, unlock', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByTestId('locked-banner')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Lock input' }).click();
+  await expect(page.getByTestId('locked-banner')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Lock input' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Unlock input' }).click();
+  await expect(page.getByTestId('locked-banner')).toHaveCount(0);
+});
+
+test('phone touchpad: off by default, switch on for a while, switch off', async ({ page }) => {
+  await page.goto('/#/remote');
+  await expect(page.getByTestId('touchpad')).toHaveCount(0);
+  await page.getByTestId('remote-enable').click();
+  await expect(page.getByTestId('touchpad')).toBeVisible();
+  await expect(page.getByTestId('remote-timer')).toContainText('left');
+  await page.getByTestId('remote-stop').click();
+  await expect(page.getByTestId('touchpad')).toHaveCount(0);
+});
+
+test('phone touchpad is refused while the input is locked', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Lock input' }).click();
+  await expect(page.getByTestId('locked-banner')).toBeVisible();
+  await page.goto('/#/remote');
+  await expect(page.getByTestId('remote-locked')).toBeVisible();
+  await expect(page.getByTestId('remote-enable')).toHaveCount(0);
+});

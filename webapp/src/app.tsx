@@ -21,6 +21,7 @@ import { Pair } from './pages/Pair';
 import { Settings } from './pages/Settings';
 import { Setup } from './pages/Setup';
 import { System } from './pages/System';
+import { Remote } from './pages/Remote';
 import { Tester } from './pages/Tester';
 import { Update } from './pages/Update';
 
@@ -30,6 +31,7 @@ const ROUTES = [
   'pair',
   'device',
   'tester',
+  'remote',
   'check',
   'settings',
   'update',
@@ -134,7 +136,7 @@ function TabBar({ route }: { route: Route }) {
   const t = useT();
   // Sub-pages keep their parent tab highlighted.
   const active =
-    route === 'pair' || route === 'device' || route === 'tester'
+    route === 'pair' || route === 'device' || route === 'tester' || route === 'remote'
       ? 'dashboard'
       : route === 'check'
         ? 'system'
@@ -214,6 +216,7 @@ export function App() {
             {route === 'pair' && <Pair />}
             {route === 'device' && <DeviceDetail id={routeParam(hash)} />}
             {route === 'tester' && <Tester />}
+            {route === 'remote' && <Remote />}
             {route === 'check' && <Check />}
             {route === 'settings' && <Settings locale={locale} onLocale={setLocale} />}
             {route === 'update' && <Update />}

@@ -3,7 +3,7 @@
  * @description Pairing flow (CLAUDE.md §3.4 and §3.7 page 3): scan list, passkey screen, quarantine
  * challenge, physical confirmation and result, with live countdown.
  */
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { ApiError, cancelPairing, startPairing, startScan } from '../api/client';
 import type { Pairing, PairFailure } from '../api/types';
 import { SecurityBadge } from '../components/SecurityBadge';
@@ -116,7 +116,16 @@ export function Pair() {
     refresh();
   };
 
-  const state = p?.state ?? 'idle';
+  /* The dongle keeps the last result (bonded / failed) until the next scan starts. Showing it when the page is opened
+   * again would present an old success as the outcome of a pairing that has not started, so a result counts only once
+   * this page has seen a pairing in progress. */
+  const [sawActive, setSawActive] = useState(false);
+  const rawState = p?.state ?? 'idle';
+  const isResult = rawState === 'bonded' || rawState === 'failed';
+  useEffect(() => {
+    if (p && rawState !== 'idle' && !isResult) setSawActive(true);
+  }, [p, rawState, isResult]);
+  const state = isResult && !sawActive ? 'idle' : rawState;
   const locked = (p?.lock_remaining_s ?? 0) > 0;
 
   const busyStates = ['connecting', 'pairing', 'quarantine', 'confirm'];
@@ -162,6 +171,12 @@ export function Pair() {
           {state === 'failed' && (
             <Alert kind="bad" role="alert" testId="result-fail">
               {failureText(t, p?.reason)}
+              {p?.failed_in && p.failed_in !== 'idle' && (
+                <span class="muted">
+                  {' '}
+                  ({t('pair.failed_in', { step: t(`pair.step.${p.failed_in}`) })})
+                </span>
+              )}
             </Alert>
           )}
           <p class="hint">{t('pair.intro')}</p>

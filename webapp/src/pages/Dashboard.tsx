@@ -5,18 +5,19 @@
  * input tester.
  */
 import { useState } from 'preact/hooks';
-import { ApiError, getStatus, wifiOff } from '../api/client';
+import { ApiError, getStatus, setInputLocked, wifiOff } from '../api/client';
 import type { Device } from '../api/types';
 import { SecurityBadge } from '../components/SecurityBadge';
 import { ConfirmButton } from '../components/ConfirmButton';
 import { Alert, Icon, Pill } from '../components/ui';
 import { useT } from '../i18n/context';
 import { useApi } from '../lib/useApi';
+import { BatteryGauge } from '../components/BatteryGauge';
 import { isLowBattery, lowBatteryDevices } from '../lib/battery';
 import { useDevices } from '../lib/useDevices';
 
 /** Status refresh period. */
-const REFRESH_MS = 5000;
+const REFRESH_MS = 2000;
 
 /**
  * One device card; the whole card opens the detail page.
@@ -42,7 +43,7 @@ function DeviceCard({ device: d }: { device: Device }) {
           </Pill>
           <SecurityBadge level={d.security} />
           {isLowBattery(d) && <Pill tone="bad">{t('device.battery_low')}</Pill>}
-          {d.battery !== null && <span>{`${String(d.battery)} %`}</span>}
+          {d.battery !== null && <BatteryGauge pct={d.battery} />}
           {d.rssi !== null && <span>{`${String(d.rssi)} dBm`}</span>}
           {d.latency_us.count > 0 && (
             <span>
@@ -65,11 +66,18 @@ function DeviceCard({ device: d }: { device: Device }) {
  */
 export function Dashboard() {
   const t = useT();
-  const { data: status, failed } = useApi(getStatus, REFRESH_MS);
+  const { data: status, failed, reload } = useApi(getStatus, REFRESH_MS);
   const devices = useDevices();
   const list = devices.data;
   const full = list !== null && list.devices.length >= list.max;
   const [wifiMsg, setWifiMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [lockError, setLockError] = useState<string | null>(null);
+  const toggleLock = (locked: boolean) => {
+    setLockError(null);
+    setInputLocked(locked).then(reload, (e: unknown) => {
+      setLockError(e instanceof Error ? e.message : String(e));
+    });
+  };
   const switchOff = () => {
     wifiOff().then(
       () => {
@@ -93,10 +101,35 @@ export function Dashboard() {
     <>
       <div class="page-head">
         <h2>{t('nav.dashboard')}</h2>
-        <a class="btn" href="#/tester">
-          {t('dashboard.test_input')}
-        </a>
+        <span class="actions">
+          <a class="btn" href="#/remote">
+            {t('dashboard.remote')}
+          </a>
+          <a class="btn" href="#/tester">
+            {t('dashboard.test_input')}
+          </a>
+        </span>
       </div>
+
+      {status?.locked && (
+        <Alert kind="warn" role="status" testId="locked-banner">
+          <p>{t('lock.banner')}</p>
+          <button
+            type="button"
+            class="btn"
+            onClick={() => {
+              toggleLock(false);
+            }}
+          >
+            {t('lock.unlock')}
+          </button>
+        </Alert>
+      )}
+      {lockError && (
+        <Alert kind="bad" role="alert">
+          {lockError}
+        </Alert>
+      )}
 
       {list &&
         lowBatteryDevices(list.devices).map((d) => (
@@ -161,6 +194,20 @@ export function Dashboard() {
               </dd>
             </div>
           </dl>
+          {!status.locked && (
+            <>
+              <button
+                type="button"
+                class="btn block"
+                onClick={() => {
+                  toggleLock(true);
+                }}
+              >
+                {t('lock.lock')}
+              </button>
+              <p class="hint">{t('lock.hint')}</p>
+            </>
+          )}
           <ConfirmButton danger={false} label={t('wifi_off.button')} onConfirm={switchOff} />
           <p class="hint">{t('wifi_off.hint')}</p>
           {wifiMsg && (

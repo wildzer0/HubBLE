@@ -55,6 +55,21 @@ static void test_amber_pulse(void) {
     TEST_ASSERT_LESS_THAN_UINT8(peak.r, led_pattern(&in, 1000).r);
 }
 
+/** The dim part of the amber pulse must stay amber (green present), never turn red before going dark. */
+static void test_amber_never_red(void) {
+    led_inputs_t in = calm();
+    in.connected = 0;
+    for (uint8_t bright = 5; bright <= 100; bright += 5) {
+        in.brightness = bright;
+        for (uint32_t t = 0; t < 4000; t += 10) {
+            led_rgb_t c = led_pattern(&in, t);
+            if (c.r > 0) {
+                TEST_ASSERT_GREATER_THAN_UINT8(0, c.g);
+            }
+        }
+    }
+}
+
 /** AP on: blue breathing, and it wins over the amber "no device" pulse. */
 static void test_ap_breathing(void) {
     led_inputs_t in = calm();
@@ -96,7 +111,7 @@ static void test_brightness(void) {
     in.pairing = true;
     in.brightness = 50;
     led_rgb_t half = led_pattern(&in, 0);
-    TEST_ASSERT_EQUAL_UINT8(127, half.g);
+    TEST_ASSERT_EQUAL_UINT8(128, half.g); /* 127.5, rounded */
     in.brightness = 250;
     TEST_ASSERT_EQUAL_UINT8(255, led_pattern(&in, 0).g);
 }
@@ -106,6 +121,7 @@ int main(void) {
     RUN_TEST(test_off_cases);
     RUN_TEST(test_connected);
     RUN_TEST(test_amber_pulse);
+    RUN_TEST(test_amber_never_red);
     RUN_TEST(test_ap_breathing);
     RUN_TEST(test_priorities_and_colours);
     RUN_TEST(test_brightness);

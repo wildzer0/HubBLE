@@ -144,6 +144,7 @@ void pairing_fail(pairing_t *p, uint32_t now_ms, pair_fail_t reason) {
     if (!pairing_active(p) || p->state == PAIR_SCANNING) {
         return;
     }
+    p->fail_state = p->state;
     p->state = PAIR_FAILED;
     p->fail = reason;
     p->has_passkey = false;

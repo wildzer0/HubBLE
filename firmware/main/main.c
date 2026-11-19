@@ -24,6 +24,7 @@
 #include "freertos/task.h"
 #include "led.h"
 #include "led_status.h"
+#include "remote_input.h"
 #include "log_hook.h"
 #include "ota.h"
 #include "ota_online.h"
@@ -184,6 +185,7 @@ static void led_sample(led_inputs_t *in) {
     in->status_led = status_led;
     in->host_suspended = bridge_power_mode() == POWER_LOW;
     in->ota_active = ota_session_active();
+    in->locked = bridge_is_locked();
     in->quarantine = ps.state == PAIR_QUARANTINE;
     in->pairing = ps.state == PAIR_SCANNING || ps.state == PAIR_CONNECTING || ps.state == PAIR_PAIRING ||
                   ps.state == PAIR_CONFIRM;
@@ -219,6 +221,9 @@ void app_main(void) {
     err = usb_hid_init();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "USB HID init failed: %s", esp_err_to_name(err));
+    }
+    if (remote_input_init() != ESP_OK) {
+        ESP_LOGE(TAG, "remote input init failed");
     }
     usb_hid_set_remote_wakeup_allowed(settings_get_remote_wakeup()); /* CLAUDE.md §3.9, default on. */
     err = wifi_ap_init();

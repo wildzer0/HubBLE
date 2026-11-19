@@ -8,6 +8,8 @@
  *  - measure notification -> USB-report-queued latency per device;
  *  - run the combo detector on the merged keyboard state (Ctrl + Alt -> Wi-Fi AP on; Ctrl + Alt + Esc for
  *    10 s -> reset the Wi-Fi password);
+ *  - input lock: Esc + Backspace held 2 s on one keyboard (or the web app) stops all forwarding, same gesture or
+ *    the web app unlocks; those two keys never reach the host while the pair is held;
  *  - forward the host's keyboard LED state to the BLE keyboards.
  * The forwarding path allocates nothing and never blocks on Wi-Fi/HTTP work.
  * Dependencies: ble_central, usb_hid, hid_normalizer, combo, wifi_ap, settings.
@@ -52,6 +54,24 @@ void bridge_set_input_tap(bool (*active)(void), void (*emit)(const char *json));
  * @return POWER_ACTIVE or POWER_LOW.
  */
 power_mode_t bridge_power_mode(void);
+
+/**
+ * @brief Lock or unlock the input (nothing from the peripherals is forwarded while locked).
+ *
+ * Locking releases every key and button the host sees as held. The peripherals stay connected, the Wi-Fi gestures
+ * (Ctrl + Alt, left + right mouse buttons, BOOT) and the Esc + Backspace gesture keep working, and a pairing is not
+ * affected. The state is in RAM only: a restart unlocks, so a lock can never survive a power cycle. Thread-safe.
+ *
+ * @param locked true to lock.
+ */
+void bridge_set_locked(bool locked);
+
+/**
+ * @brief Is the input locked?
+ *
+ * @return true while locked.
+ */
+bool bridge_is_locked(void);
 
 /**
  * @brief Configure the typing filter (bounce keys / slow keys) applied to keys and mouse buttons before the USB report.
