@@ -6,6 +6,9 @@
  *  - keep the "remote input" feature OFF until the web app switches it on for a limited time (default 5 minutes,
  *    never persisted: a restart turns it off);
  *  - turn `remote.*` WebSocket messages into USB input of the dedicated merge source HID_SRC_REMOTE;
+ *  - level the pointer movement: moves received in a burst (the Wi-Fi shares the radio with the BLE links and delivers
+ *    in bunches) are spread over a few 4 ms ticks instead of jumping, and a click first flushes what is still owed;
+ *  - log, every 5 s while the pointer moves, how many moves arrived and the longest gap (timing only);
  *  - type text from a queue in a task (key down, pause, key up), so the HTTP task never waits;
  *  - release everything it holds when the window ends, the input is locked, or the phone goes quiet (a closed page
  *    cannot leave a button or key stuck on the host).

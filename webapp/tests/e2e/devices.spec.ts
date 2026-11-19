@@ -129,6 +129,15 @@ test('phone touchpad: the page cannot scroll or be pulled to refresh while the p
     .getByTestId('touchpad')
     .evaluate((el) => getComputedStyle(el).touchAction);
   expect(touchAction).toBe('none');
+  // The body is fixed: there is nothing to pull.
+  await expect(page.locator('body')).toHaveCSS('position', 'fixed');
+  // A touch move anywhere on the page (here: on the header) is cancelled at document level too.
+  const headCancelled = await page.locator('.remote-head').evaluate((el) => {
+    const ev = new Event('touchmove', { bubbles: true, cancelable: true });
+    el.dispatchEvent(ev);
+    return ev.defaultPrevented;
+  });
+  expect(headCancelled).toBe(true);
   // A touch move on the pad is cancelled, so the browser cannot take it for a page scroll.
   const cancelled = await page.getByTestId('touchpad').evaluate((el) => {
     const ev = new Event('touchmove', { bubbles: true, cancelable: true });

@@ -6,6 +6,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.6.2] - 2026-11-19
+
+### Fixed
+
+- Phone touchpad: swiping down still reloaded the page on some phones (browsers that ignore `touch-action` and
+  `overscroll-behavior`, such as iOS Safari and the captive-portal window). In pad mode the body is now fixed, so there is
+  nothing to pull, and touch moves are cancelled for the whole page. The page can also be added to the home screen of a
+  phone (full screen, no pull-to-refresh).
+
+### Changed
+
+- Phone touchpad: the pointer movement is levelled in the firmware. Moves that reach the dongle in a burst are spread
+  over 4 ms ticks instead of being applied at once, and a click first flushes what is owed. The log shows every 5 s how
+  many moves arrived and the longest gap between two, to tell a slow Wi-Fi from a slow phone.
+
 ## [1.6.1] - 2026-11-19
 
 ### Fixed

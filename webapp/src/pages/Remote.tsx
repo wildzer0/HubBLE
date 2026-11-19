@@ -586,13 +586,23 @@ export function Remote() {
   const on = left > 0 && !locked;
   const padMode = on && mode === 'pad';
 
-  // In pad mode the page must not move at all: no scrolling, no pull-to-refresh, no rubber band.
+  // In pad mode the page must not move at all: no scrolling, no pull-to-refresh, no rubber band. Some mobile browsers
+  // ignore `touch-action` and `overscroll-behavior` (iOS Safari, the captive-portal window), so besides the CSS the touch
+  // moves are cancelled for the whole document; the speed slider and the settings header keep working.
   useEffect(() => {
     if (!padMode) return;
     const root = document.documentElement;
     root.classList.add('remote-lock');
+    const stop = (e: TouchEvent) => {
+      const target = e.target instanceof Element ? e.target : null;
+      if (target?.closest('input, summary, a, button') && !target.closest('.padwrap, .mbtns'))
+        return;
+      e.preventDefault();
+    };
+    document.addEventListener('touchmove', stop, { passive: false });
     return () => {
       root.classList.remove('remote-lock');
+      document.removeEventListener('touchmove', stop);
     };
   }, [padMode]);
 

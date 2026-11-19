@@ -809,6 +809,13 @@ html.remote-lock body {
   overflow: hidden;
   overscroll-behavior: none;
 }
+/* A fixed body has nothing to scroll or to pull: this is what stops the pull-to-refresh of browsers (iOS Safari, the
+ * captive-portal window) that ignore touch-action and overscroll-behavior. */
+html.remote-lock body {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+}
 .remote.padmode {
   height: calc(100dvh - 5.6rem);
   min-height: 0;
