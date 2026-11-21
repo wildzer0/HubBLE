@@ -133,7 +133,7 @@ void test_every_device_slot_has_its_own_source(void) {
     hid_merge_set_keyboard(&m, HID_MERGE_DEVICE_SOURCES - 1, 0x02, NULL, 0); /* the last device slot is valid */
     hid_merge_get_keyboard(&m, &k);
     TEST_ASSERT_EQUAL_HEX8(0x02, k.modifiers);
-    TEST_ASSERT_TRUE(HID_SRC_DEBUG != HID_SRC_REMOTE && HID_SRC_DEBUG >= HID_MERGE_DEVICE_SOURCES);
+    TEST_ASSERT_TRUE(HID_SRC_DEBUG >= HID_MERGE_DEVICE_SOURCES && HID_SRC_DEBUG < HID_MERGE_SOURCES);
 }
 
 void test_consumer_first_source_wins_and_range(void) {

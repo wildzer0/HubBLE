@@ -104,12 +104,10 @@ extern const uint8_t hid_ctrl_report_desc[];
 /** Number of device slots that feed the merge, one source each (must equal BLE_CENTRAL_MAX_DEVICES: bridge.c asserts
  * it). */
 #define HID_MERGE_DEVICE_SOURCES 8
-/** Number of merge sources: one per device slot, plus the debug/injection source and the phone ("remote input"). */
-#define HID_MERGE_SOURCES (HID_MERGE_DEVICE_SOURCES + 2)
+/** Number of merge sources: one per device slot, plus the debug/injection source. */
+#define HID_MERGE_SOURCES (HID_MERGE_DEVICE_SOURCES + 1)
 /** Source index reserved for the debug "inject test input" feature. */
 #define HID_SRC_DEBUG (HID_MERGE_DEVICE_SOURCES)
-/** Source index of the phone used as touchpad and keyboard. */
-#define HID_SRC_REMOTE (HID_MERGE_DEVICE_SOURCES + 1)
 
 /** Mouse axes, used to index the per-source movement accumulators. */
 typedef enum {

@@ -69,16 +69,6 @@ export function subscribeState(l: StateListener): () => void {
 }
 
 /**
- * Send a client message with fields over the shared socket (the touchpad's `remote.*` events).
- *
- * @param msg Message object with an `event` name.
- * @returns True if it was sent; false if the socket is not open.
- */
-export function sendLiveJson(msg: Record<string, unknown>): boolean {
-  return connected && socket !== null && socket.sendJson(msg);
-}
-
-/**
  * Send a client event over the shared socket (`input.subscribe` / `input.unsubscribe`).
  *
  * @param event Event name.

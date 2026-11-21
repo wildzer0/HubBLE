@@ -101,14 +101,9 @@ export function Dashboard() {
     <>
       <div class="page-head">
         <h2>{t('nav.dashboard')}</h2>
-        <span class="actions">
-          <a class="btn" href="#/remote">
-            {t('dashboard.remote')}
-          </a>
-          <a class="btn" href="#/tester">
-            {t('dashboard.test_input')}
-          </a>
-        </span>
+        <a class="btn" href="#/tester">
+          {t('dashboard.test_input')}
+        </a>
       </div>
 
       {status?.locked && (

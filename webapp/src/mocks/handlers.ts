@@ -134,7 +134,6 @@ function initialState(opts: MockOptions = {}) {
   return {
     setupDone: opts.setupDone ?? false,
     locked: false,
-    remoteUntil: 0,
     version: MOCK_VERSION,
     devices: initialDevices(),
     settings: {
@@ -569,7 +568,6 @@ export function mockStatus(): Status {
     ap_timeout_s: 180,
     setup_required: !state.setupDone,
     locked: state.locked,
-    remote_s: Math.max(0, Math.ceil((state.remoteUntil - Date.now()) / 1000)),
   };
 }
 
@@ -703,19 +701,6 @@ export function handleMock(req: MockRequest): MockResponse {
           );
         }
         return { status: 200, json: { ok: true } };
-      }
-      case '/api/v1/remote/enable':
-      case '/api/v1/remote/disable': {
-        const bad = guard(req, 'application/json');
-        if (bad) return bad;
-        if (state.locked && req.path.endsWith('/enable')) {
-          return err(409, 'input_locked', 'Unlock the input first');
-        }
-        state.remoteUntil = req.path.endsWith('/enable') ? Date.now() + 300_000 : 0;
-        return {
-          status: 200,
-          json: { remote_s: Math.max(0, Math.ceil((state.remoteUntil - Date.now()) / 1000)) },
-        };
       }
       case '/api/v1/system/lock':
       case '/api/v1/system/unlock': {

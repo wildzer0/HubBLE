@@ -1,5 +1,5 @@
 idf_component_register(SRCS "http_guard.c" "api.c"
                        INCLUDE_DIRS "include"
                        REQUIRES esp_http_server
-                       PRIV_REQUIRES json nvs_flash bridge remote_input ota_online board ota diag settings wifi_ap log_buffer esp_timer esp_system freertos usb_hid hid_report ble_central espcoredump esp_partition)
+                       PRIV_REQUIRES json nvs_flash bridge ota_online board ota diag settings wifi_ap log_buffer esp_timer esp_system freertos usb_hid hid_report ble_central espcoredump esp_partition)
 target_compile_options(${COMPONENT_LIB} PRIVATE -Wall -Wextra -Werror)

@@ -14,7 +14,6 @@
 #include "ble_central.h"
 #include "board.h"
 #include "bridge.h"
-#include "remote_input.h"
 #include "cJSON.h"
 #include "diag.h"
 #include "esp_app_desc.h"
@@ -211,7 +210,6 @@ static esp_err_t status_get(httpd_req_t *req) {
     }
     cJSON_AddBoolToObject(r, "setup_required", !settings_is_setup_done());
     cJSON_AddBoolToObject(r, "locked", bridge_is_locked());
-    cJSON_AddNumberToObject(r, "remote_s", remote_input_remaining_s());
     return send_json(req, r);
 }
 
@@ -614,37 +612,6 @@ static esp_err_t unlock_post(httpd_req_t *req) {
     bridge_set_locked(false);
     cJSON *r = cJSON_CreateObject();
     cJSON_AddBoolToObject(r, "locked", false);
-    return send_json(req, r);
-}
-
-/**
- * POST /api/v1/remote/enable and /api/v1/remote/disable: open (for REMOTE_INPUT_WINDOW_S) or close the window in which
- * the phone may act as touchpad and keyboard. Refused while the input is locked.
- *
- * @param req HTTP request being served.
- * @return ESP_OK once the response was sent, otherwise an error from the HTTP server.
- */
-static esp_err_t remote_enable_post(httpd_req_t *req) {
-    if (!guard(req, CT_JSON)) {
-        return ESP_OK;
-    }
-    if (bridge_is_locked()) {
-        return send_error(req, "409 Conflict", "input_locked", "Unlock the input first");
-    }
-    remote_input_enable();
-    cJSON *r = cJSON_CreateObject();
-    cJSON_AddNumberToObject(r, "remote_s", remote_input_remaining_s());
-    return send_json(req, r);
-}
-
-/** @copydoc remote_enable_post */
-static esp_err_t remote_disable_post(httpd_req_t *req) {
-    if (!guard(req, CT_JSON)) {
-        return ESP_OK;
-    }
-    remote_input_disable();
-    cJSON *r = cJSON_CreateObject();
-    cJSON_AddNumberToObject(r, "remote_s", 0);
     return send_json(req, r);
 }
 
@@ -1737,8 +1704,6 @@ esp_err_t api_register(httpd_handle_t server) {
         {.uri = "/api/v1/system/reboot", .method = HTTP_POST, .handler = reboot_post},
         {.uri = "/api/v1/system/reboot-download", .method = HTTP_POST, .handler = reboot_download_post},
         {.uri = "/api/v1/system/wifi-off", .method = HTTP_POST, .handler = wifi_off_post},
-        {.uri = "/api/v1/remote/enable", .method = HTTP_POST, .handler = remote_enable_post},
-        {.uri = "/api/v1/remote/disable", .method = HTTP_POST, .handler = remote_disable_post},
         {.uri = "/api/v1/system/lock", .method = HTTP_POST, .handler = lock_post},
         {.uri = "/api/v1/system/unlock", .method = HTTP_POST, .handler = unlock_post},
         {.uri = "/api/v1/devices", .method = HTTP_GET, .handler = devices_get},

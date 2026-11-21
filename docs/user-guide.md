@@ -152,25 +152,6 @@ restore** of the settings (paired devices are never exported, they contain keys)
 Brightness is configurable in Settings (0 turns the LED off). When several states are true at once, the most urgent
 wins: update, then challenge, pairing, lock, Wi-Fi, no device.
 
-## Phone touchpad
-
-On the Devices page, **Phone touchpad** turns the phone into a touchpad and keyboard for the computer the dongle is plugged
-into. It is **off** until you switch it on, then lasts **5 minutes** (you can extend it) and is off again after a restart,
-because anyone who knows the Wi-Fi password could otherwise type on the computer. It does not work while the input is
-locked.
-
-**Touchpad.** One finger moves the pointer, faster when you swipe faster, so a quick flick crosses a large screen while a
-slow movement stays precise; the speed is a slider in *Settings* on the page. A tap is a left click, a tap followed at once by
-a touch and a drag holds the left button (drag and drop; a second quick tap is a double click), two fingers scroll, a
-two-finger tap is a right click. The strip on the right scrolls like a wheel, and the buttons below the pad (left, middle,
-right) stay down while pressed.
-
-**Keyboard.** The field types what you write. *Ctrl*, *Alt*, *Shift* and *Win* work like the Shift key of a phone: tap once
-for the next key (also a typed letter), tap again to keep it on, a third time to release it. Under them are Esc, Tab,
-Backspace, Del, Enter, Home, End, Page up and down and the arrows (they repeat while held), and shortcuts such as Copy,
-Paste, Undo and Switch window. For a Mac turn on *The computer is a Mac* in *Settings*: shortcuts then use ⌘. Text is
-typed as on a **US keyboard**: letters and digits are right on any layout, punctuation may differ on yours.
-
 ## Input lock
 
 Locking stops everything from your keyboards and mice from reaching the computer (nothing is typed, moved or woken),

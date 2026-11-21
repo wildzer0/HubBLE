@@ -145,18 +145,6 @@ export class HubbleSocket {
     return true;
   }
 
-  /**
-   * Send a client message with fields (the touchpad's `remote.*` events) if the socket is open.
-   *
-   * @param msg Message object; it must carry an `event` name.
-   * @returns True if the frame was handed to the socket.
-   */
-  sendJson(msg: Record<string, unknown>): boolean {
-    if (!this.sock) return false;
-    this.sock.send(JSON.stringify(msg));
-    return true;
-  }
-
   private sendHello(): void {
     this.sock?.send(JSON.stringify({ event: 'hello' }));
   }

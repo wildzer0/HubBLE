@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-11-21
+
+### Removed
+
+- **Phone touchpad and keyboard** (added in 1.5.0 and reworked in 1.6.x): it did not work well enough on phones (the
+  page was pulled to refresh and the pointer moved in jerks) and it let anyone who knows the Wi-Fi password type on
+  the computer. Gone with it: the Phone touchpad page, `POST /remote/enable` and `/remote/disable`, `remote_s` in
+  `GET /status` and the `remote.*` WebSocket messages. The code is in the repository at `v1.6.2`. The fix for devices
+  in slots 4 to 7 (one USB merge source per slot) stays.
+
 ## [1.6.2] - 2026-11-19
 
 ### Fixed

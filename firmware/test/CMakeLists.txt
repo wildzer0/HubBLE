@@ -77,9 +77,6 @@ hubble_add_test(test_ota_logic unit/test_ota_logic.c ${COMP}/ota/board_marker.c 
 target_include_directories(test_ota_logic PRIVATE ${COMP}/ota/include)
 
 # --- M2 pure-logic components ---------------------------------------------------
-hubble_add_test(test_ascii_hid unit/test_ascii_hid.c ${COMP}/remote_input/ascii_hid.c)
-target_include_directories(test_ascii_hid PRIVATE ${COMP}/remote_input/include)
-
 hubble_add_test(test_hid_report unit/test_hid_report.c ${COMP}/hid_report/hid_report.c)
 target_include_directories(test_hid_report PRIVATE ${COMP}/hid_report/include)
 

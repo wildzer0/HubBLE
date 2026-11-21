@@ -22,8 +22,6 @@ export interface Status {
   setup_required: boolean;
   /** True while the input lock is on: nothing from the peripherals reaches the host. */
   locked: boolean;
-  /** Seconds left of the window in which the phone may act as touchpad and keyboard; 0 when it is off. */
-  remote_s: number;
 }
 
 /** One OTA slot as shown on the Update page. */

@@ -209,28 +209,6 @@ paths:
         '200': { $ref: '#/components/responses/Ok' }
         '403': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
-  /api/v1/remote/enable:
-    post:
-      summary: Open the window (5 minutes) in which the phone may act as touchpad and keyboard
-      description: Off by default and after a restart. Refused with 409 `input_locked` while the input is locked. See docs/api/websocket.md for the `remote.*` messages.
-      requestBody:
-        content:
-          application/json:
-            schema: { type: object }
-      responses:
-        '200': { description: Seconds left, content: { application/json: { schema: { type: object, properties: { remote_s: { type: integer } } } } } }
-        '403': { $ref: '#/components/responses/Error' }
-        '409': { $ref: '#/components/responses/Error' }
-  /api/v1/remote/disable:
-    post:
-      summary: Close the touchpad window and release whatever the phone holds
-      requestBody:
-        content:
-          application/json:
-            schema: { type: object }
-      responses:
-        '200': { description: Closed, content: { application/json: { schema: { type: object, properties: { remote_s: { type: integer } } } } } }
-        '403': { $ref: '#/components/responses/Error' }
   /api/v1/system/lock:
     post:
       summary: Lock the input (nothing from the peripherals reaches the host)
@@ -475,7 +453,6 @@ components:
         ap_timeout_s: { type: integer, nullable: true, description: Seconds until the AP switches off; null when no countdown runs }
         setup_required: { type: boolean, description: True until the Wi-Fi password was changed }
         locked: { type: boolean, description: True while the input lock is on }
-        remote_s: { type: integer, description: Seconds left of the phone-touchpad window (0 = off) }
     OtaSlot:
       type: object
       properties:
