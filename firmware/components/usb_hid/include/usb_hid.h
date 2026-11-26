@@ -108,6 +108,30 @@ void usb_hid_system(unsigned src, uint8_t bits);
 void usb_hid_mouse(unsigned src, uint8_t buttons, int32_t dx, int32_t dy, int32_t wheel, int32_t pan);
 
 /**
+ * @brief Has the host's touchpad driver switched the touchpad to touchpad reports (input mode 3)?
+ *
+ * Until it does (BIOS/UEFI, hosts without a precision touchpad driver), touchpads drive the mouse.
+ *
+ * @return true if touchpad input should go out with usb_hid_touchpad().
+ */
+bool usb_hid_touchpad_active(void);
+
+/**
+ * @brief Present a touchpad of this range and size. If it differs from the descriptor in use, the descriptor is
+ * rebuilt, stored for the next boot and the dongle re-enumerates once (the host only reads it at enumeration).
+ *
+ * @param g Geometry of the connected touchpad.
+ */
+void usb_hid_touchpad_set_geometry(const hid_tp_geometry_t *g);
+
+/**
+ * @brief Queue one touchpad frame (report ID 4). Frames are sent in order; a full queue drops the frame.
+ *
+ * @param report The frame.
+ */
+void usb_hid_touchpad(const hid_tp_in_t *report);
+
+/**
  * @brief Release everything held by a source (call when its peripheral disconnects).
  *
  * @param src Source index.

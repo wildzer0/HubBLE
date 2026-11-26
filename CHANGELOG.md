@@ -8,20 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- Touchpad gestures for touchpads that leave them to the host's driver (Windows Precision Touchpads, such as the one
-  built into Inateck keyboards), which the dongle's plain USB mouse does not have: tap to click, tap-and-drag (tap,
-  then touch again within 300 ms and move or hold; the button is held until the finger lifts), and drag with the
-  clickpad held by one finger while another moves.
-- Touchpad speed: finger movement is scaled by `HID_TOUCHPAD_SPEED_NUM/DEN` (1/2 by default), since raw touchpad
-  units (about 35 per mm on the Inateck touchpad) moved the pointer much faster than a laptop touchpad.
+- **Precision touchpads work natively.** The dongle presents a Windows Precision Touchpad next to its mouse and passes
+  the fingers of a Bluetooth touchpad (for example the one built into Inateck keyboards) through. Once the host's
+  touchpad driver switches it to touchpad mode (Linux hid-multitouch does), the host handles everything like a laptop
+  touchpad: two-finger scroll, three- and four-finger gestures, tap, palm rejection and its own speed settings. Until
+  then (BIOS/UEFI, hosts without a touchpad driver) the touchpad drives the mouse. Range and size come from the
+  touchpad's report map, with a correction table for pads that misreport (the Inateck pad claims 92.1 x 50.6 mm, it is
+  126 x 82 mm); a different touchpad makes the dongle re-enumerate once and remember it.
 
 ### Fixed
 
-- Touchpads that report absolute X/Y pinned the pointer to a screen corner: the positions of all finger slots were
-  added up as if they were movements. The dongle now turns finger positions into movement; a lift or a new contact
-  starts a new touch without a jump. Relative mice are unchanged.
-- Touchpad clicks no longer move the pointer: movement is held back while a touch may still be a tap, a clickpad
-  pressed by a single finger does not move the pointer, and the small roll of a resting finger as it lifts is dropped.
+- Touchpads that report absolute X/Y pinned the pointer to a screen corner in mouse mode: the positions of all finger
+  slots were added up as if they were movements. They are now turned into movement; a lift or a new contact starts a
+  new touch without a jump. Relative mice are unchanged.
 
 ## [1.7.0] - 2026-11-21
 

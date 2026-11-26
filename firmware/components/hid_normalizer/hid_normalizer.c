@@ -18,6 +18,7 @@
 #define USAGE_SYSTEM_WAKEUP 0x83
 /** Digitizer usages for touchpad fingers. */
 #define USAGE_TIP_SWITCH 0x42
+#define USAGE_CONFIDENCE 0x47
 #define USAGE_CONTACT_ID 0x51
 
 /** Touchpad finger tracking while one report is decoded: fields come in report order, finger by finger. */
@@ -27,6 +28,7 @@ typedef struct {
     int finger;     /**< Index of the current finger (counted by Tip Switch usages). */
     int added;      /**< Finger that owns the last entry of ev->contacts, -2 if none. */
     int32_t cur_id; /**< Contact ID of the current finger. */
+    bool cur_conf;  /**< Confidence of the current finger (true when the device declares none). */
 } touch_ctx_t;
 /** Consumer usage "AC Pan" (horizontal scroll). */
 #define USAGE_AC_PAN 0x238
@@ -191,7 +193,7 @@ static void decode_desktop(const hid_field_t *f, const uint8_t *data, size_t len
                     if (ev->ncontacts >= HID_MAX_CONTACTS) {
                         break;
                     }
-                    ev->contacts[ev->ncontacts++] = (hid_contact_t){.id = tc->cur_id};
+                    ev->contacts[ev->ncontacts++] = (hid_contact_t){.id = tc->cur_id, .confident = tc->cur_conf};
                     tc->added = tc->finger;
                 }
                 ev->abs_xy = true;
@@ -230,7 +232,7 @@ bool hid_norm_decode(const hid_layout_t *layout, uint8_t report_id, const uint8_
         return false;
     }
     bool any = false;
-    touch_ctx_t tc = {.finger = -1, .added = -2};
+    touch_ctx_t tc = {.finger = -1, .added = -2, .cur_conf = true};
     for (unsigned n = 0; n < layout->nfields; n++) {
         const hid_field_t *f = &layout->fields[n];
         if (f->dir != HID_REPORT_IN || f->report_id != report_id) {
@@ -284,6 +286,8 @@ bool hid_norm_decode(const hid_layout_t *layout, uint8_t report_id, const uint8_
                     tc.cur_tip = v != 0;
                     tc.finger++;
                     tc.cur_id = 0;
+                } else if (usage == USAGE_CONFIDENCE) { /* For the finger whose X/Y come next (PTP order). */
+                    tc.cur_conf = v != 0;
                 } else if (usage == USAGE_CONTACT_ID) {
                     tc.cur_id = v;
                     if (tc.added == tc.finger && ev->ncontacts > 0) {
@@ -449,38 +453,19 @@ static int32_t manhattan(int32_t dx, int32_t dy) {
 }
 
 /** @copydoc hid_norm_abs_to_rel */
-bool hid_norm_abs_to_rel(hid_abs_state_t *st, hid_norm_event_t *ev, uint32_t now_ms) {
+void hid_norm_abs_to_rel(hid_abs_state_t *st, hid_norm_event_t *ev, uint32_t now_ms) {
     if (ev->rel_xy) {
-        return false;
+        return;
     }
     if (!ev->abs_xy) {
-        if (!ev->touch_report || !st->valid) {
-            return false;
+        if (ev->touch_report) {
+            st->valid = false; /* Touchpad report with no finger down: the touch ended. */
         }
-        /* Touchpad report with no finger down: the touch ended. */
-        const bool tap = !st->moving && !st->pressed && !st->multi && ev->buttons == 0;
-        st->valid = false;
-        st->tap_recent = tap;
-        st->tap_end_ms = now_ms;
-        return tap;
+        return;
     }
     int32_t dx = 0, dy = 0;
-    if (!st->valid || (uint32_t)(now_ms - st->last_ms) > HID_ABS_TOUCH_GAP_MS) { /* A new touch. */
-        st->drag = st->tap_recent && (uint32_t)(now_ms - st->tap_end_ms) <= HID_TAP_DRAG_MS;
-        st->tap_recent = false;
-        st->down_ms = now_ms;
-        st->travel = 0;
-        st->held_dx = 0;
-        st->held_dy = 0;
-        st->moving = !ev->touch_report; /* Only touchpads tap: other absolute pointers move at once. */
-        st->lift_hold = false;
-        st->last_move_ms = now_ms;
-        st->rem_x = 0;
-        st->rem_y = 0;
-        st->pressed = false;
-        st->multi = false;
-    } else { /* The finger that moved most since the previous report. */
-        int32_t best = -1;
+    if (st->valid && (uint32_t)(now_ms - st->last_ms) <= HID_ABS_TOUCH_GAP_MS) {
+        int32_t best = -1; /* The finger that moved most since the previous report. */
         for (unsigned i = 0; i < ev->ncontacts; i++) {
             const hid_contact_t *c = &ev->contacts[i];
             for (unsigned k = 0; k < st->nprev; k++) {
@@ -502,60 +487,93 @@ bool hid_norm_abs_to_rel(hid_abs_state_t *st, hid_norm_event_t *ev, uint32_t now
     st->nprev = ev->ncontacts;
     memcpy(st->prev, ev->contacts, sizeof(st->prev));
     st->last_ms = now_ms;
-    st->multi |= ev->ncontacts > 1;
-    st->pressed |= ev->buttons != 0;
-    if (ev->touch_report && ev->buttons != 0 && ev->ncontacts < 2) {
-        dx = 0; /* Clickpad pressed by one finger: it flattens, which must not move what is being clicked. */
-        dy = 0;
+    ev->dx = dx;
+    ev->dy = dy;
+}
+
+/** A touchpad whose report map gives the wrong physical size: matched by its reported geometry. */
+typedef struct {
+    hid_tp_geometry_t reported; /**< Range and size as the report map states them. */
+    uint16_t x_mm10;            /**< Measured width in 0.1 mm. */
+    uint16_t y_mm10;            /**< Measured height in 0.1 mm. */
+} tp_fix_t;
+
+/** Touchpads known to misreport their size. */
+static const tp_fix_t k_tp_fixes[] = {
+    /* Inateck keyboard touchpad: claims 92.1 x 50.6 mm, measures 126 x 82 mm (pointer too slow otherwise). */
+    {.reported = {.x_max = 3200, .y_max = 2058, .x_mm10 = 921, .y_mm10 = 506}, .x_mm10 = 1260, .y_mm10 = 820},
+};
+
+/**
+ * @brief Physical length of a field's range in 0.1 mm, from its physical extents and unit.
+ *
+ * @param f Field.
+ * @return The length, or 0 if the field gives no usable physical size (no unit, not a length, out of range).
+ */
+static int32_t field_mm10(const hid_field_t *f) {
+    int64_t v = (int64_t)f->physical_max - f->physical_min;
+    const uint8_t system = f->unit & 0x0F, length = (f->unit >> 4) & 0x0F;
+    if (v <= 0 || length != 1 || (system != 1 && system != 3)) {
+        return 0;
     }
-    if (!st->moving) { /* Could still be a tap: hold the movement back. */
-        st->held_dx = sat_add(st->held_dx, dx);
-        st->held_dy = sat_add(st->held_dy, dy);
-        st->travel = manhattan(st->held_dx, st->held_dy) > st->travel ? manhattan(st->held_dx, st->held_dy)
-                                                                      : st->travel;
-        st->moving = st->travel > HID_TAP_MAX_TRAVEL || (uint32_t)(now_ms - st->down_ms) > HID_TAP_MAX_MS;
-        dx = st->moving ? st->held_dx : 0;
-        dy = st->moving ? st->held_dy : 0;
-        if (st->moving) {
-            st->held_dx = 0;
-            st->held_dy = 0;
-            st->last_move_ms = now_ms;
+    v *= system == 1 ? 100 : 254; /* cm or inch, in 0.1 mm */
+    for (int e = f->unit_exp; e > 0 && v <= INT32_MAX; e--) {
+        v *= 10;
+    }
+    for (int e = f->unit_exp; e < 0; e++) {
+        v = (v + 5) / 10;
+    }
+    return v > 0 && v <= INT16_MAX ? (int32_t)v : 0;
+}
+
+/** @copydoc hid_norm_touchpad_geometry */
+bool hid_norm_touchpad_geometry(const hid_layout_t *layout, hid_tp_geometry_t *g, int32_t *x_min, int32_t *y_min) {
+    const hid_field_t *fx = NULL, *fy = NULL;
+    for (unsigned n = 0; n < layout->nfields && (fx == NULL || fy == NULL); n++) {
+        const hid_field_t *f = &layout->fields[n];
+        if (f->dir != HID_REPORT_IN || f->usage_page != HID_PAGE_GENERIC_DESKTOP || (f->flags & HID_FLAG_RELATIVE)) {
+            continue;
         }
-    } else if (ev->touch_report) { /* Lift roll: hold movement that follows a rest, drop it if the finger lifts. */
-        const bool moved = manhattan(dx, dy) > 1;
-        if (!st->lift_hold && moved && (uint32_t)(now_ms - st->last_move_ms) >= HID_REST_MS) {
-            st->lift_hold = true;
-            st->lift_hold_ms = now_ms;
+        bool tip = false; /* Only fingers: a report of this ID with a Tip Switch. */
+        for (unsigned k = 0; k < layout->nfields && !tip; k++) {
+            const hid_field_t *t = &layout->fields[k];
+            for (unsigned i = 0; t->report_id == f->report_id && t->usage_page == HID_PAGE_DIGITIZER && i < t->count;
+                 i++) {
+                tip |= hid_field_usage(t, i) == USAGE_TIP_SWITCH;
+            }
         }
-        if (moved) {
-            st->last_move_ms = now_ms;
-        }
-        if (st->lift_hold) {
-            st->held_dx = sat_add(st->held_dx, dx);
-            st->held_dy = sat_add(st->held_dy, dy);
-            const bool real = (uint32_t)(now_ms - st->lift_hold_ms) >= HID_LIFT_HOLD_MS ||
-                              manhattan(st->held_dx, st->held_dy) > HID_LIFT_MAX_TRAVEL;
-            dx = real ? st->held_dx : 0;
-            dy = real ? st->held_dy : 0;
-            if (real) {
-                st->lift_hold = false;
-                st->held_dx = 0;
-                st->held_dy = 0;
+        for (unsigned i = 0; tip && i < f->count; i++) {
+            const uint16_t u = hid_field_usage(f, i);
+            if (u == USAGE_X && fx == NULL) {
+                fx = f;
+            } else if (u == USAGE_Y && fy == NULL) {
+                fy = f;
             }
         }
     }
-    if (ev->touch_report) { /* Speed: scale, carrying the remainder so slow moves are not lost. */
-        const int64_t sx = (int64_t)dx * HID_TOUCHPAD_SPEED_NUM + st->rem_x;
-        const int64_t sy = (int64_t)dy * HID_TOUCHPAD_SPEED_NUM + st->rem_y;
-        dx = (int32_t)(sx / HID_TOUCHPAD_SPEED_DEN);
-        dy = (int32_t)(sy / HID_TOUCHPAD_SPEED_DEN);
-        st->rem_x = (int32_t)(sx % HID_TOUCHPAD_SPEED_DEN);
-        st->rem_y = (int32_t)(sy % HID_TOUCHPAD_SPEED_DEN);
+    if (fx == NULL || fy == NULL) {
+        return false;
     }
-    ev->dx = dx;
-    ev->dy = dy;
-    if (st->drag && st->moving) {
-        ev->buttons |= 1u; /* Tap-and-drag: left button held until the finger lifts. */
+    const int64_t rx = (int64_t)fx->logical_max - fx->logical_min, ry = (int64_t)fy->logical_max - fy->logical_min;
+    if (rx <= 0 || ry <= 0) {
+        return false;
     }
-    return false;
+    g->x_max = (uint16_t)(rx > INT16_MAX ? INT16_MAX : rx);
+    g->y_max = (uint16_t)(ry > INT16_MAX ? INT16_MAX : ry);
+    int32_t wx = field_mm10(fx), wy = field_mm10(fy);
+    if (wx == 0 || wy == 0) { /* shortcut: assumed resolution when the map gives no size; add a fix if it is off. */
+        wx = g->x_max * 10 / HID_TP_ASSUMED_UNITS_PER_MM;
+        wy = g->y_max * 10 / HID_TP_ASSUMED_UNITS_PER_MM;
+    }
+    g->x_mm10 = (uint16_t)(wx < 1 ? 1 : wx);
+    g->y_mm10 = (uint16_t)(wy < 1 ? 1 : wy);
+    for (unsigned i = 0; i < sizeof(k_tp_fixes) / sizeof(k_tp_fixes[0]); i++) {
+        if (memcmp(&k_tp_fixes[i].reported, g, sizeof(*g)) == 0) {
+            g->x_mm10 = k_tp_fixes[i].x_mm10;
+            g->y_mm10 = k_tp_fixes[i].y_mm10;
+        }
+    }
+    *x_min = fx->logical_min;
+    *y_min = fy->logical_min;
+    return true;
 }

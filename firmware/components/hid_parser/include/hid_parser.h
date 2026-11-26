@@ -82,6 +82,10 @@ typedef struct {
     uint16_t usage_max;                     /**< Range end. */
     int32_t logical_min;                    /**< Logical minimum (sign-extended). */
     int32_t logical_max;                    /**< Logical maximum. */
+    int32_t physical_min;                   /**< Physical minimum (0 if not given). */
+    int32_t physical_max;                   /**< Physical maximum (0 if not given: then it equals the logical range). */
+    int8_t unit_exp;                        /**< Unit exponent (power of ten of the physical unit). */
+    uint8_t unit;                           /**< Low byte of the unit: 0x11 = cm, 0x13 = inch (HID 1.11 §6.2.2.7). */
 } hid_field_t;
 
 /** Everything the normalizer needs to decode a device's reports. */

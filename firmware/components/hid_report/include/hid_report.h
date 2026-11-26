@@ -33,6 +33,9 @@ typedef enum {
     HID_RID_MOUSE = 1,    /**< Mouse report. */
     HID_RID_CONSUMER = 2, /**< Consumer control (media keys) report. */
     HID_RID_SYSTEM = 3,   /**< System control (sleep / wake) report. */
+    HID_RID_TOUCHPAD = 4, /**< Precision touchpad input report (only sent in touchpad mode). */
+    HID_RID_TP_CAPS = 5,  /**< Touchpad feature: maximum contact count and button type. */
+    HID_RID_TP_MODE = 6,  /**< Touchpad feature: input mode, set by the host's touchpad driver. */
 } hid_report_id_t;
 
 /** Number of simultaneously reported keys in the boot keyboard report (6KRO). */
@@ -83,6 +86,41 @@ typedef struct __attribute__((packed)) {
     int8_t pan;      /**< Horizontal wheel / AC Pan (positive = right). */
 } hid_mouse_in_t;
 
+/** Contacts in one touchpad report. shortcut: 4 = the Inateck's finger slots; more needs a larger descriptor. */
+#define HID_TP_MAX_CONTACTS 4
+/** Input mode value with which the host's touchpad driver switches the touchpad from mouse to touchpad reports. */
+#define HID_TP_MODE_TOUCHPAD 3
+/** hid_tp_contact_t.flags bits. */
+#define HID_TP_CONFIDENCE 0x01u
+#define HID_TP_TIP        0x02u
+
+/** One finger of the touchpad report. */
+typedef struct __attribute__((packed)) {
+    uint8_t flags; /**< HID_TP_CONFIDENCE | HID_TP_TIP (finger down; 0 for one report after it lifted). */
+    uint8_t id;    /**< Contact ID (0..15). */
+    uint16_t x;    /**< Absolute X, 0..hid_tp_geometry_t.x_max. */
+    uint16_t y;    /**< Absolute Y, 0..hid_tp_geometry_t.y_max. */
+} hid_tp_contact_t;
+
+/** Touchpad input report (interface 1, report ID 4), Windows Precision Touchpad layout. */
+typedef struct __attribute__((packed)) {
+    hid_tp_contact_t c[HID_TP_MAX_CONTACTS]; /**< Fingers; slots past @c count are ignored by the host. */
+    uint16_t scan_time;                      /**< Time of the scan in 100 us units, wrapping. */
+    uint8_t count;                           /**< Valid entries in @c c. */
+    uint8_t buttons;                         /**< Bit 0: the pad is pressed (clickpad). */
+} hid_tp_in_t;
+
+/** Range and physical size of the touchpad the dongle presents (patched into hid_ctrl_report_desc at run time). */
+typedef struct {
+    uint16_t x_max;  /**< Logical X range: 0..x_max. */
+    uint16_t y_max;  /**< Logical Y range: 0..y_max. */
+    uint16_t x_mm10; /**< Width in 0.1 mm. */
+    uint16_t y_mm10; /**< Height in 0.1 mm. */
+} hid_tp_geometry_t;
+
+/** Geometry the descriptor starts with (the Inateck keyboard touchpad, measured), until a touchpad connects. */
+#define HID_TP_DEFAULT_GEOMETRY {.x_max = 3200, .y_max = 2058, .x_mm10 = 1260, .y_mm10 = 820}
+
 /** Size in bytes of the boot keyboard report. */
 #define HID_KBD_REPORT_SIZE 8
 /** Size in bytes of the mouse report (without report ID). */
@@ -92,10 +130,28 @@ typedef struct __attribute__((packed)) {
 extern const uint8_t hid_kbd_report_desc[];
 /** Length in bytes of hid_kbd_report_desc (a constant so the USB configuration descriptor can use it). */
 #define HID_KBD_REPORT_DESC_LEN 63
-/** Mouse + consumer + system report descriptor (interface 1). */
+/** Length of the touchpad part of hid_ctrl_report_desc. */
+#define HID_TP_DESC_LEN (HID_TP_MAX_CONTACTS * 63 + 104)
+/** Mouse + consumer + system + touchpad report descriptor (interface 1). */
 extern const uint8_t hid_ctrl_report_desc[];
+
+/**
+ * @brief Write a touchpad geometry into a copy of hid_ctrl_report_desc (all finger collections).
+ *
+ * @param desc Descriptor copy of HID_CTRL_REPORT_DESC_LEN bytes.
+ * @param g    Geometry.
+ */
+void hid_tp_desc_set_geometry(uint8_t *desc, const hid_tp_geometry_t *g);
+
+/**
+ * @brief Read the touchpad geometry of a control descriptor (the first finger collection).
+ *
+ * @param desc Descriptor of HID_CTRL_REPORT_DESC_LEN bytes.
+ * @param[out] g Geometry.
+ */
+void hid_tp_desc_get_geometry(const uint8_t *desc, hid_tp_geometry_t *g);
 /** Length in bytes of hid_ctrl_report_desc. */
-#define HID_CTRL_REPORT_DESC_LEN 129
+#define HID_CTRL_REPORT_DESC_LEN (129 + HID_TP_DESC_LEN)
 
 /* ------------------------------------------------------------------------------------------------ */
 /* Merge logic                                                                                       */

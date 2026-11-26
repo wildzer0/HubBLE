@@ -86,11 +86,12 @@ static volatile bool s_filter_on;                    /**< The typing filter is e
 static input_filter_t s_kf[BLE_CENTRAL_MAX_DEVICES]; /**< Per source: keys and modifiers. */
 static input_filter_t s_bf[BLE_CENTRAL_MAX_DEVICES]; /**< Per source: mouse buttons. */
 static hid_abs_state_t s_abs[BLE_CENTRAL_MAX_DEVICES]; /**< Per source: last absolute touchpad position. */
-static esp_timer_handle_t s_tapclick_timer[BLE_CENTRAL_MAX_DEVICES]; /**< Per source: releases a touchpad tap click. */
-static volatile bool s_tapclick_held[BLE_CENTRAL_MAX_DEVICES];      /**< Per source: a tap click is being held. */
-static volatile uint8_t s_sent_buttons[BLE_CENTRAL_MAX_DEVICES]; /**< Per source: device buttons last sent. */
-/** How long a touchpad tap holds the left button: long enough to land in its own USB report. */
-#define TAP_CLICK_US (30 * 1000)
+/** Per source: contact IDs (and last positions) in the previous touchpad frame, to report lifted fingers once. */
+static hid_tp_contact_t s_tp_prev[BLE_CENTRAL_MAX_DEVICES][HID_TP_MAX_CONTACTS];
+static uint8_t s_tp_nprev[BLE_CENTRAL_MAX_DEVICES]; /**< Entries in s_tp_prev. */
+/** The device slot whose touchpad the host drives natively, -1 if none. shortcut: one at a time, because the USB
+ *  descriptor holds one geometry; further touchpads drive the mouse. */
+static volatile int s_tp_owner = -1;
 static filter_out_t s_out[BLE_CENTRAL_MAX_DEVICES];  /**< Per source: what was last sent. */
 static TaskHandle_t s_filter_task;                   /**< Ticks the filters while something waits for its hold time. */
 
@@ -299,31 +300,44 @@ void bridge_set_input_filter(bool enabled, uint32_t bounce_ms, uint32_t hold_ms)
 }
 
 /**
- * @brief Tap timer expired: release the tap's left click, keeping what the device itself holds.
+ * @brief Send a touchpad report of a device as a precision touchpad frame (host in touchpad mode).
  *
- * @param arg Device slot (cast from uintptr_t).
- */
-static void tapclick_release(void *arg) {
-    const unsigned slot = (unsigned)(uintptr_t)arg;
-    s_tapclick_held[slot] = false;
-    usb_hid_mouse(slot, s_sent_buttons[slot], 0, 0, 0, 0);
-}
-
-/**
- * @brief Start the timer that ends a tap click on @p slot (created on first use).
+ * Fingers that were in the previous frame but are gone are sent once more with Tip Switch off, as the host expects.
  *
- * @param slot Device slot.
- * @return true if the timer runs, so the caller may press the button.
+ * @param slot  Device slot.
+ * @param ev    Decoded report (touch_report set).
+ * @param g     Geometry of the device's touchpad.
+ * @param x0    Logical minimum of its X (positions go out from 0).
+ * @param y0    Logical minimum of its Y.
+ * @param rx_us Reception time, for the scan time.
  */
-static bool tapclick_arm(unsigned slot) {
-    if (s_tapclick_timer[slot] == NULL) {
-        const esp_timer_create_args_t args = {.callback = tapclick_release, .arg = (void *)(uintptr_t)slot, .name = "tapclick"};
-        if (esp_timer_create(&args, &s_tapclick_timer[slot]) != ESP_OK) {
-            return false;
+static void send_touchpad_frame(unsigned slot, const hid_norm_event_t *ev, const hid_tp_geometry_t *g, int32_t x0,
+                                int32_t y0, int64_t rx_us) {
+    hid_tp_in_t f = {.scan_time = (uint16_t)(rx_us / 100), .buttons = ev->buttons != 0 ? 1 : 0};
+    for (unsigned i = 0; i < ev->ncontacts && f.count < HID_TP_MAX_CONTACTS; i++) {
+        const hid_contact_t *c = &ev->contacts[i];
+        const int64_t x = (int64_t)c->x - x0, y = (int64_t)c->y - y0;
+        f.c[f.count++] = (hid_tp_contact_t){
+            .flags = (uint8_t)(HID_TP_TIP | (c->confident ? HID_TP_CONFIDENCE : 0)),
+            .id = (uint8_t)(c->id & 0x0F),
+            .x = (uint16_t)(x < 0 ? 0 : (x > g->x_max ? g->x_max : x)),
+            .y = (uint16_t)(y < 0 ? 0 : (y > g->y_max ? g->y_max : y)),
+        };
+    }
+    const uint8_t down = f.count;
+    for (unsigned k = 0; k < s_tp_nprev[slot] && f.count < HID_TP_MAX_CONTACTS; k++) {
+        bool still = false;
+        for (unsigned i = 0; i < down; i++) {
+            still |= f.c[i].id == s_tp_prev[slot][k].id;
+        }
+        if (!still) {
+            f.c[f.count] = s_tp_prev[slot][k];
+            f.c[f.count++].flags = HID_TP_CONFIDENCE; /* lifted */
         }
     }
-    esp_timer_stop(s_tapclick_timer[slot]); /* Restart if a tap is still being released. */
-    return esp_timer_start_once(s_tapclick_timer[slot], TAP_CLICK_US) == ESP_OK;
+    memcpy(s_tp_prev[slot], f.c, sizeof(s_tp_prev[slot]));
+    s_tp_nprev[slot] = down;
+    usb_hid_touchpad(&f);
 }
 
 /**
@@ -361,9 +375,22 @@ static void on_report(unsigned slot, const hid_layout_t *layout, uint8_t report_
         }
         return;
     }
-    bool tap = false;
-    if (ev.has_mouse && slot < BLE_CENTRAL_MAX_DEVICES) {
-        tap = hid_norm_abs_to_rel(&s_abs[slot], &ev, (uint32_t)(rx_us / 1000));
+    /* A touchpad: the host's touchpad driver gets the fingers and does the gestures itself, once it switched the
+     * dongle to touchpad mode; until then (BIOS, no driver) and for further touchpads it drives the mouse. */
+    hid_tp_geometry_t geom;
+    int32_t x0 = 0, y0 = 0;
+    bool tp_frame = false;
+    if (ev.touch_report && slot < BLE_CENTRAL_MAX_DEVICES && hid_norm_touchpad_geometry(layout, &geom, &x0, &y0)) {
+        if (s_tp_owner < 0) {
+            s_tp_owner = (int)slot;
+        }
+        if (s_tp_owner == (int)slot) {
+            usb_hid_touchpad_set_geometry(&geom);
+            tp_frame = usb_hid_touchpad_active();
+        }
+    }
+    if (ev.has_mouse && slot < BLE_CENTRAL_MAX_DEVICES && !tp_frame) {
+        hid_norm_abs_to_rel(&s_abs[slot], &ev, (uint32_t)(rx_us / 1000));
         s_mouse_buttons[slot] = ev.buttons; /* For the keyboard-less gesture (left + right held). */
     }
     if (ev.has_keyboard && slot < BLE_CENTRAL_MAX_DEVICES) {
@@ -397,18 +424,11 @@ static void on_report(unsigned slot, const hid_layout_t *layout, uint8_t report_
     if (ev.has_system) {
         usb_hid_system(slot, ev.system);
     }
-    if (ev.has_mouse) {
-        uint8_t buttons = s_filter_on ? filter_buttons(slot, ev.buttons) : ev.buttons;
-        if (slot < BLE_CENTRAL_MAX_DEVICES) {
-            s_sent_buttons[slot] = buttons;
-            if (tap && tapclick_arm(slot)) {
-                s_tapclick_held[slot] = true;
-            }
-            if (s_tapclick_held[slot]) {
-                buttons |= 1u; /* Left button, until tapclick_release() runs. */
-            }
-        }
-        usb_hid_mouse(slot, buttons, ev.dx, ev.dy, ev.wheel, ev.pan);
+    if (tp_frame) {
+        send_touchpad_frame(slot, &ev, &geom, x0, y0, rx_us);
+    } else if (ev.has_mouse) {
+        usb_hid_mouse(slot, s_filter_on ? filter_buttons(slot, ev.buttons) : ev.buttons, ev.dx, ev.dy, ev.wheel,
+                      ev.pan);
     }
     int64_t us = esp_timer_get_time() - rx_us;
     ble_central_record_latency(slot, us < 0 ? 0 : (uint32_t)us);
@@ -425,6 +445,18 @@ static void on_link(unsigned slot, bool connected) {
     if (!connected) {
         usb_hid_release_source(slot);
         s_mouse_buttons[slot] = 0; /* A vanished mouse holds no button. */
+        if (s_tp_owner == (int)slot) { /* Lift its fingers on the host, and let the next touchpad take over. */
+            hid_tp_in_t f = {.count = s_tp_nprev[slot]};
+            for (unsigned k = 0; k < f.count; k++) {
+                f.c[k] = s_tp_prev[slot][k];
+                f.c[k].flags = HID_TP_CONFIDENCE;
+            }
+            if (f.count > 0 && usb_hid_touchpad_active()) {
+                usb_hid_touchpad(&f);
+            }
+            s_tp_nprev[slot] = 0;
+            s_tp_owner = -1;
+        }
         if (s_filter_mu != NULL) {
             xSemaphoreTake(s_filter_mu, portMAX_DELAY);
             input_filter_init(&s_kf[slot], s_kf[slot].bounce_ms, s_kf[slot].hold_ms);
