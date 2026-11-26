@@ -26,6 +26,10 @@
 #define GLOBAL_USAGE_PAGE   0x0
 #define GLOBAL_LOGICAL_MIN  0x1
 #define GLOBAL_LOGICAL_MAX  0x2
+#define GLOBAL_PHYSICAL_MIN 0x3
+#define GLOBAL_PHYSICAL_MAX 0x4
+#define GLOBAL_UNIT_EXP     0x5
+#define GLOBAL_UNIT         0x6
 #define GLOBAL_REPORT_SIZE  0x7
 #define GLOBAL_REPORT_ID    0x8
 #define GLOBAL_REPORT_COUNT 0x9
@@ -52,6 +56,10 @@ typedef struct {
     uint16_t usage_page;   /**< Current Usage Page (global item 0x05). */
     int32_t logical_min;   /**< Logical Minimum (0x15), sign-extended. */
     int32_t logical_max;   /**< Logical Maximum (0x25), sign-extended as logical_min dictates. */
+    int32_t physical_min;  /**< Physical Minimum (0x35). */
+    int32_t physical_max;  /**< Physical Maximum (0x45), sign-extended as physical_min dictates. */
+    int8_t unit_exp;       /**< Unit Exponent (0x55). */
+    uint8_t unit;          /**< Low byte of Unit (0x65): system and length nibbles. */
     uint8_t report_size;   /**< Report Size in bits (0x75). */
     uint16_t report_count; /**< Report Count (0x95): number of fields of that size. */
     uint8_t report_id;     /**< Report ID (0x85); 0 = the map uses no report IDs. */
@@ -172,6 +180,10 @@ static hid_parse_result_t main_data_item(hid_layout_t *l, const globals_t *g, co
     f->usage_page = g->usage_page;
     f->logical_min = g->logical_min;
     f->logical_max = g->logical_max;
+    f->physical_min = g->physical_min;
+    f->physical_max = g->physical_max;
+    f->unit_exp = g->unit_exp;
+    f->unit = g->unit;
     if (loc->has_range && loc->usage_count == 0) {
         f->usage_min = loc->usage_min;
         f->usage_max = loc->usage_max;
@@ -273,6 +285,21 @@ hid_parse_result_t hid_parser_parse(const uint8_t *desc, size_t len, hid_layout_
                  * positive: only treat as signed when the minimum is negative. */
                 g.logical_max = (g.logical_min < 0) ? item_signed(data, size) : (int32_t)item_unsigned(data, size);
                 break;
+            case GLOBAL_PHYSICAL_MIN:
+                g.physical_min = item_signed(data, size);
+                break;
+            case GLOBAL_PHYSICAL_MAX:
+                g.physical_max = (g.physical_min < 0) ? item_signed(data, size) : (int32_t)item_unsigned(data, size);
+                break;
+            case GLOBAL_UNIT_EXP: {
+                /* HID 1.11 §6.2.2.7: a 4-bit two's complement nibble (0x0E = -2); some maps use a signed byte. */
+                const int32_t e = item_signed(data, size);
+                g.unit_exp = (int8_t)(e >= 8 && e <= 15 ? e - 16 : e);
+                break;
+            }
+            case GLOBAL_UNIT:
+                g.unit = (uint8_t)item_unsigned(data, size);
+                break;
             case GLOBAL_REPORT_SIZE:
                 g.report_size = (uint8_t)(item_unsigned(data, size) > 255 ? 255 : item_unsigned(data, size));
                 break;
@@ -296,7 +323,7 @@ hid_parse_result_t hid_parser_parse(const uint8_t *desc, size_t len, hid_layout_
                 g = stack[--sp];
                 break;
             default:
-                break; /* Physical min/max, unit, exponent: irrelevant here. */
+                break;
             }
         } else if (type == ITEM_TYPE_LOCAL) {
             uint32_t v = item_unsigned(data, size);

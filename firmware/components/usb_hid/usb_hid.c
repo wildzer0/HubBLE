@@ -37,8 +37,12 @@ enum { ITF_KEYBOARD = 0, ITF_CONTROL = 1, ITF_LINK = 2, ITF_COUNT = 3 };
 #define LINK_REPORT_SIZE 64
 /** Reports the link may have queued for sending. */
 #define LINK_TX_DEPTH 24
-/** Endpoint packet size: the largest report is 1 (ID) + 7 (mouse) bytes. */
+/** Endpoint packet size of the keyboard: 8 bytes (boot protocol). */
 #define EP_SIZE 8
+/** Endpoint packet size of the control interface: the largest report is 1 (ID) + 34 (touchpad) bytes. */
+#define EP_SIZE_CONTROL 64
+/** Touchpad reports queued for sending: each one is a frame the host must see (a lifted finger is in one only). */
+#define TP_TX_DEPTH 8
 /** Endpoint polling interval in ms (full speed, CLAUDE.md §3.2). */
 #define POLL_INTERVAL_MS 1
 /** Bus power requested from the host, mA (the dongle is a bus-powered device). */
@@ -122,7 +126,7 @@ static const uint8_t s_config_desc_base[] = {
     TUD_CONFIG_DESCRIPTOR(1, 2, 0, CONFIG_LEN_BASE, TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, USB_MAX_POWER_MA),
     TUD_HID_DESCRIPTOR(ITF_KEYBOARD, 0, HID_ITF_PROTOCOL_KEYBOARD, HID_KBD_REPORT_DESC_LEN, EP_KEYBOARD_IN, EP_SIZE,
                        POLL_INTERVAL_MS),
-    TUD_HID_DESCRIPTOR(ITF_CONTROL, 0, HID_ITF_PROTOCOL_NONE, HID_CTRL_REPORT_DESC_LEN, EP_CONTROL_IN, EP_SIZE,
+    TUD_HID_DESCRIPTOR(ITF_CONTROL, 0, HID_ITF_PROTOCOL_NONE, HID_CTRL_REPORT_DESC_LEN, EP_CONTROL_IN, EP_SIZE_CONTROL,
                        POLL_INTERVAL_MS),
 };
 
@@ -131,7 +135,7 @@ static const uint8_t s_config_desc_link[] = {
     TUD_CONFIG_DESCRIPTOR(1, ITF_COUNT, 0, CONFIG_LEN_LINK, TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, USB_MAX_POWER_MA),
     TUD_HID_DESCRIPTOR(ITF_KEYBOARD, 0, HID_ITF_PROTOCOL_KEYBOARD, HID_KBD_REPORT_DESC_LEN, EP_KEYBOARD_IN, EP_SIZE,
                        POLL_INTERVAL_MS),
-    TUD_HID_DESCRIPTOR(ITF_CONTROL, 0, HID_ITF_PROTOCOL_NONE, HID_CTRL_REPORT_DESC_LEN, EP_CONTROL_IN, EP_SIZE,
+    TUD_HID_DESCRIPTOR(ITF_CONTROL, 0, HID_ITF_PROTOCOL_NONE, HID_CTRL_REPORT_DESC_LEN, EP_CONTROL_IN, EP_SIZE_CONTROL,
                        POLL_INTERVAL_MS),
     TUD_HID_INOUT_DESCRIPTOR(ITF_LINK, 0, HID_ITF_PROTOCOL_NONE, sizeof(s_link_report_desc), EP_LINK_OUT, EP_LINK_IN,
                              LINK_REPORT_SIZE, POLL_INTERVAL_MS),
@@ -178,6 +182,16 @@ static TickType_t s_last_wakeup_tick;
 static QueueHandle_t s_link_tx;
 /** Receiver of the configuration link's OUT reports (called in the TinyUSB task). */
 static usb_hid_link_rx_cb_t s_link_rx;
+/** Touchpad reports waiting for the control endpoint. */
+static QueueHandle_t s_tp_tx;
+/** Input mode the host set (HID_TP_MODE_TOUCHPAD: send touchpad reports, else the touchpad drives the mouse). */
+static volatile uint8_t s_tp_mode;
+/** Control interface report descriptor in RAM: hid_ctrl_report_desc with the touchpad geometry patched in. */
+static uint8_t s_ctrl_desc[HID_CTRL_REPORT_DESC_LEN];
+/** Geometry last requested by usb_hid_touchpad_set_geometry() (guarded by s_lock). */
+static hid_tp_geometry_t s_tp_geom_want;
+/** s_tp_geom_want differs from the descriptor: the report task re-enumerates. */
+static volatile bool s_tp_reenum;
 
 /**
  * @brief Wake the report task (safe from any task, never blocks).
@@ -240,6 +254,7 @@ static void on_usb_event(tinyusb_event_t *event, void *arg) {
         break;
     case TINYUSB_EVENT_DETACHED:
         s_state = USB_STATE_DETACHED;
+        s_tp_mode = 0; /* A new host starts in mouse mode until its touchpad driver switches. */
         break;
     case TINYUSB_EVENT_SUSPENDED:
         s_host_allows_wakeup = event->suspended.remote_wakeup;
@@ -279,7 +294,7 @@ static void send_pending(void) {
     portENTER_CRITICAL(&s_lock);
     dirty = s_dirty;
     portEXIT_CRITICAL(&s_lock);
-    if (dirty == 0) {
+    if (dirty == 0 && (s_tp_tx == NULL || uxQueueMessagesWaiting(s_tp_tx) == 0)) {
         return;
     }
 
@@ -297,7 +312,12 @@ static void send_pending(void) {
     if (!tud_hid_n_ready(ITF_CONTROL)) {
         return;
     }
-    if (dirty & DIRTY_MOUSE) {
+    hid_tp_in_t tp;
+    if (s_tp_tx != NULL && xQueuePeek(s_tp_tx, &tp, 0) == pdTRUE) { /* Touchpad frames first, in order. */
+        if (tud_hid_n_report(ITF_CONTROL, HID_RID_TOUCHPAD, &tp, sizeof(tp))) {
+            xQueueReceive(s_tp_tx, &tp, 0);
+        }
+    } else if (dirty & DIRTY_MOUSE) {
         portENTER_CRITICAL(&s_lock);
         hid_merge_take_mouse(&s_merge, &mouse);
         mouse_left = hid_merge_mouse_pending(&s_merge); /* clamped remainder: more to send */
@@ -360,6 +380,28 @@ static void send_link(void) {
 }
 
 /**
+ * @brief Rebuild the descriptor for a new touchpad geometry and re-enumerate, so the host reads it (report task).
+ */
+static void apply_tp_geometry(void) {
+    hid_tp_geometry_t g;
+    portENTER_CRITICAL(&s_lock);
+    g = s_tp_geom_want;
+    s_tp_reenum = false;
+    portEXIT_CRITICAL(&s_lock);
+    ESP_LOGI(TAG, "touchpad %ux%u, %u.%u x %u.%u mm: re-enumerating", g.x_max, g.y_max, g.x_mm10 / 10, g.x_mm10 % 10,
+             g.y_mm10 / 10, g.y_mm10 % 10);
+    tud_disconnect();
+    vTaskDelay(pdMS_TO_TICKS(100)); /* Long enough for the host to see the detach. */
+    hid_tp_desc_set_geometry(s_ctrl_desc, &g);
+    s_tp_mode = 0;
+    const uint16_t v[4] = {g.x_max, g.y_max, g.x_mm10, g.y_mm10};
+    if (settings_set_tp_geometry(v) != ESP_OK) {
+        ESP_LOGW(TAG, "touchpad geometry not saved: the next boot re-enumerates again");
+    }
+    tud_connect();
+}
+
+/**
  * @brief Report task: waits for producers, then drains the dirty reports at the endpoint's pace.
  *
  * @param arg Unused.
@@ -367,11 +409,15 @@ static void send_link(void) {
 static void report_task(void *arg) {
     (void)arg;
     for (;;) {
+        if (s_tp_reenum) {
+            apply_tp_geometry();
+        }
         bool pending;
         portENTER_CRITICAL(&s_lock);
         pending = s_dirty != 0;
         portEXIT_CRITICAL(&s_lock);
-        pending = pending || (s_link_tx != NULL && uxQueueMessagesWaiting(s_link_tx) > 0);
+        pending = pending || s_tp_reenum || (s_link_tx != NULL && uxQueueMessagesWaiting(s_link_tx) > 0) ||
+                  (s_tp_tx != NULL && uxQueueMessagesWaiting(s_tp_tx) > 0);
         /* Sleep until kicked; while something is pending, retry every tick (endpoint busy). */
         ulTaskNotifyTake(pdTRUE, pending ? RETRY_TICKS : portMAX_DELAY);
         if (s_state == USB_STATE_CONFIGURED) {
@@ -388,6 +434,9 @@ static void report_task(void *arg) {
             uint8_t drop[LINK_REPORT_SIZE];
             while (s_link_tx != NULL && xQueueReceive(s_link_tx, drop, 0) == pdTRUE) {
             }
+            if (s_tp_tx != NULL) {
+                xQueueReset(s_tp_tx);
+            }
         }
     }
 }
@@ -398,8 +447,16 @@ esp_err_t usb_hid_init(void) {
         return ESP_ERR_INVALID_STATE;
     }
     hid_merge_init(&s_merge);
+    memcpy(s_ctrl_desc, hid_ctrl_report_desc, sizeof(s_ctrl_desc));
+    s_tp_geom_want = (hid_tp_geometry_t)HID_TP_DEFAULT_GEOMETRY;
+    uint16_t v[4];
+    if (settings_get_tp_geometry(v) && v[0] && v[1] && v[2] && v[3]) { /* The touchpad of the last run. */
+        s_tp_geom_want = (hid_tp_geometry_t){.x_max = v[0], .y_max = v[1], .x_mm10 = v[2], .y_mm10 = v[3]};
+    }
+    hid_tp_desc_set_geometry(s_ctrl_desc, &s_tp_geom_want);
     s_link_tx = xQueueCreate(LINK_TX_DEPTH, LINK_REPORT_SIZE);
-    if (s_link_tx == NULL) {
+    s_tp_tx = xQueueCreate(TP_TX_DEPTH, sizeof(hid_tp_in_t));
+    if (s_link_tx == NULL || s_tp_tx == NULL) {
         return ESP_ERR_NO_MEM;
     }
 
@@ -492,6 +549,37 @@ void usb_hid_mouse(unsigned src, uint8_t buttons, int32_t dx, int32_t dy, int32_
     mark_dirty(DIRTY_MOUSE);
 }
 
+/** @copydoc usb_hid_touchpad_active */
+bool usb_hid_touchpad_active(void) {
+    return s_tp_mode == HID_TP_MODE_TOUCHPAD && s_state == USB_STATE_CONFIGURED;
+}
+
+/** @copydoc usb_hid_touchpad_set_geometry */
+void usb_hid_touchpad_set_geometry(const hid_tp_geometry_t *g) {
+    bool changed;
+    portENTER_CRITICAL(&s_lock);
+    changed = memcmp(&s_tp_geom_want, g, sizeof(*g)) != 0;
+    if (changed) {
+        s_tp_geom_want = *g;
+        s_tp_reenum = true;
+    }
+    portEXIT_CRITICAL(&s_lock);
+    if (changed) {
+        kick();
+    }
+}
+
+/** @copydoc usb_hid_touchpad */
+void usb_hid_touchpad(const hid_tp_in_t *report) {
+    const bool down = report->count > 0 || report->buttons != 0;
+    if (down && wake_if_suspended()) {
+        return;
+    }
+    if (s_tp_tx != NULL && xQueueSend(s_tp_tx, report, 0) == pdTRUE) { /* Full: drop, the next frame resyncs. */
+        kick();
+    }
+}
+
 /** @copydoc usb_hid_release_source */
 void usb_hid_release_source(unsigned src) {
     portENTER_CRITICAL(&s_lock);
@@ -568,12 +656,12 @@ uint8_t const *tud_hid_descriptor_report_cb(uint8_t instance) {
     case ITF_LINK:
         return s_link_report_desc;
     default:
-        return hid_ctrl_report_desc;
+        return s_ctrl_desc;
     }
 }
 
 /**
- * @brief GET_REPORT control request: the host polls the current input state (boot keyboards do this).
+ * @brief GET_REPORT control request: keyboard input state (boot keyboards poll it) and the touchpad features.
  *
  * @param instance    HID interface index.
  * @param report_id   Requested report ID (0 on the keyboard interface).
@@ -584,7 +672,17 @@ uint8_t const *tud_hid_descriptor_report_cb(uint8_t instance) {
  */
 uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t *buffer,
                                uint16_t reqlen) {
-    (void)report_id;
+    if (instance == ITF_CONTROL && report_type == HID_REPORT_TYPE_FEATURE && reqlen >= 2) {
+        if (report_id == HID_RID_TP_CAPS) {
+            buffer[0] = HID_TP_MAX_CONTACTS;
+            buffer[1] = 0; /* Button type 0: clickpad (the whole pad is the button). */
+            return 2;
+        }
+        if (report_id == HID_RID_TP_MODE) {
+            buffer[0] = s_tp_mode;
+            return 1;
+        }
+    }
     if (instance != ITF_KEYBOARD || report_type != HID_REPORT_TYPE_INPUT || reqlen < sizeof(hid_kbd_report_t)) {
         return 0;
     }
@@ -597,7 +695,7 @@ uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_t
 }
 
 /**
- * @brief SET_REPORT control request / OUT endpoint data: the host sets the keyboard LEDs.
+ * @brief SET_REPORT control request / OUT endpoint data: keyboard LEDs, touchpad input mode, configuration link.
  *
  * @param instance    HID interface index.
  * @param report_id   Report ID (0 on the keyboard interface; some hosts put the LED byte after an ID).
@@ -607,7 +705,12 @@ uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_t
  */
 void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t const *buffer,
                            uint16_t bufsize) {
-    (void)report_id;
+    if (instance == ITF_CONTROL && report_type == HID_REPORT_TYPE_FEATURE && report_id == HID_RID_TP_MODE &&
+        bufsize >= 1) {
+        s_tp_mode = buffer[0]; /* The host's touchpad driver took over (3), or went back to mouse mode. */
+        ESP_LOGI(TAG, "touchpad input mode %u", buffer[0]);
+        return;
+    }
     if (instance == ITF_LINK) {
         /* Data from the configuration link: any report type (an OUT endpoint transfer is reported without one). */
         usb_hid_link_rx_cb_t rx = s_link_rx;

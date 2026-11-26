@@ -55,10 +55,52 @@ const uint8_t hid_kbd_report_desc[] = {
 };
 _Static_assert(sizeof(hid_kbd_report_desc) == HID_KBD_REPORT_DESC_LEN, "update HID_KBD_REPORT_DESC_LEN");
 
+/** One touchpad finger (63 bytes): Confidence, Tip Switch, 6 pad bits, 8-bit Contact ID, 16-bit X and Y. Range and
+ *  size are placeholders patched by hid_tp_desc_set_geometry() at the TP_*_OFF offsets below. */
+#define TP_FINGER \
+    0x05, 0x0D,       /* Usage Page (Digitizer) */ \
+    0x09, 0x22,       /* Usage (Finger) */ \
+    0xA1, 0x02,       /* Collection (Logical) */ \
+    0x15, 0x00,       /*   Logical Minimum (0) */ \
+    0x25, 0x01,       /*   Logical Maximum (1) */ \
+    0x09, 0x47,       /*   Usage (Confidence) */ \
+    0x09, 0x42,       /*   Usage (Tip Switch) */ \
+    0x95, 0x02,       /*   Report Count (2) */ \
+    0x75, 0x01,       /*   Report Size (1) */ \
+    0x81, 0x02,       /*   Input (Data, Variable, Absolute) */ \
+    0x95, 0x06,       /*   Report Count (6) */ \
+    0x81, 0x03,       /*   Input (Constant): padding */ \
+    0x25, 0x0F,       /*   Logical Maximum (15) */ \
+    0x75, 0x08,       /*   Report Size (8) */ \
+    0x95, 0x01,       /*   Report Count (1) */ \
+    0x09, 0x51,       /*   Usage (Contact ID) */ \
+    0x81, 0x02,       /*   Input (Data, Variable, Absolute) */ \
+    0x05, 0x01,       /*   Usage Page (Generic Desktop) */ \
+    0x75, 0x10,       /*   Report Size (16) */ \
+    0x55, 0x0E,       /*   Unit Exponent (-2) */ \
+    0x65, 0x11,       /*   Unit (cm) */ \
+    0x26, 0x00, 0x00, /*   Logical Maximum (patched) */ \
+    0x46, 0x00, 0x00, /*   Physical Maximum in 0.1 mm (patched) */ \
+    0x09, 0x30,       /*   Usage (X) */ \
+    0x81, 0x02,       /*   Input (Data, Variable, Absolute) */ \
+    0x26, 0x00, 0x00, /*   Logical Maximum (patched) */ \
+    0x46, 0x00, 0x00, /*   Physical Maximum in 0.1 mm (patched) */ \
+    0x09, 0x31,       /*   Usage (Y) */ \
+    0x81, 0x02,       /*   Input (Data, Variable, Absolute) */ \
+    0xC0              /* End Collection */
+
 /*
  * Interface 1: mouse (ID 1), consumer control (ID 2), system control (ID 3).
  * A single mouse collection with 16-bit X/Y, 8-bit wheel and AC Pan (Consumer 0x0238), as in CLAUDE.md §3.2.
  */
+/** Offset of the first finger collection in hid_ctrl_report_desc, size of one, and the patched values inside it. */
+#define TP_FINGER0_OFF (129 + 8)
+#define TP_FINGER_LEN  63
+#define TP_XMAX_OFF    43
+#define TP_XPHYS_OFF   46
+#define TP_YMAX_OFF    53
+#define TP_YPHYS_OFF   56
+
 const uint8_t hid_ctrl_report_desc[] = {
     /* --- Mouse, report ID 1: 7 bytes --- */
     0x05, 0x01,       /* Usage Page (Generic Desktop) */
@@ -129,10 +171,96 @@ const uint8_t hid_ctrl_report_desc[] = {
     0x75, 0x06,       /*   Report Size (6) */
     0x81, 0x01,       /*   Input (Constant): padding */
     0xC0,             /* End Collection */
+
+    /* --- Precision touchpad, report ID 4 (input) and 5, 6 (features). Mouse reports carry the touchpad until the
+     *     host's touchpad driver sets input mode 3; hosts without one keep the mouse. --- */
+    0x05, 0x0D,       /* Usage Page (Digitizer) */
+    0x09, 0x05,       /* Usage (Touch Pad) */
+    0xA1, 0x01,       /* Collection (Application) */
+    0x85, HID_RID_TOUCHPAD, /*   Report ID (4) */
+    TP_FINGER, TP_FINGER, TP_FINGER, TP_FINGER,
+    0x05, 0x0D,       /*   Usage Page (Digitizer) */
+    0x55, 0x0C,       /*   Unit Exponent (-4) */
+    0x66, 0x01, 0x10, /*   Unit (Seconds) */
+    0x47, 0xFF, 0xFF, 0x00, 0x00, /* Physical Maximum (65535) */
+    0x27, 0xFF, 0xFF, 0x00, 0x00, /* Logical Maximum (65535) */
+    0x75, 0x10,       /*   Report Size (16) */
+    0x95, 0x01,       /*   Report Count (1) */
+    0x09, 0x56,       /*   Usage (Scan Time) */
+    0x81, 0x02,       /*   Input (Data, Variable, Absolute) */
+    0x55, 0x00,       /*   Unit Exponent (0) */
+    0x65, 0x00,       /*   Unit (None) */
+    0x45, 0x00,       /*   Physical Maximum (0) */
+    0x09, 0x54,       /*   Usage (Contact Count) */
+    0x25, 0x7F,       /*   Logical Maximum (127) */
+    0x75, 0x08,       /*   Report Size (8) */
+    0x81, 0x02,       /*   Input (Data, Variable, Absolute) */
+    0x05, 0x09,       /*   Usage Page (Button) */
+    0x09, 0x01,       /*   Usage (Button 1) */
+    0x25, 0x01,       /*   Logical Maximum (1) */
+    0x75, 0x01,       /*   Report Size (1) */
+    0x81, 0x02,       /*   Input (Data, Variable, Absolute): pad pressed */
+    0x95, 0x07,       /*   Report Count (7) */
+    0x81, 0x03,       /*   Input (Constant): padding */
+    0x05, 0x0D,       /*   Usage Page (Digitizer) */
+    0x85, HID_RID_TP_CAPS, /*   Report ID (5) */
+    0x09, 0x55,       /*   Usage (Contact Count Maximum) */
+    0x09, 0x59,       /*   Usage (Button Type) */
+    0x25, 0x0F,       /*   Logical Maximum (15) */
+    0x75, 0x08,       /*   Report Size (8) */
+    0x95, 0x02,       /*   Report Count (2) */
+    0xB1, 0x02,       /*   Feature (Data, Variable, Absolute) */
+    0xC0,             /* End Collection */
+    0x05, 0x0D,       /* Usage Page (Digitizer) */
+    0x09, 0x0E,       /* Usage (Device Configuration) */
+    0xA1, 0x01,       /* Collection (Application) */
+    0x85, HID_RID_TP_MODE, /*   Report ID (6) */
+    0x09, 0x22,       /*   Usage (Finger) */
+    0xA1, 0x02,       /*   Collection (Logical) */
+    0x09, 0x52,       /*     Usage (Input Mode) */
+    0x15, 0x00,       /*     Logical Minimum (0) */
+    0x25, 0x0A,       /*     Logical Maximum (10) */
+    0x75, 0x08,       /*     Report Size (8) */
+    0x95, 0x01,       /*     Report Count (1) */
+    0xB1, 0x02,       /*     Feature (Data, Variable, Absolute) */
+    0xC0,             /*   End Collection */
+    0xC0,             /* End Collection */
 };
 _Static_assert(sizeof(hid_ctrl_report_desc) == HID_CTRL_REPORT_DESC_LEN, "update HID_CTRL_REPORT_DESC_LEN");
 
 /* clang-format on */
+
+/**
+ * @brief Store a 16-bit value little endian.
+ *
+ * @param p Destination.
+ * @param v Value.
+ */
+static void put16(uint8_t *p, uint16_t v) {
+    p[0] = (uint8_t)(v & 0xFF);
+    p[1] = (uint8_t)(v >> 8);
+}
+
+/** @copydoc hid_tp_desc_set_geometry */
+void hid_tp_desc_set_geometry(uint8_t *desc, const hid_tp_geometry_t *g) {
+    for (unsigned k = 0; k < HID_TP_MAX_CONTACTS; k++) {
+        uint8_t *f = &desc[TP_FINGER0_OFF + k * TP_FINGER_LEN];
+        put16(&f[TP_XMAX_OFF], g->x_max);
+        put16(&f[TP_XPHYS_OFF], g->x_mm10);
+        put16(&f[TP_YMAX_OFF], g->y_max);
+        put16(&f[TP_YPHYS_OFF], g->y_mm10);
+    }
+}
+
+/** @copydoc hid_tp_desc_get_geometry */
+void hid_tp_desc_get_geometry(const uint8_t *desc, hid_tp_geometry_t *g) {
+    const uint8_t *f = &desc[TP_FINGER0_OFF];
+    g->x_max = (uint16_t)(f[TP_XMAX_OFF] | f[TP_XMAX_OFF + 1] << 8);
+    g->x_mm10 = (uint16_t)(f[TP_XPHYS_OFF] | f[TP_XPHYS_OFF + 1] << 8);
+    g->y_max = (uint16_t)(f[TP_YMAX_OFF] | f[TP_YMAX_OFF + 1] << 8);
+    g->y_mm10 = (uint16_t)(f[TP_YPHYS_OFF] | f[TP_YPHYS_OFF + 1] << 8);
+}
+
 
 /**
  * @brief Whether a source index is valid.

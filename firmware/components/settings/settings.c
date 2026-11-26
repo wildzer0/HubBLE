@@ -25,6 +25,7 @@ static const char *TAG = "settings";
 #define KEY_REM_WAKE    "rem_wake"
 #define KEY_PORTAL_AUTO "portal_auto"
 #define KEY_USB_LINK    "usb_link"
+#define KEY_TP_GEOM     "tp_geom"
 #define KEY_FLT_ON      "flt_on"
 #define KEY_FLT_BOUNCE  "flt_bounce"
 #define KEY_FLT_HOLD    "flt_hold"
@@ -329,6 +330,21 @@ bool settings_get_usb_link(void) {
 /** @copydoc settings_set_usb_link */
 esp_err_t settings_set_usb_link(bool enabled) {
     return set_flag(KEY_USB_LINK, enabled);
+}
+
+/** @copydoc settings_get_tp_geometry */
+bool settings_get_tp_geometry(uint16_t out[4]) {
+    size_t len = 4 * sizeof(uint16_t);
+    return s_ready && nvs_get_blob(s_nvs, KEY_TP_GEOM, out, &len) == ESP_OK && len == 4 * sizeof(uint16_t);
+}
+
+/** @copydoc settings_set_tp_geometry */
+esp_err_t settings_set_tp_geometry(const uint16_t geom[4]) {
+    if (!s_ready) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    esp_err_t err = nvs_set_blob(s_nvs, KEY_TP_GEOM, geom, 4 * sizeof(uint16_t));
+    return err == ESP_OK ? nvs_commit(s_nvs) : err;
 }
 
 /** @copydoc settings_get_filter_enabled */

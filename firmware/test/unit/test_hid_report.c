@@ -39,7 +39,8 @@ static void check_descriptor(const uint8_t *d, size_t len, unsigned expect_colle
 
 void test_descriptors_well_formed(void) {
     check_descriptor(hid_kbd_report_desc, HID_KBD_REPORT_DESC_LEN, 1);
-    check_descriptor(hid_ctrl_report_desc, HID_CTRL_REPORT_DESC_LEN, 4); /* mouse + pointer + consumer + system */
+    /* mouse + pointer + consumer + system + touchpad + its fingers + device configuration + its finger */
+    check_descriptor(hid_ctrl_report_desc, HID_CTRL_REPORT_DESC_LEN, 4 + 1 + HID_TP_MAX_CONTACTS + 2);
 }
 
 void test_report_sizes(void) {
@@ -212,9 +213,34 @@ void test_mouse_negative_clamp(void) {
     TEST_ASSERT_EQUAL_INT16(-(50000 - 32767), r.x);
 }
 
+/** The touchpad geometry is written into every finger collection and reads back; the parser sees it. */
+void test_touchpad_descriptor_geometry(void) {
+    static uint8_t desc[HID_CTRL_REPORT_DESC_LEN];
+    memcpy(desc, hid_ctrl_report_desc, sizeof(desc));
+    const hid_tp_geometry_t g = {.x_max = 4095, .y_max = 2047, .x_mm10 = 1000, .y_mm10 = 600};
+    hid_tp_desc_set_geometry(desc, &g);
+    hid_tp_geometry_t back;
+    hid_tp_desc_get_geometry(desc, &back);
+    TEST_ASSERT_EQUAL_MEMORY(&g, &back, sizeof(g));
+    /* Every finger: the bytes before each patched value are the items they belong to. */
+    for (unsigned k = 0; k < HID_TP_MAX_CONTACTS; k++) {
+        const uint8_t *f = &desc[129 + 8 + k * 63];
+        TEST_ASSERT_EQUAL_HEX8(0x26, f[42]); /* Logical Maximum (X) */
+        TEST_ASSERT_EQUAL_HEX8(0x46, f[45]); /* Physical Maximum (X) */
+        TEST_ASSERT_EQUAL_HEX8(0x30, f[49]); /* Usage (X) */
+        TEST_ASSERT_EQUAL_HEX8(0x26, f[52]);
+        TEST_ASSERT_EQUAL_HEX8(0x46, f[55]);
+        TEST_ASSERT_EQUAL_HEX8(0x31, f[59]); /* Usage (Y) */
+        TEST_ASSERT_EQUAL_HEX8(0xFF, f[43]);
+        TEST_ASSERT_EQUAL_HEX8(0x0F, f[44]);
+        TEST_ASSERT_EQUAL_HEX8(0x58, f[56]); /* 600 = 0x0258 */
+    }
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_descriptors_well_formed);
+    RUN_TEST(test_touchpad_descriptor_geometry);
     RUN_TEST(test_report_sizes);
     RUN_TEST(test_keyboard_union_and_dedupe);
     RUN_TEST(test_keyboard_rollover_error);

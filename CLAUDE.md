@@ -182,6 +182,12 @@ before starting, and re-read the relevant milestone before working on it.
   - **Consumer control** (media keys, volume, brightness): 16-bit usage.
   - **Mouse**: 5 buttons, 16-bit X/Y, vertical wheel, horizontal pan (AC Pan).
   - **System control** (sleep/wake) — optional.
+  - **Precision touchpad** (Windows PTP layout: fingers, scan time, contact
+    count, clickpad button; features for contact maximum, button type and
+    input mode). Only sent once the host's touchpad driver sets input mode 3;
+    until then Bluetooth touchpads drive the mouse. Range and size come from
+    the touchpad's report map (corrected for known misreporting pads) and are
+    patched into the descriptor; a different geometry re-enumerates once.
 - Input from **all** connected peripherals is merged: keyboard key states are
   combined (union of pressed keys/modifiers per device, then merged), mouse
   deltas are summed per report interval.

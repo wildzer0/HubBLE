@@ -241,6 +241,17 @@ bool settings_get_usb_link(void);
 esp_err_t settings_set_usb_link(bool enabled);
 
 /**
+ * @brief Touchpad geometry the USB descriptor was last built with (x_max, y_max, width and height in 0.1 mm), so the
+ * dongle enumerates with the right one at boot and only re-enumerates when a different touchpad connects.
+ *
+ * @param[out] out The four values.
+ * @return false if none is stored.
+ */
+bool settings_get_tp_geometry(uint16_t out[4]);
+/** @brief Store the touchpad geometry. @param geom The four values. @return ESP_OK or an NVS error. */
+esp_err_t settings_set_tp_geometry(const uint16_t geom[4]);
+
+/**
  * @brief Whether the typing filter (bounce keys / slow keys) is on. Default false.
  *
  * @return true if the filter is on.

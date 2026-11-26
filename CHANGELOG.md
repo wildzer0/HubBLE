@@ -6,6 +6,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Precision touchpads work natively.** The dongle presents a Windows Precision Touchpad next to its mouse and passes
+  the fingers of a Bluetooth touchpad (for example the one built into Inateck keyboards) through. Once the host's
+  touchpad driver switches it to touchpad mode (Linux hid-multitouch does), the host handles everything like a laptop
+  touchpad: two-finger scroll, three- and four-finger gestures, tap, palm rejection and its own speed settings. Until
+  then (BIOS/UEFI, hosts without a touchpad driver) the touchpad drives the mouse. Range and size come from the
+  touchpad's report map, with a correction table for pads that misreport (the Inateck pad claims 92.1 x 50.6 mm, it is
+  126 x 82 mm); a different touchpad makes the dongle re-enumerate once and remember it.
+
+### Fixed
+
+- Touchpads that report absolute X/Y pinned the pointer to a screen corner in mouse mode: the positions of all finger
+  slots were added up as if they were movements. They are now turned into movement; a lift or a new contact starts a
+  new touch without a jump. Relative mice are unchanged.
+
 ## [1.7.0] - 2026-11-21
 
 ### Removed
