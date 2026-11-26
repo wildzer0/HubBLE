@@ -475,6 +475,8 @@ bool hid_norm_abs_to_rel(hid_abs_state_t *st, hid_norm_event_t *ev, uint32_t now
         st->moving = !ev->touch_report; /* Only touchpads tap: other absolute pointers move at once. */
         st->lift_hold = false;
         st->last_move_ms = now_ms;
+        st->rem_x = 0;
+        st->rem_y = 0;
         st->pressed = false;
         st->multi = false;
     } else { /* The finger that moved most since the previous report. */
@@ -541,6 +543,14 @@ bool hid_norm_abs_to_rel(hid_abs_state_t *st, hid_norm_event_t *ev, uint32_t now
                 st->held_dy = 0;
             }
         }
+    }
+    if (ev->touch_report) { /* Speed: scale, carrying the remainder so slow moves are not lost. */
+        const int64_t sx = (int64_t)dx * HID_TOUCHPAD_SPEED_NUM + st->rem_x;
+        const int64_t sy = (int64_t)dy * HID_TOUCHPAD_SPEED_NUM + st->rem_y;
+        dx = (int32_t)(sx / HID_TOUCHPAD_SPEED_DEN);
+        dy = (int32_t)(sy / HID_TOUCHPAD_SPEED_DEN);
+        st->rem_x = (int32_t)(sx % HID_TOUCHPAD_SPEED_DEN);
+        st->rem_y = (int32_t)(sy % HID_TOUCHPAD_SPEED_DEN);
     }
     ev->dx = dx;
     ev->dy = dy;

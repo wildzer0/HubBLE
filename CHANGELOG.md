@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   built into Inateck keyboards), which the dongle's plain USB mouse does not have: tap to click, tap-and-drag (tap,
   then touch again within 300 ms and move or hold; the button is held until the finger lifts), and drag with the
   clickpad held by one finger while another moves.
+- Touchpad speed: finger movement is scaled by `HID_TOUCHPAD_SPEED_NUM/DEN` (1/2 by default), since raw touchpad
+  units (about 35 per mm on the Inateck touchpad) moved the pointer much faster than a laptop touchpad.
 
 ### Fixed
 

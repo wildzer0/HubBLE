@@ -72,6 +72,8 @@ typedef struct {
     uint32_t last_move_ms;              /**< Last report that moved more than 1 unit (rest detection). */
     bool lift_hold;                     /**< Movement after a rest is held back: it may be lift roll. */
     uint32_t lift_hold_ms;              /**< When lift_hold started. */
+    int32_t rem_x;                      /**< Remainder of the touchpad speed scaling, in 1/HID_TOUCHPAD_SPEED_DEN. */
+    int32_t rem_y;                      /**< See rem_x. */
 } hid_abs_state_t;
 
 /** A pause in absolute reports longer than this means the finger was lifted: the next one starts a new touch. */
@@ -88,6 +90,9 @@ typedef struct {
 #define HID_LIFT_HOLD_MS 30u
 /** Held-back movement after a rest larger than this is a real move and goes out at once. */
 #define HID_LIFT_MAX_TRAVEL 40
+/** Touchpad speed as a fraction: finger movement in device units is scaled by NUM/DEN before it goes out. */
+#define HID_TOUCHPAD_SPEED_NUM 1
+#define HID_TOUCHPAD_SPEED_DEN 2
 
 /**
  * @brief Turn absolute X/Y positions into relative movement, with tap-to-click and tap-and-drag, in place.
@@ -105,6 +110,7 @@ typedef struct {
  *   the finger, which would move what is being clicked); a second finger does (hold with the thumb, drag with another).
  * - When a resting finger starts to move, the movement is held back for HID_LIFT_HOLD_MS (or until it exceeds
  *   HID_LIFT_MAX_TRAVEL) and dropped if the finger lifts meanwhile: fingers roll a little as they lift.
+ * - Touchpad movement is scaled by HID_TOUCHPAD_SPEED_NUM/HID_TOUCHPAD_SPEED_DEN, keeping the remainder.
  * - A touchpad report with no finger down ends the touch; so does a gap of HID_ABS_TOUCH_GAP_MS.
  *
  * @param st     Per-device state.

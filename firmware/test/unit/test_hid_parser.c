@@ -491,6 +491,8 @@ static bool feed(const hid_layout_t *l, hid_abs_state_t *st, const uint8_t *r, s
     return hid_norm_abs_to_rel(st, ev, ms);
 }
 #define FEED(r, ms) feed(&l, &st, r, sizeof(r), ms, &ev)
+/** Touchpad movement of @p v device units as it reaches the host. */
+#define SPEED(v) ((v) * HID_TOUCHPAD_SPEED_NUM / HID_TOUCHPAD_SPEED_DEN)
 
 /** Movement follows the touching finger; nothing moves while a touch may still be a tap, then it all goes out. */
 void test_touchpad_moves_after_tap_window(void) {
@@ -507,10 +509,10 @@ void test_touchpad_moves_after_tap_window(void) {
     FEED(b, 1008); /* 70 units: still a possible tap, held back */
     TEST_ASSERT_EQUAL_INT32(0, ev.dx);
     FEED(c, 1016); /* past HID_TAP_MAX_TRAVEL: the held-back movement goes out */
-    TEST_ASSERT_EQUAL_INT32(150, ev.dx);
-    TEST_ASSERT_EQUAL_INT32(-30, ev.dy);
+    TEST_ASSERT_EQUAL_INT32(SPEED(150), ev.dx);
+    TEST_ASSERT_EQUAL_INT32(SPEED(-30), ev.dy);
     FEED(d, 1024);
-    TEST_ASSERT_EQUAL_INT32(10, ev.dx);
+    TEST_ASSERT_EQUAL_INT32(SPEED(10), ev.dx);
     TEST_ASSERT_EQUAL_INT32(0, ev.buttons);
 }
 
@@ -558,7 +560,7 @@ void test_touchpad_tap_and_drag(void) {
     FEED(down, 1200); /* within HID_TAP_DRAG_MS */
     TEST_ASSERT_EQUAL_HEX8(0, ev.buttons);
     FEED(far, 1208);
-    TEST_ASSERT_EQUAL_INT32(400, ev.dx);
+    TEST_ASSERT_EQUAL_INT32(SPEED(400), ev.dx);
     TEST_ASSERT_EQUAL_HEX8(1, ev.buttons); /* dragging */
     FEED(down, 1216);
     TEST_ASSERT_EQUAL_HEX8(1, ev.buttons);
@@ -593,17 +595,17 @@ void test_touchpad_press_and_drag(void) {
     FEED(up, 516);
     FEED(p1, 1000);
     FEED(p2, 1008);
-    TEST_ASSERT_EQUAL_INT32(200, ev.dx); /* the moving finger */
-    TEST_ASSERT_EQUAL_INT32(-50, ev.dy);
+    TEST_ASSERT_EQUAL_INT32(SPEED(200), ev.dx); /* the moving finger */
+    TEST_ASSERT_EQUAL_INT32(SPEED(-50), ev.dy);
     TEST_ASSERT_EQUAL_HEX8(1, ev.buttons);
     FEED(p3, 1016);
-    TEST_ASSERT_EQUAL_INT32(20, ev.dx);
+    TEST_ASSERT_EQUAL_INT32(SPEED(20), ev.dx);
     FEED(up, 1024);
     FEED(q1, 2000);
     FEED(q2, 2008);
-    TEST_ASSERT_EQUAL_INT32(200, ev.dx);
+    TEST_ASSERT_EQUAL_INT32(SPEED(200), ev.dx);
     FEED(q3, 2016);
-    TEST_ASSERT_EQUAL_INT32(30, ev.dx);
+    TEST_ASSERT_EQUAL_INT32(SPEED(30), ev.dx);
 }
 
 /** Lift roll: after a rest, a small movement right before the lift is dropped; a real move goes out late but whole. */
@@ -621,7 +623,7 @@ void test_touchpad_lift_roll(void) {
     hid_norm_event_t ev;
     FEED(a, 1000);
     FEED(b, 1008); /* a move: out at once */
-    TEST_ASSERT_EQUAL_INT32(200, ev.dx);
+    TEST_ASSERT_EQUAL_INT32(SPEED(200), ev.dx);
     for (uint32_t t = 1016; t <= 1016 + HID_REST_MS; t += 8) {
         FEED(b, t); /* rests */
     }
@@ -640,8 +642,31 @@ void test_touchpad_lift_roll(void) {
     FEED(m1, 2100);
     TEST_ASSERT_EQUAL_INT32(0, ev.dx);
     FEED(m2, 2100 + HID_LIFT_HOLD_MS);
-    TEST_ASSERT_EQUAL_INT32(30, ev.dx);
+    TEST_ASSERT_EQUAL_INT32(SPEED(30), ev.dx);
     TEST_ASSERT_EQUAL_INT32(0, ev.dy);
+}
+
+/** Touchpad speed scaling keeps the remainder: many 1-unit steps still add up. */
+void test_touchpad_speed_remainder(void) {
+    static hid_layout_t l;
+    TEST_ASSERT_EQUAL(HID_PARSE_OK, hid_parser_parse(k_inateck_map, sizeof(k_inateck_map), &l));
+    const uint8_t a[] = {0x03, 0xE8, 0x43, 0x1F, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    const uint8_t b[] = {0x03, 0xB0, 0x44, 0x1F, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    hid_abs_state_t st = {0};
+    hid_norm_event_t ev;
+    FEED(a, 1000);
+    FEED(b, 1008); /* past the tap window */
+    int32_t sum = 0;
+    for (int i = 1; i <= 40; i++) {
+        const uint8_t x[] = {0x03, (uint8_t)((1200 + i) & 0xFF), (uint8_t)(((1200 + i) >> 8) | (500 << 4)),
+                             (uint8_t)(500 >> 4)};
+        uint8_t r[sizeof(b)];
+        memcpy(r, b, sizeof(r));
+        memcpy(r, x, sizeof(x));
+        FEED(r, 1016 + 8 * (uint32_t)i);
+        sum += ev.dx;
+    }
+    TEST_ASSERT_EQUAL_INT32(SPEED(40), sum);
 }
 
 int main(void) {
@@ -677,5 +702,6 @@ int main(void) {
     RUN_TEST(test_touchpad_tap_and_drag);
     RUN_TEST(test_touchpad_press_and_drag);
     RUN_TEST(test_touchpad_lift_roll);
+    RUN_TEST(test_touchpad_speed_remainder);
     return UNITY_END();
 }
