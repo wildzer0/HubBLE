@@ -85,6 +85,7 @@ static SemaphoreHandle_t s_filter_mu;                /**< Protects everything be
 static volatile bool s_filter_on;                    /**< The typing filter is enabled. */
 static input_filter_t s_kf[BLE_CENTRAL_MAX_DEVICES]; /**< Per source: keys and modifiers. */
 static input_filter_t s_bf[BLE_CENTRAL_MAX_DEVICES]; /**< Per source: mouse buttons. */
+static hid_abs_state_t s_abs[BLE_CENTRAL_MAX_DEVICES]; /**< Per source: last absolute touchpad position. */
 static filter_out_t s_out[BLE_CENTRAL_MAX_DEVICES];  /**< Per source: what was last sent. */
 static TaskHandle_t s_filter_task;                   /**< Ticks the filters while something waits for its hold time. */
 
@@ -328,6 +329,7 @@ static void on_report(unsigned slot, const hid_layout_t *layout, uint8_t report_
         return;
     }
     if (ev.has_mouse && slot < BLE_CENTRAL_MAX_DEVICES) {
+        hid_norm_abs_to_rel(&s_abs[slot], &ev, (uint32_t)(rx_us / 1000));
         s_mouse_buttons[slot] = ev.buttons; /* For the keyboard-less gesture (left + right held). */
     }
     if (ev.has_keyboard && slot < BLE_CENTRAL_MAX_DEVICES) {

@@ -16,6 +16,18 @@
 #define USAGE_WHEEL         0x38
 #define USAGE_SYSTEM_SLEEP  0x82
 #define USAGE_SYSTEM_WAKEUP 0x83
+/** Digitizer usages for touchpad fingers. */
+#define USAGE_TIP_SWITCH 0x42
+#define USAGE_CONTACT_ID 0x51
+
+/** Touchpad finger tracking while one report is decoded: fields come in report order, finger by finger. */
+typedef struct {
+    bool tip_seen;  /**< The report has Tip Switch fields (a touchpad): only touching fingers give a position. */
+    bool cur_tip;   /**< The current finger is touching. */
+    int finger;     /**< Index of the current finger (counted by Tip Switch usages). */
+    int chosen;     /**< Finger whose position is taken: the first one touching, -1 until found. */
+    int32_t cur_id; /**< Contact ID of the current finger. */
+} touch_ctx_t;
 /** Consumer usage "AC Pan" (horizontal scroll). */
 #define USAGE_AC_PAN 0x238
 /** First/last keyboard-page modifier usage. */
@@ -153,8 +165,10 @@ static int32_t sat_add(int32_t a, int32_t b) {
  * @param data Payload.
  * @param len  Payload length.
  * @param ev   Event to update.
+ * @param tc   Touchpad finger tracking for this report.
  */
-static void decode_desktop(const hid_field_t *f, const uint8_t *data, size_t len, hid_norm_event_t *ev) {
+static void decode_desktop(const hid_field_t *f, const uint8_t *data, size_t len, hid_norm_event_t *ev,
+                           touch_ctx_t *tc) {
     for (unsigned i = 0; i < f->count; i++) {
         int32_t v;
         if (!hid_field_value(f, i, data, len, &v)) {
@@ -163,13 +177,25 @@ static void decode_desktop(const hid_field_t *f, const uint8_t *data, size_t len
         uint16_t usage = hid_field_usage(f, i);
         switch (usage) {
         case USAGE_X:
+        case USAGE_Y: {
             ev->has_mouse = true;
-            ev->dx = sat_add(ev->dx, v);
+            if (f->flags & HID_FLAG_RELATIVE) {
+                ev->rel_xy = true;
+                int32_t *axis = usage == USAGE_X ? &ev->dx : &ev->dy;
+                *axis = sat_add(*axis, v);
+            } else { /* A position, never a movement: hid_norm_abs_to_rel() turns it into one. */
+                if (tc->tip_seen) { /* Touchpad: follow the first finger that touches, ignore the other slots. */
+                    if (!tc->cur_tip || (tc->chosen >= 0 && tc->chosen != tc->finger)) {
+                        break;
+                    }
+                    tc->chosen = tc->finger;
+                    ev->abs_id = tc->cur_id;
+                }
+                ev->abs_xy = true;
+                *(usage == USAGE_X ? &ev->abs_x : &ev->abs_y) = v;
+            }
             break;
-        case USAGE_Y:
-            ev->has_mouse = true;
-            ev->dy = sat_add(ev->dy, v);
-            break;
+        }
         case USAGE_WHEEL:
             ev->has_mouse = true;
             ev->wheel = sat_add(ev->wheel, v);
@@ -200,6 +226,7 @@ bool hid_norm_decode(const hid_layout_t *layout, uint8_t report_id, const uint8_
         return false;
     }
     bool any = false;
+    touch_ctx_t tc = {.finger = -1, .chosen = -1};
     for (unsigned n = 0; n < layout->nfields; n++) {
         const hid_field_t *f = &layout->fields[n];
         if (f->dir != HID_REPORT_IN || f->report_id != report_id) {
@@ -238,13 +265,31 @@ bool hid_norm_decode(const hid_layout_t *layout, uint8_t report_id, const uint8_
             any = true;
             break;
         case HID_PAGE_GENERIC_DESKTOP:
-            decode_desktop(f, data, len, ev);
+            decode_desktop(f, data, len, ev, &tc);
             any = true;
+            break;
+        case HID_PAGE_DIGITIZER:
+            for (unsigned i = 0; i < f->count; i++) {
+                int32_t v;
+                if (!hid_field_value(f, i, data, len, &v)) {
+                    break;
+                }
+                const uint16_t usage = hid_field_usage(f, i);
+                if (usage == USAGE_TIP_SWITCH) {
+                    tc.tip_seen = true;
+                    tc.cur_tip = v != 0;
+                    tc.finger++;
+                    tc.cur_id = 0;
+                } else if (usage == USAGE_CONTACT_ID) {
+                    tc.cur_id = v;
+                }
+            }
             break;
         default:
             break; /* Vendor pages and anything unknown are ignored. */
         }
     }
+    ev->touch_report = tc.tip_seen;
     return any;
 }
 
@@ -370,4 +415,35 @@ bool hid_norm_pairing_is_keyboard(uint16_t appearance, const hid_layout_t *layou
     default:
         return hid_norm_is_keyboard(layout);
     }
+}
+
+/**
+ * @brief Saturating subtraction.
+ *
+ * @param a Minuend.
+ * @param b Subtrahend.
+ * @return a - b clamped to the int32_t range.
+ */
+static int32_t sat_sub(int32_t a, int32_t b) {
+    const int64_t r = (int64_t)a - b;
+    return r > INT32_MAX ? INT32_MAX : (r < INT32_MIN ? INT32_MIN : (int32_t)r);
+}
+
+/** @copydoc hid_norm_abs_to_rel */
+void hid_norm_abs_to_rel(hid_abs_state_t *st, hid_norm_event_t *ev, uint32_t now_ms) {
+    if (ev->rel_xy) {
+        return;
+    }
+    if (!ev->abs_xy) {
+        if (ev->touch_report) {
+            st->valid = false; /* Touchpad report with no finger down: the touch ended. */
+        }
+        return;
+    }
+    const int32_t x = ev->abs_x, y = ev->abs_y;
+    const bool same_touch =
+        st->valid && st->last_id == ev->abs_id && (uint32_t)(now_ms - st->last_ms) <= HID_ABS_TOUCH_GAP_MS;
+    ev->dx = same_touch ? sat_sub(x, st->last_x) : 0;
+    ev->dy = same_touch ? sat_sub(y, st->last_y) : 0;
+    *st = (hid_abs_state_t){.valid = true, .last_x = x, .last_y = y, .last_ms = now_ms, .last_id = ev->abs_id};
 }

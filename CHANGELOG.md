@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Touchpads that report absolute X/Y (for example the built-in touchpad of Inateck keyboards, a Windows Precision
+  Touchpad with four finger slots) pinned the pointer to a screen corner: the positions of all finger slots were added
+  up as if they were movements. The dongle now follows the first finger that touches and sends its movement; a lift or
+  a new contact starts a new touch without a jump. Relative mice are unchanged.
+
 ## [1.7.0] - 2026-11-21
 
 ### Removed

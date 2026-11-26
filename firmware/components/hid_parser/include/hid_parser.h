@@ -43,6 +43,7 @@ enum {
     HID_PAGE_LED = 0x08,             /**< Keyboard LEDs. */
     HID_PAGE_BUTTON = 0x09,          /**< Mouse buttons. */
     HID_PAGE_CONSUMER = 0x0C,        /**< Media keys, AC Pan. */
+    HID_PAGE_DIGITIZER = 0x0D,       /**< Touchpad fingers: Tip Switch, Contact ID. */
 };
 
 /** Direction of a report. */

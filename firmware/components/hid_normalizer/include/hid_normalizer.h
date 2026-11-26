@@ -36,7 +36,39 @@ typedef struct {
     int32_t dy;                     /**< Relative Y. */
     int32_t wheel;                  /**< Vertical wheel. */
     int32_t pan;                    /**< Horizontal wheel (AC Pan). */
+    bool rel_xy;                    /**< The report carried relative X/Y (summed into dx/dy). */
+    bool abs_xy;                    /**< The report carried absolute X/Y, see hid_norm_abs_to_rel(). */
+    int32_t abs_x;                  /**< Absolute X position (if abs_xy). */
+    int32_t abs_y;                  /**< Absolute Y position (if abs_xy). */
+    bool touch_report;              /**< The report carried touchpad fingers (Tip Switch), touching or not. */
+    int32_t abs_id;                 /**< Contact ID of the finger in abs_x/abs_y (0 if none declared). */
 } hid_norm_event_t;
+
+/** Per-device state for hid_norm_abs_to_rel(). Zero-initialize. */
+typedef struct {
+    bool valid;       /**< last_x/last_y hold the previous position of the current touch. */
+    int32_t last_x;   /**< Previous absolute X. */
+    int32_t last_y;   /**< Previous absolute Y. */
+    uint32_t last_ms; /**< Time of the previous absolute report. */
+    int32_t last_id;  /**< Contact ID of the finger being followed. */
+} hid_abs_state_t;
+
+/** A pause in absolute reports longer than this means the finger was lifted: the next one starts a new touch. */
+#define HID_ABS_TOUCH_GAP_MS 60u
+
+/**
+ * @brief Turn absolute X/Y positions into relative movement, in place.
+ *
+ * Touchpads that report absolute positions would otherwise pin the pointer to a screen corner. The first report of a
+ * touch (or after a gap of HID_ABS_TOUCH_GAP_MS) moves nothing. No-op unless the event has absolute X/Y and no
+ * relative X/Y: some touchpads send both, and then the relative axes carry the movement. A touchpad report with no
+ * finger down ends the touch, and so does a change of the followed finger's contact ID.
+ *
+ * @param st     Per-device state.
+ * @param ev     Event from hid_norm_decode().
+ * @param now_ms Current time in milliseconds.
+ */
+void hid_norm_abs_to_rel(hid_abs_state_t *st, hid_norm_event_t *ev, uint32_t now_ms);
 
 /**
  * @brief Decode one input report.
