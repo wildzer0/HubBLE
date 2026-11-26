@@ -25,7 +25,7 @@ typedef struct {
     bool tip_seen;  /**< The report has Tip Switch fields (a touchpad): only touching fingers give a position. */
     bool cur_tip;   /**< The current finger is touching. */
     int finger;     /**< Index of the current finger (counted by Tip Switch usages). */
-    int chosen;     /**< Finger whose position is taken: the first one touching, -1 until found. */
+    int added;      /**< Finger that owns the last entry of ev->contacts, -2 if none. */
     int32_t cur_id; /**< Contact ID of the current finger. */
 } touch_ctx_t;
 /** Consumer usage "AC Pan" (horizontal scroll). */
@@ -184,15 +184,19 @@ static void decode_desktop(const hid_field_t *f, const uint8_t *data, size_t len
                 int32_t *axis = usage == USAGE_X ? &ev->dx : &ev->dy;
                 *axis = sat_add(*axis, v);
             } else { /* A position, never a movement: hid_norm_abs_to_rel() turns it into one. */
-                if (tc->tip_seen) { /* Touchpad: follow the first finger that touches, ignore the other slots. */
-                    if (!tc->cur_tip || (tc->chosen >= 0 && tc->chosen != tc->finger)) {
+                if (tc->tip_seen && !tc->cur_tip) {
+                    break; /* Touchpad finger slot that is not touching. */
+                }
+                if (tc->added != tc->finger || ev->ncontacts == 0) { /* First axis of this finger: a new contact. */
+                    if (ev->ncontacts >= HID_MAX_CONTACTS) {
                         break;
                     }
-                    tc->chosen = tc->finger;
-                    ev->abs_id = tc->cur_id;
+                    ev->contacts[ev->ncontacts++] = (hid_contact_t){.id = tc->cur_id};
+                    tc->added = tc->finger;
                 }
                 ev->abs_xy = true;
-                *(usage == USAGE_X ? &ev->abs_x : &ev->abs_y) = v;
+                hid_contact_t *c = &ev->contacts[ev->ncontacts - 1];
+                *(usage == USAGE_X ? &c->x : &c->y) = v;
             }
             break;
         }
@@ -226,7 +230,7 @@ bool hid_norm_decode(const hid_layout_t *layout, uint8_t report_id, const uint8_
         return false;
     }
     bool any = false;
-    touch_ctx_t tc = {.finger = -1, .chosen = -1};
+    touch_ctx_t tc = {.finger = -1, .added = -2};
     for (unsigned n = 0; n < layout->nfields; n++) {
         const hid_field_t *f = &layout->fields[n];
         if (f->dir != HID_REPORT_IN || f->report_id != report_id) {
@@ -282,6 +286,9 @@ bool hid_norm_decode(const hid_layout_t *layout, uint8_t report_id, const uint8_
                     tc.cur_id = 0;
                 } else if (usage == USAGE_CONTACT_ID) {
                     tc.cur_id = v;
+                    if (tc.added == tc.finger && ev->ncontacts > 0) {
+                        ev->contacts[ev->ncontacts - 1].id = v; /* Contact ID after the axes. */
+                    }
                 }
             }
             break;
@@ -429,21 +436,116 @@ static int32_t sat_sub(int32_t a, int32_t b) {
     return r > INT32_MAX ? INT32_MAX : (r < INT32_MIN ? INT32_MIN : (int32_t)r);
 }
 
+/**
+ * @brief |dx| + |dy|, saturated.
+ *
+ * @param dx X movement.
+ * @param dy Y movement.
+ * @return The Manhattan length, at most INT32_MAX.
+ */
+static int32_t manhattan(int32_t dx, int32_t dy) {
+    const int64_t r = (dx < 0 ? -(int64_t)dx : dx) + (dy < 0 ? -(int64_t)dy : dy);
+    return r > INT32_MAX ? INT32_MAX : (int32_t)r;
+}
+
 /** @copydoc hid_norm_abs_to_rel */
-void hid_norm_abs_to_rel(hid_abs_state_t *st, hid_norm_event_t *ev, uint32_t now_ms) {
+bool hid_norm_abs_to_rel(hid_abs_state_t *st, hid_norm_event_t *ev, uint32_t now_ms) {
     if (ev->rel_xy) {
-        return;
+        return false;
     }
     if (!ev->abs_xy) {
-        if (ev->touch_report) {
-            st->valid = false; /* Touchpad report with no finger down: the touch ended. */
+        if (!ev->touch_report || !st->valid) {
+            return false;
         }
-        return;
+        /* Touchpad report with no finger down: the touch ended. */
+        const bool tap = !st->moving && !st->pressed && !st->multi && ev->buttons == 0;
+        st->valid = false;
+        st->tap_recent = tap;
+        st->tap_end_ms = now_ms;
+        return tap;
     }
-    const int32_t x = ev->abs_x, y = ev->abs_y;
-    const bool same_touch =
-        st->valid && st->last_id == ev->abs_id && (uint32_t)(now_ms - st->last_ms) <= HID_ABS_TOUCH_GAP_MS;
-    ev->dx = same_touch ? sat_sub(x, st->last_x) : 0;
-    ev->dy = same_touch ? sat_sub(y, st->last_y) : 0;
-    *st = (hid_abs_state_t){.valid = true, .last_x = x, .last_y = y, .last_ms = now_ms, .last_id = ev->abs_id};
+    int32_t dx = 0, dy = 0;
+    if (!st->valid || (uint32_t)(now_ms - st->last_ms) > HID_ABS_TOUCH_GAP_MS) { /* A new touch. */
+        st->drag = st->tap_recent && (uint32_t)(now_ms - st->tap_end_ms) <= HID_TAP_DRAG_MS;
+        st->tap_recent = false;
+        st->down_ms = now_ms;
+        st->travel = 0;
+        st->held_dx = 0;
+        st->held_dy = 0;
+        st->moving = !ev->touch_report; /* Only touchpads tap: other absolute pointers move at once. */
+        st->lift_hold = false;
+        st->last_move_ms = now_ms;
+        st->pressed = false;
+        st->multi = false;
+    } else { /* The finger that moved most since the previous report. */
+        int32_t best = -1;
+        for (unsigned i = 0; i < ev->ncontacts; i++) {
+            const hid_contact_t *c = &ev->contacts[i];
+            for (unsigned k = 0; k < st->nprev; k++) {
+                const hid_contact_t *p = &st->prev[k];
+                if (p->id != c->id && !(ev->ncontacts == 1 && st->nprev == 1)) {
+                    continue;
+                }
+                const int32_t mx = sat_sub(c->x, p->x), my = sat_sub(c->y, p->y), m = manhattan(mx, my);
+                if (m > best) {
+                    best = m;
+                    dx = mx;
+                    dy = my;
+                }
+                break;
+            }
+        }
+    }
+    st->valid = true;
+    st->nprev = ev->ncontacts;
+    memcpy(st->prev, ev->contacts, sizeof(st->prev));
+    st->last_ms = now_ms;
+    st->multi |= ev->ncontacts > 1;
+    st->pressed |= ev->buttons != 0;
+    if (ev->touch_report && ev->buttons != 0 && ev->ncontacts < 2) {
+        dx = 0; /* Clickpad pressed by one finger: it flattens, which must not move what is being clicked. */
+        dy = 0;
+    }
+    if (!st->moving) { /* Could still be a tap: hold the movement back. */
+        st->held_dx = sat_add(st->held_dx, dx);
+        st->held_dy = sat_add(st->held_dy, dy);
+        st->travel = manhattan(st->held_dx, st->held_dy) > st->travel ? manhattan(st->held_dx, st->held_dy)
+                                                                      : st->travel;
+        st->moving = st->travel > HID_TAP_MAX_TRAVEL || (uint32_t)(now_ms - st->down_ms) > HID_TAP_MAX_MS;
+        dx = st->moving ? st->held_dx : 0;
+        dy = st->moving ? st->held_dy : 0;
+        if (st->moving) {
+            st->held_dx = 0;
+            st->held_dy = 0;
+            st->last_move_ms = now_ms;
+        }
+    } else if (ev->touch_report) { /* Lift roll: hold movement that follows a rest, drop it if the finger lifts. */
+        const bool moved = manhattan(dx, dy) > 1;
+        if (!st->lift_hold && moved && (uint32_t)(now_ms - st->last_move_ms) >= HID_REST_MS) {
+            st->lift_hold = true;
+            st->lift_hold_ms = now_ms;
+        }
+        if (moved) {
+            st->last_move_ms = now_ms;
+        }
+        if (st->lift_hold) {
+            st->held_dx = sat_add(st->held_dx, dx);
+            st->held_dy = sat_add(st->held_dy, dy);
+            const bool real = (uint32_t)(now_ms - st->lift_hold_ms) >= HID_LIFT_HOLD_MS ||
+                              manhattan(st->held_dx, st->held_dy) > HID_LIFT_MAX_TRAVEL;
+            dx = real ? st->held_dx : 0;
+            dy = real ? st->held_dy : 0;
+            if (real) {
+                st->lift_hold = false;
+                st->held_dx = 0;
+                st->held_dy = 0;
+            }
+        }
+    }
+    ev->dx = dx;
+    ev->dy = dy;
+    if (st->drag && st->moving) {
+        ev->buttons |= 1u; /* Tap-and-drag: left button held until the finger lifts. */
+    }
+    return false;
 }

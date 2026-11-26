@@ -86,6 +86,11 @@ static volatile bool s_filter_on;                    /**< The typing filter is e
 static input_filter_t s_kf[BLE_CENTRAL_MAX_DEVICES]; /**< Per source: keys and modifiers. */
 static input_filter_t s_bf[BLE_CENTRAL_MAX_DEVICES]; /**< Per source: mouse buttons. */
 static hid_abs_state_t s_abs[BLE_CENTRAL_MAX_DEVICES]; /**< Per source: last absolute touchpad position. */
+static esp_timer_handle_t s_tapclick_timer[BLE_CENTRAL_MAX_DEVICES]; /**< Per source: releases a touchpad tap click. */
+static volatile bool s_tapclick_held[BLE_CENTRAL_MAX_DEVICES];      /**< Per source: a tap click is being held. */
+static volatile uint8_t s_sent_buttons[BLE_CENTRAL_MAX_DEVICES]; /**< Per source: device buttons last sent. */
+/** How long a touchpad tap holds the left button: long enough to land in its own USB report. */
+#define TAP_CLICK_US (30 * 1000)
 static filter_out_t s_out[BLE_CENTRAL_MAX_DEVICES];  /**< Per source: what was last sent. */
 static TaskHandle_t s_filter_task;                   /**< Ticks the filters while something waits for its hold time. */
 
@@ -294,6 +299,34 @@ void bridge_set_input_filter(bool enabled, uint32_t bounce_ms, uint32_t hold_ms)
 }
 
 /**
+ * @brief Tap timer expired: release the tap's left click, keeping what the device itself holds.
+ *
+ * @param arg Device slot (cast from uintptr_t).
+ */
+static void tapclick_release(void *arg) {
+    const unsigned slot = (unsigned)(uintptr_t)arg;
+    s_tapclick_held[slot] = false;
+    usb_hid_mouse(slot, s_sent_buttons[slot], 0, 0, 0, 0);
+}
+
+/**
+ * @brief Start the timer that ends a tap click on @p slot (created on first use).
+ *
+ * @param slot Device slot.
+ * @return true if the timer runs, so the caller may press the button.
+ */
+static bool tapclick_arm(unsigned slot) {
+    if (s_tapclick_timer[slot] == NULL) {
+        const esp_timer_create_args_t args = {.callback = tapclick_release, .arg = (void *)(uintptr_t)slot, .name = "tapclick"};
+        if (esp_timer_create(&args, &s_tapclick_timer[slot]) != ESP_OK) {
+            return false;
+        }
+    }
+    esp_timer_stop(s_tapclick_timer[slot]); /* Restart if a tap is still being released. */
+    return esp_timer_start_once(s_tapclick_timer[slot], TAP_CLICK_US) == ESP_OK;
+}
+
+/**
  * @brief Forward one decoded report to USB as source @p slot.
  *
  * Never logs the report content (CLAUDE.md §3.12).
@@ -328,8 +361,9 @@ static void on_report(unsigned slot, const hid_layout_t *layout, uint8_t report_
         }
         return;
     }
+    bool tap = false;
     if (ev.has_mouse && slot < BLE_CENTRAL_MAX_DEVICES) {
-        hid_norm_abs_to_rel(&s_abs[slot], &ev, (uint32_t)(rx_us / 1000));
+        tap = hid_norm_abs_to_rel(&s_abs[slot], &ev, (uint32_t)(rx_us / 1000));
         s_mouse_buttons[slot] = ev.buttons; /* For the keyboard-less gesture (left + right held). */
     }
     if (ev.has_keyboard && slot < BLE_CENTRAL_MAX_DEVICES) {
@@ -364,8 +398,17 @@ static void on_report(unsigned slot, const hid_layout_t *layout, uint8_t report_
         usb_hid_system(slot, ev.system);
     }
     if (ev.has_mouse) {
-        usb_hid_mouse(slot, s_filter_on ? filter_buttons(slot, ev.buttons) : ev.buttons, ev.dx, ev.dy, ev.wheel,
-                      ev.pan);
+        uint8_t buttons = s_filter_on ? filter_buttons(slot, ev.buttons) : ev.buttons;
+        if (slot < BLE_CENTRAL_MAX_DEVICES) {
+            s_sent_buttons[slot] = buttons;
+            if (tap && tapclick_arm(slot)) {
+                s_tapclick_held[slot] = true;
+            }
+            if (s_tapclick_held[slot]) {
+                buttons |= 1u; /* Left button, until tapclick_release() runs. */
+            }
+        }
+        usb_hid_mouse(slot, buttons, ev.dx, ev.dy, ev.wheel, ev.pan);
     }
     int64_t us = esp_timer_get_time() - rx_us;
     ble_central_record_latency(slot, us < 0 ? 0 : (uint32_t)us);

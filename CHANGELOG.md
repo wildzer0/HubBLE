@@ -6,12 +6,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Touchpad gestures for touchpads that leave them to the host's driver (Windows Precision Touchpads, such as the one
+  built into Inateck keyboards), which the dongle's plain USB mouse does not have: tap to click, tap-and-drag (tap,
+  then touch again within 300 ms and move or hold; the button is held until the finger lifts), and drag with the
+  clickpad held by one finger while another moves.
+
 ### Fixed
 
-- Touchpads that report absolute X/Y (for example the built-in touchpad of Inateck keyboards, a Windows Precision
-  Touchpad with four finger slots) pinned the pointer to a screen corner: the positions of all finger slots were added
-  up as if they were movements. The dongle now follows the first finger that touches and sends its movement; a lift or
-  a new contact starts a new touch without a jump. Relative mice are unchanged.
+- Touchpads that report absolute X/Y pinned the pointer to a screen corner: the positions of all finger slots were
+  added up as if they were movements. The dongle now turns finger positions into movement; a lift or a new contact
+  starts a new touch without a jump. Relative mice are unchanged.
+- Touchpad clicks no longer move the pointer: movement is held back while a touch may still be a tap, a clickpad
+  pressed by a single finger does not move the pointer, and the small roll of a resting finger as it lifts is dropped.
 
 ## [1.7.0] - 2026-11-21
 
